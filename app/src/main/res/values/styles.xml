@@ -1,0 +1,11 @@
+<resources>
+    <style name="Theme.Lip" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#6F43B5</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowBackground">#FFFEEB</item>
+    </style>
+    <string name="accessibility_description">Lip shows a voice button beside a focused text field. After you tap it, Lip transcribes speech on-device and can send only that transcript to ChatGPT for cleanup. It reads the focused field and cursor locally to insert safely. It never taps, navigates, or sends messages. Password and protected fields are excluded.</string>
+</resources>

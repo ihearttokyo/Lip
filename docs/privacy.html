@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#faf9f2">
+  <meta name="description" content="What Lip stores on your Android device, what optional ChatGPT cleanup sends to OpenAI, and how to control your data.">
+  <title>Privacy — Lip</title>
+  <link rel="icon" href="assets/mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header wrap"><a class="brand" href="./" aria-label="Lip home"><img src="assets/mark.svg" alt="" width="64" height="40"><span>Lip</span></a><a class="text-link" href="./">Back to Lip</a></header>
+  <main class="privacy-page wrap" id="main">
+    <h1>Privacy, in plain words.</h1>
+    <p class="policy-date">Lip v0.1.0 prerelease · Updated October 7, 2026</p>
+    <p class="policy-intro">Lip recognizes speech on your Android device. Optional ChatGPT cleanup sends the resulting text to OpenAI. Your local history and sign-in credentials are encrypted on your phone.</p>
+    <div class="policy-notice"><p>This describes the prerelease implementation, not a completed independent security audit. Real-device speech, editor compatibility, and end-to-end ChatGPT authorization are not yet live-validated. Read the source before enabling accessibility access.</p></div>
+
+    <h2>Microphone and speech</h2>
+    <p>Lip requests Android microphone permission. Recognition starts only after you tap a dictation control and has a visible listening state. Lip uses Android's explicit on-device SpeechRecognizer and does not upload audio or save recording files. It does not continuously listen in the background.</p>
+    <p>Your phone needs a compatible on-device recognition service and an available language model. If that model is missing, Lip reports it instead of silently choosing a cloud recognizer. Your device supplies the recognition service. Review your device vendor's settings and policies. See <a href="https://developer.android.com/reference/android/speech/SpeechRecognizer">Android's SpeechRecognizer documentation</a>.</p>
+
+    <h2>Accessibility and the current editor</h2>
+    <p>The accessibility service finds a focused editable field, shows the floating dictation bubble, and inserts text through Android's accessibility input connection. Field text, selection, and editor information are checked locally to verify that the target has not changed. Surrounding editor content is never included in an OpenAI request.</p>
+    <p>Lip refuses password and protected fields and blocks stale insertion after a focus, cursor, or content change. It does not click through other apps, send messages, or automate navigation. You can enable review-before-insert to check each result inside the floating bubble, or disable Lip entirely in Android's accessibility settings.</p>
+
+    <h2>Optional ChatGPT cleanup</h2>
+    <p>When you enable ChatGPT cleanup, Lip sends the transcript and the cleanup instructions needed for your chosen style to OpenAI's public Responses API. Dictionary terms may be included to help preserve names and terminology. Audio, surrounding editor text, and your transcript-history collection are not included.</p>
+    <p>Lip uses <code>store:false</code> and <code>stream:true</code>, as required by this preview. These request settings do not constitute a promise of zero provider retention or no provider processing. OpenAI's policies and your account or workspace terms govern processing by OpenAI. Cleanup access, available models, and usage limits depend on your account. If cleanup fails or a stream is incomplete, Lip keeps the raw transcript available.</p>
+    <p>This integration does not grant audio transcription access and does not read your ChatGPT conversation history. Consult <a href="https://developers.openai.com/siwc/token-sharing-open-source/models-and-inference">OpenAI's inference documentation</a>, <a href="https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations">preview limitations</a>, and <a href="https://openai.com/policies/privacy-policy/">OpenAI's privacy policy</a>.</p>
+
+    <h2>ChatGPT sign-in</h2>
+    <p>Continue with ChatGPT opens the system browser for official OAuth authorization. Lip registers a client for your installation and uses PKCE, a local loopback callback, state checks, and identity-token validation. You enter your password in OpenAI's browser flow, never in Lip.</p>
+    <p>Lip retains the issued client registration, host identifier, validated account information, and OAuth credentials needed to use and refresh the connection. Credentials are encrypted in app-private storage using Android Keystore-backed AES-GCM and excluded from Android backup. Sign out in Lip to clear local OAuth tokens and attempt provider-side token revocation. Lip retains account and client-registration metadata for later reconnection. If remote revocation fails, revoke authorization separately in your account controls. <a href="https://developers.openai.com/siwc/token-sharing-open-source/sign-in">Official registration and sign-in documentation</a>.</p>
+
+    <h2>History, dictionary, and deletion</h2>
+    <p>History is enabled by default. It stores raw and cleaned transcripts in encrypted app-private storage on this device. History lets you search, copy, delete individual entries, or clear all entries. Disable history in Settings to stop saving new entries; that does not automatically erase existing history. The encrypted history file has a 4 MiB limit. When a new save exceeds that limit, Lip preserves existing entries, reports the failed save, and keeps the current text available.</p>
+    <p>Your dictionary and preferences stay local. Dictionary terms may accompany a cleanup request when ChatGPT cleanup is enabled. There is no Lip account, cloud history service, or cross-device sync. Uninstalling removes the app's local storage; this release does not provide a history export or recovery service.</p>
+    <p>Copying text places it on Android's clipboard, outside Lip's encrypted storage. Pasting it into another app subjects that text to the destination app's behavior and policies. Deleting local history does not retract text already copied, inserted, or sent to OpenAI.</p>
+
+    <h2>Logs, analytics, and this website</h2>
+    <p>Lip includes no analytics or advertising SDK. It does not intentionally log transcripts, audio, or credentials. Android and the device's recognition service may generate their own diagnostics.</p>
+    <p>This website is a static GitHub Pages site. It does not request microphone permission, connect to ChatGPT, set application cookies, or save your demo choices. The before-and-after demo uses prepared text and accesses the clipboard only after you press Copy example. It uses local assets and system fonts, with no third-party font or analytics requests. GitHub processes hosting traffic under <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub's privacy statement</a>.</p>
+
+    <h2>Questions and changes</h2>
+    <p>Lip is maintained by Jared Bland. Use the <a href="https://github.com/ihearttokyo/Lip/issues">project's issue tracker</a> for questions or bugs, but do not post private transcripts, sign-in codes, tokens, or other secrets. Privacy-relevant changes should update this page and the release notes.</p>
+    <p><a href="./#setup">Return to installation instructions</a></p>
+  </main>
+  <footer class="site-footer wrap"><a class="brand" href="./" aria-label="Lip home"><img src="assets/mark.svg" alt="" width="45" height="28"><span>Lip</span></a><p>Made by Jared Bland. Open source, from the start.</p><nav aria-label="Footer navigation"><a href="./">Home</a><a href="https://github.com/ihearttokyo/Lip">Source</a><a href="https://github.com/ihearttokyo/Lip/issues">Report an issue</a></nav></footer>
+</body>
+</html>
