@@ -46,7 +46,7 @@ class MainActivity : Activity() {
     private var accountButton: Button? = null
     private val observer: () -> Unit = {
         status?.text = dictation.message
-        preview?.text = if (dictation.text.isNotEmpty()) dictation.text else dictation.raw
+        preview?.text = dictation.preview
         record?.text = when (dictation.phase) {
             Phase.LISTENING -> "Finish dictation"
             Phase.TRANSCRIBING -> "Transcribing…"
@@ -78,7 +78,7 @@ class MainActivity : Activity() {
     override fun onResume() { super.onResume(); loadAccount(); dictation.observe(observer) }
     override fun onPause() {
         dictation.unobserve(observer)
-        if (inAppRecording && dictation.phase == Phase.LISTENING) dictation.cancel()
+        if (inAppRecording && LipAccessibilityService.instance == null && dictation.phase == Phase.LISTENING) dictation.protectCapture()
         inAppRecording = false
         super.onPause()
     }
@@ -219,16 +219,19 @@ class MainActivity : Activity() {
                 val editor = testEditor ?: return
                 val original = EditorSnapshot(0, packageName, 0, "test", editor.text.toString(), editor.selectionStart, editor.selectionEnd)
                 inAppRecording = true
-                dictation.start { result, done ->
+                val valid = {
                     val current = original.copy(text = editor.text.toString(), start = editor.selectionStart, end = editor.selectionEnd)
-                    if (!editor.isAttachedToWindow || !EditorGuard.canInsert(original, current)) done(false)
+                    editor.isAttachedToWindow && editor.hasWindowFocus() && editor.isFocused && EditorGuard.canInsert(original, current)
+                }
+                dictation.start(insert = { result, done ->
+                    if (!valid()) done(false)
                     else {
                         val start = minOf(original.start, original.end)
                         editor.text.replace(start, maxOf(original.start, original.end), result)
                         editor.setSelection(start + result.length)
                         done(true)
                     }
-                }
+                }, stillValid = valid)
             }
         }
     }
@@ -236,9 +239,9 @@ class MainActivity : Activity() {
     private fun connect() {
         if (signingIn) { dictation.chatGpt.cancelSignIn(); signingIn = false; render(); return }
         AlertDialog.Builder(this).setTitle("Use your ChatGPT plan")
-            .setMessage("Lip sends the dictated transcript and your saved dictionary to OpenAI for text cleanup. Audio and surrounding editor text stay on-device. Eligible plan access and consent are required; OpenAI's account policies apply. Local encrypted history is enabled and can be disabled in Settings.")
+            .setMessage("Lip sends the dictated transcript and your saved dictionary to OpenAI for text cleanup. Stable transcript segments may be sent while you speak for live cleanup. Cancel cannot recall requests already sent. Audio and surrounding editor text stay on-device. Eligible plan access and consent are required; OpenAI's account policies apply. Local encrypted history is enabled and can be disabled in Settings.")
             .setNegativeButton("Cancel", null).setPositiveButton("Continue with ChatGPT") { _, _ ->
-                store.cloudConsent = true
+                store.cloudConsent = true; store.liveCleanup = true
                 signingIn = true; render()
                 Work.io.execute {
                     var message: String
@@ -265,26 +268,47 @@ class MainActivity : Activity() {
 
     private fun history() {
         title("Your words,\nkept here.", "Encrypted local history. Never synced to a Lip server.")
+        val historyPage = page
         val search = EditText(this).apply { hint = "Search transcripts"; isSingleLine = true; setTextColor(Palette.ink) }
         page.addSpaced(search)
         val list = column()
         page.addSpaced(list)
-        val draw: (String) -> Unit = { query ->
+        var request = 0
+        var after: String? = null
+        val previous = mutableListOf<String?>()
+        var pendingSearch: Runnable? = null
+        lateinit var draw: (String) -> Unit
+        draw = { query ->
+            val ticket = ++request
+            val cursor = after
+            list.removeAllViews()
+            list.addSpaced(label("Loading encrypted history…", 14f))
             Work.io.execute {
-                val entries = runCatching { store.history() }
+                val result = runCatching { store.historyPage(query, cursor) }
                 runOnUiThread {
-                    if (!isFinishing && tab == "History") {
+                    if (!isFinishing && tab == "History" && page === historyPage && request == ticket) {
                         list.removeAllViews()
-                        if (entries.isFailure) list.addSpaced(label("History cannot be read. Existing encrypted data has not been overwritten.", 14f))
+                        if (result.isFailure) {
+                            list.addSpaced(label("History cannot be read. Existing encrypted data has been preserved.", 14f))
+                            list.addSpaced(action("Retry") { draw(query) })
+                        }
                         else {
-                            val matches = entries.getOrThrow().filter { it.clean.contains(query, true) || it.raw.contains(query, true) }
-                            if (matches.isEmpty()) list.addSpaced(label(if (query.isEmpty()) "No dictations yet. Your next transcript will appear here." else "No matching transcripts.", 15f))
-                            matches.forEach { entry ->
+                            val slice = result.getOrThrow()
+                            if (slice.entries.isEmpty()) list.addSpaced(label(
+                                if (query.isEmpty() && previous.isEmpty()) "No dictations yet. Your next transcript will appear here."
+                                else "No matching transcripts on this page.", 15f))
+                            else list.addSpaced(label("Page ${previous.size + 1} · ${slice.entries.size} transcripts", 12f))
+                            slice.entries.forEach { entry ->
                                 val item = column(16).apply { background = surface(Color.WHITE, dp(18).toFloat()) }
                                 item.addSpaced(label(DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(entry.time)), 12f), 8)
-                                item.addSpaced(label(entry.clean, 16f).apply { setTextIsSelectable(true) })
+                                val end = entry.clean.offsetByCodePoints(0, minOf(600, entry.clean.codePointCount(0, entry.clean.length)))
+                                val excerpt = entry.clean.substring(0, end) + if (end < entry.clean.length) "…" else ""
+                                item.addSpaced(label(excerpt, 16f).apply { maxLines = 8; setTextIsSelectable(true) })
                                 item.addSpaced(label("${entry.language} · ${if (entry.usedChatGpt) "ChatGPT cleanup" else "On-device transcript"}", 12f))
                                 item.addSpaced(action("Copy") { copy(entry.clean) }, 6)
+                                item.addSpaced(action("View full text") {
+                                    AlertDialog.Builder(this).setTitle("Dictated text").setMessage(entry.clean).setPositiveButton("Close", null).show()
+                                }, 6)
                                 item.addSpaced(action("View raw transcript") {
                                     AlertDialog.Builder(this).setTitle("Raw transcript").setMessage(entry.raw).setPositiveButton("Close", null).show()
                                 }, 6)
@@ -296,6 +320,17 @@ class MainActivity : Activity() {
                                 }, 0)
                                 list.addSpaced(item)
                             }
+                            val navigation = LinearLayout(this)
+                            if (previous.isNotEmpty()) navigation.addView(action("Previous page") {
+                                after = previous.removeAt(previous.lastIndex)
+                                draw(query)
+                            }, LinearLayout.LayoutParams(0, dp(48), 1f))
+                            slice.nextCursor?.let { next -> navigation.addView(action("Next page") {
+                                previous.add(after)
+                                after = next
+                                draw(query)
+                            }, LinearLayout.LayoutParams(0, dp(48), 1f)) }
+                            if (navigation.childCount > 0) list.addSpaced(navigation)
                         }
                     }
                 }
@@ -303,7 +338,14 @@ class MainActivity : Activity() {
         }
         search.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { draw(s?.toString().orEmpty()) }
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                request++
+                after = null
+                previous.clear()
+                pendingSearch?.let { search.removeCallbacks(it) }
+                val query = s?.toString().orEmpty()
+                pendingSearch = Runnable { if (page === historyPage) draw(query) }.also { search.postDelayed(it, 200) }
+            }
             override fun afterTextChanged(s: Editable?) = Unit
         })
         draw("")
@@ -356,11 +398,21 @@ class MainActivity : Activity() {
             if (enabled) { cleanupToggle.isChecked = false; store.cloudConsent = false; connect() }
             else store.cloudConsent = false
         }
+        lateinit var liveToggle: Switch
+        liveToggle = toggle("Live ChatGPT preview", store.liveCleanup) { enabled ->
+            if (!enabled) store.liveCleanup = false
+            else {
+                liveToggle.isChecked = false
+                AlertDialog.Builder(this).setTitle("Clean while you speak?")
+                    .setMessage("When ChatGPT cleanup is enabled, stable transcript segments and dictionary terms go to OpenAI before you finish. Cancel cannot recall requests already sent. Audio stays local. Preview requests use your plan allowance.")
+                    .setNegativeButton("Cancel", null).setPositiveButton("Enable") { _, _ -> store.liveCleanup = true; render() }.show()
+            }
+        }
         toggle("Insert automatically", store.autoInsert) { store.autoInsert = it }
         page.addSpaced(label("Turn off to review in the floating bubble before insertion. Changed focus or cursor always blocks automatic insertion.", 13f))
         toggle("Floating bubble", store.bubbleEnabled) { store.bubbleEnabled = it; LipAccessibilityService.refresh() }
         toggle("Keep encrypted transcript history", store.historyEnabled) { store.historyEnabled = it }
-        page.addSpaced(label("Turning history off prevents new saves; existing entries remain until you delete them. History has a 4 MiB encrypted-file limit; a full file preserves old entries and reports a failed new save. Tokens and transcripts are excluded from Android backup.", 13f))
+        page.addSpaced(label("Turning history off prevents new saves; existing entries remain until you delete them. History uses independent encrypted records and paged search. Storage errors preserve readable entries and the current transcript. Tokens and transcripts are excluded from Android backup.", 13f))
         page.addSpaced(action("Select ChatGPT model") {
             toast("Loading account-visible models…")
             Work.io.execute {
@@ -443,7 +495,7 @@ class MainActivity : Activity() {
     private fun localTask(success: String, block: () -> Unit) {
         Work.io.execute {
             val result = runCatching(block)
-            runOnUiThread { if (!isFinishing) { render(); toast(if (result.isSuccess) success else "Local storage action failed. Existing data has been kept.") } }
+            runOnUiThread { if (!isFinishing) { render(); toast(if (result.isSuccess) success else "Local storage action failed. Check retained data before retrying.") } }
         }
     }
     private fun hasMic() = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED

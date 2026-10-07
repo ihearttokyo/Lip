@@ -13,8 +13,7 @@ endpoints, cloud audio, automatic sends, or simulated UI navigation.
 
 Use Android 13's accessibility input connection for cursor insertion while
 Gboard stays selected. The service exposes a user-triggered accessibility
-overlay and refuses protected fields. Recognition uses Android's explicit
-on-device recognizer only. Missing speech models are an actionable error,
+overlay and refuses protected fields. Recognition supplies continuous local AudioRecord PCM through a pipe to Android's explicit on-device segmented recognizer. Native support is probed; a provider ending early or ignoring segmentation is an actionable error, not a restart loop. Missing speech models are an actionable error,
 never a silent network fallback. Cleanup sends the transcript only to the
 public Responses API, with `store:false` and `stream:true`; only a completed
 stream is usable. Preserve raw text on failure. Check editor/session/selection
@@ -34,8 +33,7 @@ review, APK signature checks and landing-page desktop/mobile interaction
 checks precede publication. Hardware speech/OAuth remain unverified without
 an eligible signed-in Android device; do not relabel fixture evidence as live.
 
-Rollback: uninstall the prerelease APK or disable Lip's accessibility service;
-revert the launch commit for source and landing page. Never delete history or
+Rollback: disable Lip's accessibility service or revert source/site changes. Do not uninstall or clear app data to downgrade: the v0.1 APK cannot read migrated per-record history. Reinstalling the newer version without clearing data preserves access. Never delete history or
 credentials during ordinary failure recovery. Release signing material stays
 local and out of Git.
 
@@ -55,3 +53,15 @@ accessibility input connection improves on its legacy SET_TEXT fallback.
 Compile/target API 36 uses the resident SDK; newer Android compatibility is a
 device-validation gate, not an unsupported claim. No swipe keyboard is included:
 the owner explicitly wants to retain Gboard for this release.
+
+Functional parity, including real-device speech and authenticated cleanup, is
+tracked in [PARITY.md](PARITY.md). Artifact delivery alone is not acceptance.
+Live cleanup operates on stable segments after disclosed opt-in, never on
+every hypothesis; final text is recomputed before insertion. Failed cleanup
+keeps raw text and blocks automatic insertion. New-target insertion requires
+explicit confirmation before the first commit attempt.
+
+Independent encrypted history records use verified atomic writes; migration
+keeps the aggregate until every copy verifies. Page/search decrypt one record
+at a time, render 20 rows and preserve full raw/clean text. There is no aggregate
+4 MiB limit; linear file scanning remains a measured-performance follow-up.

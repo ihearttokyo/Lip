@@ -4,6 +4,9 @@ import android.accessibilityservice.AccessibilityService
 import android.annotation.SuppressLint
 import android.accessibilityservice.InputMethod
 import android.app.KeyguardManager
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.IntentFilter
 import android.content.ClipData
 import android.content.ClipDescription
 import android.content.ClipboardManager
@@ -45,6 +48,11 @@ class LipAccessibilityService : AccessibilityService() {
     private val dictation by lazy { Dictation.get(this) }
     private val observer: () -> Unit = { updateBubble() }
 
+    private var screenReceiverRegistered = false
+    private val screenReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) { dictation.protectCapture() }
+    }
+
     override fun onCreateInputMethod(): InputMethod = object : InputMethod(this) {
         override fun onStartInput(attribute: EditorInfo, restarting: Boolean) {
             super.onStartInput(attribute, restarting)
@@ -65,15 +73,20 @@ class LipAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         instance = this
+        if (!screenReceiverRegistered) {
+            registerReceiver(screenReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF), Context.RECEIVER_NOT_EXPORTED)
+            screenReceiverRegistered = true
+        }
         dictation.observe(observer)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) { updateBubble() }
-    override fun onInterrupt() { dictation.cancel(); removeBubble() }
+    override fun onInterrupt() { dictation.interrupt(); removeBubble() }
     override fun onDestroy() {
         instance = null
+        if (screenReceiverRegistered) { unregisterReceiver(screenReceiver); screenReceiverRegistered = false }
         dictation.unobserve(observer)
-        if (dictation.busy) dictation.cancel()
+        if (dictation.busy) dictation.interrupt()
         removeBubble()
         super.onDestroy()
     }
@@ -97,9 +110,19 @@ class LipAccessibilityService : AccessibilityService() {
             "${info.fieldId}:${node.viewIdResourceName}:${node.hashCode()}", contents, start, end)
     }
 
+    private fun protectedScreen(): Boolean {
+        if (getSystemService(KeyguardManager::class.java).isDeviceLocked) return true
+        val info = inputMethod?.currentInputEditorInfo
+        if (info != null && (passwordType(info.inputType) || info.imeOptions and EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING != 0)) return true
+        val node = rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+        return node != null && (node.isPassword || Build.VERSION.SDK_INT >= 34 && node.isAccessibilityDataSensitive)
+    }
+
     private fun updateBubble() {
         val target = snapshot()
-        if (!dictation.store.bubbleEnabled || target == null) { removeBubble(); return }
+        if (protectedScreen()) dictation.protectCapture()
+        val active = dictation.busy || dictation.phase == Phase.READY && dictation.text.isNotEmpty()
+        if (!dictation.store.bubbleEnabled || protectedScreen() || target == null && !active) { removeBubble(); return }
         if (bubble == null) createBubble()
         waveform?.level = dictation.level
         caption?.text = when (dictation.phase) {
@@ -107,19 +130,31 @@ class LipAccessibilityService : AccessibilityService() {
             Phase.TRANSCRIBING -> "Transcribing…"
             Phase.CLEANING -> "Cleaning up…"
             Phase.INSERTING -> "Inserting…"
-            Phase.READY -> if (dictation.canInsert) "Review, then tap ✓" else "Text kept · check field"
+            Phase.READY -> if (dictation.canInsertHere) "Review · Insert here" else "Text kept · check field"
             Phase.ERROR -> "Check Lip"
             Phase.IDLE -> "Tap to speak"
         }
         mic?.contentDescription = if (dictation.phase == Phase.LISTENING) "Finish dictation" else "Start dictation"
-        confirm?.text = if (dictation.phase == Phase.READY) { if (dictation.canInsert) "✓" else "Copy" } else "Lip"
-        confirm?.contentDescription = if (dictation.phase == Phase.READY) { if (dictation.canInsert) "Insert completed dictation" else "Copy retained transcript" } else "Open Lip"
+        confirm?.text = when {
+            dictation.phase == Phase.LISTENING -> "Finish"
+            dictation.phase == Phase.READY -> if (dictation.canInsertHere && target != null) "Insert" else "Copy"
+            else -> "Lip"
+        }
+        confirm?.contentDescription = when {
+            dictation.phase == Phase.LISTENING -> "Finish dictation"
+            dictation.phase == Phase.READY -> if (dictation.canInsertHere && target != null) "Insert here in the focused field" else "Copy retained transcript"
+            else -> "Open Lip"
+        }
         val reviewing = dictation.phase == Phase.READY
-        reviewScroll?.visibility = if (reviewing) View.VISIBLE else View.GONE
+        val showing = reviewing || dictation.phase == Phase.LISTENING || dictation.phase == Phase.TRANSCRIBING
+        reviewScroll?.visibility = if (showing) View.VISIBLE else View.GONE
         reviewActions?.visibility = if (reviewing) View.VISIBLE else View.GONE
-        reviewText?.text = dictation.text
+        val value = dictation.preview
+        val changedText = reviewText?.text?.toString() != value
+        reviewText?.text = value
+        if (!reviewing && showing && changedText) reviewScroll?.post { (reviewScroll as? ScrollView)?.fullScroll(View.FOCUS_DOWN) }
         reviewFeedback?.text = dictation.message
-        reviewFeedback?.visibility = if (reviewing) View.VISIBLE else View.GONE
+        reviewFeedback?.visibility = if (showing) View.VISIBLE else View.GONE
     }
 
     private fun createBubble() {
@@ -154,7 +189,8 @@ class LipAccessibilityService : AccessibilityService() {
                 dictation.busy -> Unit
                 else -> {
                     val original = snapshot() ?: return@setOnClickListener
-                    dictation.start { result, done -> commit(original, result, done) }
+                    dictation.start(insert = { result, done -> commit(original, result, done) },
+                        stillValid = { EditorGuard.canInsert(original, snapshot()) })
                 }
             }
         }
@@ -163,8 +199,12 @@ class LipAccessibilityService : AccessibilityService() {
         confirm = label("Lip", 16f).apply {
             gravity = Gravity.CENTER
             setOnClickListener {
-                if (dictation.phase == Phase.READY) {
-                    if (dictation.canInsert) dictation.insert() else copy(this@LipAccessibilityService, dictation.text)
+                if (dictation.phase == Phase.LISTENING) dictation.stop()
+                else if (dictation.phase == Phase.READY) {
+                    val target = snapshot()
+                    if (target != null && dictation.canInsertHere)
+                        dictation.insertHere { result, done -> commit(target, result, done) }
+                    else copy(this@LipAccessibilityService, dictation.text)
                 }
                 else startActivity(Intent(this@LipAccessibilityService, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             }

@@ -2,34 +2,37 @@
 
 Open-source Android voice dictation with a floating bubble alongside your existing keyboard. Speech recognition runs on-device; ChatGPT-plan text cleanup is optional.
 
-[Website](https://ihearttokyo.github.io/Lip/) · [Download v0.1.0 APK](https://github.com/ihearttokyo/Lip/releases/download/v0.1.0/Lip-0.1.0.apk) · [Privacy](https://ihearttokyo.github.io/Lip/privacy.html) · [Issues](https://github.com/ihearttokyo/Lip/issues)
+[Website](https://ihearttokyo.github.io/Lip/) · [Download v0.2.0 APK](https://github.com/ihearttokyo/Lip/releases/download/v0.2.0/Lip-0.2.0.apk) · [Privacy](https://ihearttokyo.github.io/Lip/privacy.html) · [Issues](https://github.com/ihearttokyo/Lip/issues)
 
-**v0.1.0 is a prerelease.** Real-device speech, compatibility across third-party editors, and end-to-end ChatGPT authorization have not yet been live-validated. This is not a feature-parity claim, a Play Store-reviewed app, or a replacement for Gboard.
+**v0.2.0 is a parity-work prerelease, not verified functional parity.** Real-device segmented speech, compatibility across third-party editors, and end-to-end ChatGPT authorization still require a phone. See the [acceptance matrix](docs/PARITY.md). This is not a feature-parity claim, a Play Store-reviewed app, or a replacement for Gboard.
 
 ## What it does
 
-| Capability | v0.1.0 scope |
+| Capability | v0.2.0 scope |
 | --- | --- |
 | Floating dictation | Android 13+ accessibility overlay; user-triggered capture and current-editor insertion while Gboard remains selected |
-| Local speech | Explicit on-device SpeechRecognizer; English, Japanese, or Mandarin selection requires an available device model |
+| Local speech | Continuous local PCM into an explicit on-device segmented recognizer; English, Japanese, or Mandarin requires an installed model and compatible provider |
 | Optional cleanup | Official ChatGPT OAuth and public Responses API; eligible account, preview access, and usage limits apply |
-| Writing controls | Polished, Light, and Verbatim styles; personal dictionary; optional review-before-insert |
-| Local history | Encrypted raw/clean text; search, copy, delete, clear, and disable future retention |
+| Live preview | Local hypotheses appear while speaking; opt-in ChatGPT cleanup revises stable segments without inserting provisional text |
+| Writing controls | Polished, Light, and Verbatim styles; spoken punctuation/lists/corrections instructions; dictionary biasing; optional review-before-insert |
+| Local history | Independent encrypted raw/clean records; paged search, copy, delete, clear, and disable future retention |
 | Insertion safeguards | Reject protected fields and stale editor/focus/selection/content state; never send a message |
 | Not included | Cloud audio, a swipe/replacement keyboard, cross-device sync, always-listening capture, or autonomous UI navigation |
 
-The website's phone screens and before/after text are labeled illustrations, not screenshots or live recognition results.
+The website's illustrated phone screens and before/after text are labeled illustrations, not screenshots or live recognition results.
 
 ## Installation
 
-1. Use Android 13 (API 33) or newer with a compatible on-device speech-recognition service. Obtain `Lip-0.1.0.apk` from the [v0.1.0 release](https://github.com/ihearttokyo/Lip/releases/tag/v0.1.0). Check the release's SHA-256 and signing-certificate information before installing.
+1. Use Android 13 (API 33) or newer with a compatible on-device speech-recognition service. Obtain `Lip-0.2.0.apk` from the [v0.2.0 release](https://github.com/ihearttokyo/Lip/releases/tag/v0.2.0). Check the release's SHA-256 and signing-certificate information before installing.
 2. Android may request permission for the browser/file manager to install an APK. Allow it only if you trust this source; turn off that install permission afterward. Do not disable Play Protect.
 3. Open Lip. Read the microphone disclosure and grant microphone permission. Read the separate accessibility disclosure, then enable Lip in Android accessibility settings. Sideloaded apps may require an additional system-controlled restricted-settings confirmation; proceed only after verifying the app and source.
 4. Select English, Japanese, or Mandarin and check model availability. Missing local speech support is an error, not a cloud fallback. Device model availability and recognition quality vary.
-5. Keep Gboard selected. Focus a supported text editor, tap Lip's bubble, speak, and stop. By default, Lip inserts the result only into the unchanged original target. Enable review-before-insert in Settings to approve each result. Use the in-app test composer if the overlay/editor path is unsupported.
+5. Keep Gboard selected. Focus a supported text editor, tap Lip's bubble, speak, and stop. By default, successful cleaned or Verbatim text is inserted only into the unchanged original target. After switching apps, review the retained text and tap **Insert here** in the intended field; no silent rebinding occurs. Enable review-before-insert in Settings to approve each result. Use the in-app test composer if the overlay/editor path is unsupported.
 6. History is enabled by default. Disable saving new history, delete individual entries, or clear existing history from Lip. Disabling retention does not erase earlier entries.
 
-The prerelease history file is limited to 4 MiB. If it fills, Lip preserves earlier entries and reports that the new save failed; the current transcript stays available to copy. Review-before-insert happens inside the nonfocusable bubble so the original editor remains the target.
+History no longer has a whole-collection 4 MiB ceiling. Each encrypted record retains a safety size limit; device storage still limits capacity. Existing v0.1 history migrates only after verified copies. The old APK cannot read the new record format: do not uninstall or clear app data to downgrade. Reinstalling this version without clearing data preserves access. Review remains inside the nonfocusable bubble.
+
+Continuous capture depends on provider support for Android's external-audio segmented mode. Lip refuses providers that end early or ignore this mode rather than silently dropping speech between restarts. A session ends on Finish/Cancel, permission loss, service loss, locking or protected-field focus. A visible 32,768-character safety boundary applies; there is no one-minute timer.
 
 Accessibility is a powerful permission. Lip's scope is dictation into a selected editor, not screen scraping for cloud context, autonomous actions, or message sending. Password/protected fields are excluded. Disable Lip in Android accessibility settings to remove the bubble and insertion access.
 
@@ -37,7 +40,7 @@ Accessibility is a powerful permission. Lip's scope is dictation into a selected
 
 Choose **Continue with ChatGPT** in Lip. The system browser handles OpenAI sign-in and user authorization; no API key or shared client secret is needed. Lip follows the official open-source dynamic registration flow, retains the issued client ID for that installation/account, and uses PKCE plus a `127.0.0.1` loopback callback. Return to Lip after browser authorization.
 
-Only the transcript, cleanup instructions, and applicable dictionary terms are sent to OpenAI. Surrounding editor content stays local. Requests use `store:false` and `stream:true`; a partial/failed stream is not a usable cleaned result. These settings do not promise zero provider retention. OpenAI's terms and privacy policies govern its processing.
+Only the transcript, cleanup instructions, and applicable dictionary terms are sent to OpenAI. New sign-in explicitly discloses live cleanup. When enabled, stable segments may be sent before Finish; Settings can disable Live ChatGPT preview independently. Upgrading does not opt existing installations into live requests. Cancel prevents queued requests and stale results, but cannot recall requests already sent. Preview and final cleanup use plan allowance. Surrounding editor content stays local. Requests use `store:false` and `stream:true`; a partial/failed stream is not a usable cleaned result. These settings do not promise zero provider retention. OpenAI's terms and privacy policies govern its processing.
 
 Preview eligibility, account/workspace restrictions, models, and usage limits can change. This route does not grant audio-transcription access or general API credits. If sign-in, cleanup, or allowance checks fail, local dictation and the raw transcript remain available. Sign out clears local OAuth tokens and attempts provider-side revocation; account/client-registration metadata is retained for reconnection. If revocation fails, use your account controls to revoke authorization.
 
@@ -69,7 +72,7 @@ Open `http://localhost:8080/`. The page needs no build step, framework, remote f
 ```text
 AccessibilityService → visible dictation bubble
                        ↓
-             on-device SpeechRecognizer
+             local AudioRecord → on-device segmented SpeechRecognizer
                        ↓
              local transcript / optional ChatGPT text cleanup
                        ↓
@@ -78,7 +81,7 @@ AccessibilityService → visible dictation bubble
             encrypted local raw/clean history (if enabled)
 ```
 
-The system-bound accessibility service uses API 33's input-method connection, not destructive full-field `SET_TEXT`. It keeps the existing keyboard selected and captures only after a user action. v0.1.0 has no microphone foreground service, ordinary overlay permission, or replacement IME. OEM microphone behavior remains a hardware-validation gate.
+The system-bound accessibility service uses API 33's input-method connection, not destructive full-field `SET_TEXT`. It keeps the existing keyboard selected and captures only after a user action. The awake, system-bound accessibility process supplies cross-app microphone capability; Lip adds no microphone foreground service, ordinary overlay permission, or replacement IME. OEM microphone behavior remains a hardware-validation gate.
 
 Android Keystore-backed AES-GCM protects retained credentials and transcript history in app-private storage excluded from backup. Copying text places it on the system clipboard outside that encrypted store. No audio files, analytics, advertising SDK, cloud history, or transcript logging are included. [Privacy policy source](docs/privacy.html) · [implementation and evidence contract](docs/IMPLEMENTATION.md).
 
@@ -87,7 +90,7 @@ Android Keystore-backed AES-GCM protects retained credentials and transcript his
 - **No local recognizer/model:** choose an installed language or obtain the model through your device's supported settings. Lip does not fall back to remote recognition.
 - **Permission denied or microphone unavailable:** grant permission intentionally, leave calls/competing capture, and retry manually. Do not assume a visible bubble overrides Android's microphone rules.
 - **Cleanup fails or allowance is exhausted:** retain/use the local transcript; reconnect or retry later rather than losing the spoken text.
-- **Editor or cursor changes:** insertion is blocked; review/copy the result or restart at the intended field. No automatic focus restoration or simulated taps.
+- **Editor or cursor changes:** automatic insertion is blocked; review and explicitly choose Insert here at the intended field before any commit attempt. An unconfirmed dispatched commit is never retried automatically. No automatic focus restoration or simulated taps.
 - **Custom/protected editor:** support varies. Test the in-app composer and use manual copy/paste if needed; do not bypass the editor's restrictions.
 - **History/key loss:** uninstalling or losing the Keystore key can make retained data unrecoverable. No export/recovery or sync is provided in this release.
 
@@ -99,7 +102,7 @@ Unit/build/lint evidence belongs in the release notes. Static tests do not prove
 
 ### Actual emulator screen
 
-This is Lip running on the isolated Android 16/API 36 emulator. It verifies the visible home screen, not microphone quality or authenticated ChatGPT access.
+These v0.1 visual-baseline images show Lip running on the isolated Android 16/API 36 emulator. They show the home screen, not microphone quality or authenticated ChatGPT access.
 
 ![Lip home on Android 16 emulator](docs/assets/android-home.png)
 
