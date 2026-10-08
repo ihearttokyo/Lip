@@ -121,3 +121,10 @@ names the Qwen base and converter but does not publish the exact conversion
 command or source revision. The pinned Qwen base card declares Apache-2.0;
 that evidence is not a claim of reproducible conversion or Android
 redistribution clearance. No candidate is promoted by this harness.
+
+The [completed full-set receipt](qwen17-corpus-receipt.json) records **11/18**
+strict passes (English 4/6, Japanese 4/6, Mandarin 3/6). All 18 responses ended
+naturally, but name substitutions and other frozen-score failures remain.
+The candidate is rejected for quality and is not integrated or promoted.
+A failed research job is retained evidence, not a reason to change references
+or omit cases. Phone routing and authenticated cleanup still need live tests.
