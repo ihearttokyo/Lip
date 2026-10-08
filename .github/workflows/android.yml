@@ -62,12 +62,22 @@ jobs:
       - name: Install isolated cancellation guest
         run: |
           test "$(uname -s)" = Linux
-          test -r /dev/kvm && test -w /dev/kvm
+          test "$(id -u)" -gt 0
+          test -c /dev/kvm
+          test "$(stat -c '%U:%G' /dev/kvm)" = root:kvm
+          id
+          stat -c 'kvm_mode=%a kvm_owner=%U kvm_group=%G' /dev/kvm
+          sudo -n -u "$(id -un)" -g kvm -- test -r /dev/kvm
+          sudo -n -u "$(id -un)" -g kvm -- test -w /dev/kvm
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --channel=0 \
             'platform-tools' 'emulator' 'system-images;android-36;default;x86_64'
       - name: Collect cancellation diagnostic (not acceptance)
         timeout-minutes: 30
-        run: bash eval/android/run_cancel_ci.sh
+        run: |
+          # Same UID, existing device group for this process only; no permission edits.
+          sudo -n -u "$(id -un)" -g kvm \
+            --preserve-env=ANDROID_HOME,GITHUB_ACTIONS,GITHUB_WORKSPACE,GITHUB_SHA,GITHUB_REPOSITORY,GITHUB_RUN_ID,GITHUB_RUN_ATTEMPT,GITHUB_SERVER_URL,RUNNER_OS,RUNNER_ENVIRONMENT,RUNNER_ARCH,RUNNER_TEMP,ImageOS,ImageVersion,JAVA_HOME \
+            /usr/bin/bash eval/android/run_cancel_ci.sh
       - name: Retain public cancellation diagnostic text
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
