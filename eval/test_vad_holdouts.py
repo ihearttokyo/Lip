@@ -100,7 +100,13 @@ class FrozenBuilderTest(unittest.TestCase):
         with scratch_directory() as directory:
             manifest, output, sources = self.fixture(directory)
             original = manifest.read_bytes()
-            with patch("vad_holdouts.subprocess.run", side_effect=self.fake_say) as say:
+            read_bytes = Path.read_bytes
+
+            def fixture_bytes(path):
+                return b"synthetic say executable fixture" if path == Path("/usr/bin/say") else read_bytes(path)
+
+            with patch("vad_holdouts.subprocess.run", side_effect=self.fake_say) as say, \
+                    patch.object(Path, "read_bytes", fixture_bytes):
                 result = holdouts.build(manifest, output)
             self.assertEqual(len(result["cases"]), 24)
             self.assertEqual(say.call_count, 3)
@@ -128,6 +134,8 @@ class FrozenBuilderTest(unittest.TestCase):
                     self.assertEqual(case["source"]["audio_sha256"], source["sha256"])
                 else:
                     self.assertEqual(case["reference_raw"], holdouts.WORDS[case["language"]][1])
+                    self.assertEqual(case["source"]["say_sha256"],
+                                     hashlib.sha256(b"synthetic say executable fixture").hexdigest())
 
     def test_existing_output_is_never_overwritten_or_resynthesized(self):
         with scratch_directory() as directory:

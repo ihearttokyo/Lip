@@ -1,9 +1,10 @@
 # Audio evaluation
 
 These scripts test actual audio with an explicitly supplied offline engine.
-They do not call an AI API, download a model, or establish Android microphone
-or ChatGPT-cleanup behavior. The unit tests exercise scoring and subprocess
-contracts with simulated engine output.
+The scoring and offline-engine adapters do not call an AI API or download a
+model. The hosted research canary below separately acquires pinned weights.
+Neither path establishes Android microphone or ChatGPT-cleanup behavior. The
+unit tests exercise scoring and subprocess contracts with simulated output.
 
 ## Corpus and license
 
