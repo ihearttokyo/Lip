@@ -48,6 +48,16 @@ rights or resolve licensing for other model variants.
 Experimental full large-v3 and Silero VAD weight files used in local validation
 are not bundled or configured for download by this production model installer.
 
+The hosted research harness separately evaluates
+[llama.cpp at its pinned MIT source](https://github.com/ggml-org/llama.cpp/blob/71ad0590f4808b6202f9213d166913858c73b1bc/LICENSE),
+copyright 2023–2026 The ggml authors, with the official
+[Qwen3-ASR-1.7B GGUF conversion](https://huggingface.co/ggml-org/Qwen3-ASR-1.7B-GGUF/blob/36a678687ba7d07a74ca70ccb0e36902e005fb80/README.md).
+The [pinned Qwen base card](https://huggingface.co/Qwen/Qwen3-ASR-1.7B/blob/7278e1e70fe206f11671096ffdd38061171dd6e5/README.md)
+declares Apache-2.0. Exact converter revision and command are unpublished;
+the research pins do not establish reproducible conversion or redistribution
+clearance. Neither runtime nor Qwen weights are part of Lip's APK or optional
+production model download. Research weights are not distributed by this repo.
+
 ## Public speech evaluation fixture
 
 The repository distributes one unchanged Google FLEURS EN13 test PCM file

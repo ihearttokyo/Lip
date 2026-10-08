@@ -199,12 +199,34 @@ class BenchmarkTest(unittest.TestCase):
             c.update(audio=audio.name, sha256=hashlib.sha256(audio.read_bytes()).hexdigest(),
                      size_bytes=audio.stat().st_size)
             c["checks"] = [{"name": "cleanup", "target": "clean", "required": ["Clean\\."]}]
-            payload = json.dumps({"raw": "raw", "clean": "Clean."})
+            evidence = {"model_raw": "language English<asr_text>raw", "detected_language": "en",
+                        "research": {"stop_type": "eos", "peak_rss_bytes": 123}}
+            payload = json.dumps({"raw": "raw", "clean": "Clean.", **evidence})
             result = run_case(c, root, [sys.executable, "-c",
                               "import pathlib,sys;pathlib.Path(sys.argv[1]).write_text(sys.argv[2])",
                               "{output}", payload], 2)
             self.assertEqual(result["clean"], "Clean.")
             self.assertTrue(result["score"]["passed"])
+            self.assertEqual(result["engine_evidence"], evidence)
+
+    @unittest.skipUnless(os.name == "posix", "Owned process-group timeout requires POSIX")
+    def test_failed_wrapper_stops_its_nested_child(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            audio = root / "silence.wav"
+            with wave.open(str(audio), "wb") as wav:
+                wav.setparams((1, 2, 16000, 0, "NONE", "not compressed"))
+                wav.writeframes(b"\0\0" * 160)
+            c = case(reference="")
+            c.update(audio=audio.name, sha256=hashlib.sha256(audio.read_bytes()).hexdigest(),
+                     size_bytes=audio.stat().st_size)
+            marker = root / "leaked"
+            child = "import time,pathlib; time.sleep(.2); pathlib.Path(" + repr(str(marker)) + ").write_text('leaked')"
+            wrapper = "import subprocess,sys; subprocess.Popen([sys.executable,'-c',sys.argv[1]]); sys.exit(7)"
+            result = run_case(c, root, [sys.executable, "-c", wrapper, child], timeout=2)
+            self.assertEqual(result["status"], "engine_error")
+            time.sleep(.3)
+            self.assertFalse(marker.exists())
 
     @unittest.skipUnless(os.name == "posix", "Owned process-group timeout requires POSIX")
     def test_timeout_stops_nested_child_before_the_next_case_can_run(self):

@@ -16,6 +16,14 @@ import unicodedata
 SCORER_VERSION = 2
 
 
+def stop_owned_group(process):
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    process.wait(timeout=5)
+
+
 def units(text, language):
     text = unicodedata.normalize("NFC", text).casefold().replace("’", "'")
     if language == "en":
@@ -145,14 +153,11 @@ def run_case(case, root, command, timeout=120):
             try:
                 completed.wait(timeout=timeout)
             except subprocess.TimeoutExpired:
-                # The new session owns this group, including wrapper-launched native children.
-                try:
-                    os.killpg(completed.pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
-                completed.wait()
                 result.update(status="timeout", elapsed_seconds=time.perf_counter() - start)
                 return result
+            finally:
+                # Reap descendants even when a failed wrapper already exited.
+                stop_owned_group(completed)
         elapsed = time.perf_counter() - start
         result.update(elapsed_seconds=elapsed, real_time_factor=elapsed / seconds)
         if completed.returncode:
@@ -167,6 +172,10 @@ def run_case(case, root, command, timeout=120):
         if text.startswith("{"):
             decoded = json.loads(text)
             raw, clean = decoded["raw"], decoded.get("clean")
+            evidence = {key: decoded[key] for key in ("model_raw", "detected_language", "research")
+                        if key in decoded}
+            if evidence:
+                result["engine_evidence"] = evidence
         else:
             raw, clean = text, None
         result.update(status="ok", raw=raw, clean=clean, score=score_case(case, raw, clean))

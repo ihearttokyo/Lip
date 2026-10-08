@@ -34,12 +34,38 @@ jobs:
         run: ./gradlew testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest --no-daemon
       - name: Landing-page checks
         run: node docs/app.js --self-test && node --check docs/app.js
+      - name: Audio evaluation contract tests (no inference)
+        run: python3 -B -m unittest discover -s eval -p 'test_*.py' -v
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: Lip-debug-${{ github.sha }}
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          retention-days: 7
+  qwen17_canary:
+    needs: verify
+    if: >-
+      github.repository == 'ihearttokyo/Lip' && github.event.repository.private == false &&
+      github.event_name == 'push' && contains(github.event.head_commit.message, '[qwen17-canary]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: One original human CPU canary (not Android acceptance)
+        run: python3 -B eval/qwen17_ci.py
+      - name: Retain bounded public research text only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Lip-qwen17-canary-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/lip-qwen17-evidence/*.json
+            ${{ runner.temp }}/lip-qwen17-evidence/*.log
+            ${{ runner.temp }}/lip-qwen17-evidence/*.txt
+          if-no-files-found: warn
           retention-days: 7
   cancel_probe:
     needs: verify
