@@ -62,6 +62,10 @@ pin = subprocess.check_output(['git', '-C', str(root / 'third_party/whisper.cpp'
                                'rev-parse', 'HEAD'], text=True).strip()
 assert pin == '306c88f4d1286aec1bf96e544632897886af5501'
 assert (root / 'third_party/whisper.cpp/LICENSE').read_text().startswith('MIT License')
+runner = (root / 'app/src/androidTest/java/dev/lip/LocalAsrRunner.kt').read_text()
+closed_assertion = 'check(runCatching { engine.transcribe(pcm, "en") }.exceptionOrNull()?.javaClass == IllegalStateException::class.java)'
+assert runner.count(closed_assertion) == 2, 'Both closed-engine checks must reject a normal return without catching their own assertion'
+assert 'catch (_: IllegalStateException)' not in runner, 'Closed assertion may catch its own failure'
 if args.cancel_patch:
     vendor = args.cancel_patch.read_text()
     helper = vendor[vendor.index('static bool ggml_graph_compute_helper(\n      ggml_backend_sched_t'):

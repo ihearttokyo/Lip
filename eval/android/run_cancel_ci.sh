@@ -37,7 +37,7 @@ pcm_sha=e42fdeed81feac1d9d660e888ceb0351e785760f24ec7b8e9d8420cfe96a800f
 model_leaf=ggml-large-v3-turbo-q5_0.bin
 model_sha=394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2
 [[ -f "$app" && -f "$test_apk" && "$(stat -c %s "$pcm")" == 241280 ]] || refuse 'Matched APK outputs or fixed PCM are missing.'
-printf '%s  %s\n' "$pcm_sha" "$pcm" '3ed1eff7b09e70e9716e01a27311aabf72ead8e134e420d532979f6d0e9b00c2' app/src/androidTest/java/dev/lip/LocalAsrRunner.kt | sha256sum --check
+printf '%s  %s\n' "$pcm_sha" "$pcm" '534c85b011d4a238412ca390ca6ca7bf7c22a0749f824aa1a4b36835905b4c5d' app/src/androidTest/java/dev/lip/LocalAsrRunner.kt | sha256sum --check
 
 out="$RUNNER_TEMP/lip-cancel-diagnostic"
 [[ ! -e "$out" && ! -L "$out" ]] || refuse 'Diagnostic output must be fresh.'

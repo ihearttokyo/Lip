@@ -141,10 +141,9 @@ class LocalAsrRunner : Instrumentation() {
             }
             engine.close() // Terminal close is idempotent.
             for (pcm in listOf(samples, floatArrayOf(0f, -0f))) {
-                try {
-                    engine.transcribe(pcm, "en")
-                    error("Closed engine accepted inference")
-                } catch (_: IllegalStateException) { }
+                check(runCatching { engine.transcribe(pcm, "en") }.exceptionOrNull()?.javaClass == IllegalStateException::class.java) {
+                    "Closed engine accepted inference"
+                }
             }
             output.put("closedEngineChecksPassed", true)
             report.putString(REPORT_KEY_STREAMRESULT, "\nASR_RESULT $output\n")
@@ -462,7 +461,7 @@ class LocalAsrRunner : Instrumentation() {
                 accepted.put(if (cancel) "owned_tasks_quiescent" else "fresh_owned_tasks_quiescent")
                 engine.close()
                 for (pcm in listOf(samples, floatArrayOf(0f, -0f))) {
-                    check(runCatching { engine.transcribe(pcm, "en") }.exceptionOrNull() is IllegalStateException) {
+                    check(runCatching { engine.transcribe(pcm, "en") }.exceptionOrNull()?.javaClass == IllegalStateException::class.java) {
                         "Closed canary engine accepted inference"
                     }
                 }

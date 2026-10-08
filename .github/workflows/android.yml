@@ -26,6 +26,7 @@ jobs:
       - name: Check native build inputs
         run: |
           test -f third_party/whisper.cpp/CMakeLists.txt
+          python3 app/src/main/cpp/check_wrapper.py
           "$ANDROID_HOME/cmake/4.1.2/bin/cmake" --version
           "$ANDROID_HOME/cmake/4.1.2/bin/ninja" --version
           "$ANDROID_HOME/ndk/30.0.16248370/toolchains/llvm/prebuilt/linux-x86_64/bin/clang" --version
