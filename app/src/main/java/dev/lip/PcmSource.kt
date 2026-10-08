@@ -14,7 +14,7 @@ import kotlin.math.sqrt
 
 /** Continuous local PCM; no recording file, network transport or endpoint restarts. */
 @SuppressLint("MissingPermission") // Dictation checks RECORD_AUDIO before construction; denial still throws.
-internal class PcmSource(private val context: Context) : Closeable {
+internal class PcmSource(private val context: Context, private val beforeWrite: (Int) -> Unit = {}) : Closeable {
     private val format = AudioFormat.Builder().setSampleRate(16_000)
         .setChannelMask(AudioFormat.CHANNEL_IN_MONO).setEncoding(AudioFormat.ENCODING_PCM_16BIT).build()
     private val microphone = AudioRecord.Builder().setAudioSource(MediaRecorder.AudioSource.VOICE_RECOGNITION)
@@ -47,6 +47,7 @@ internal class PcmSource(private val context: Context) : Closeable {
                     while (running.get()) {
                         val count = microphone.read(buffer, 0, buffer.size, AudioRecord.READ_BLOCKING)
                         if (count <= 0) { if (running.get()) failed(); break }
+                        beforeWrite(count) // Internal deterministic Stop-tail probe; production uses the no-op default.
                         output.write(buffer, 0, count)
                         var squares = 0.0
                         for (index in 0 until count - 1 step 2) {
@@ -64,7 +65,8 @@ internal class PcmSource(private val context: Context) : Closeable {
     fun finishAudio() {
         if (running.getAndSet(false)) runCatching { microphone.stop() }
         callback?.let { runCatching { microphone.unregisterAudioRecordingCallback(it) } }; callback = null
-        runCatching { pipe[1].close() }
+        // The started writer closes this FD after its final accepted read/write, not before it.
+        if (!everStarted) runCatching { pipe[1].close() }
     }
     override fun close() {
         finishAudio()

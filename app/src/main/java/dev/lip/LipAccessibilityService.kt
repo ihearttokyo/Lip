@@ -12,6 +12,7 @@ import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.content.Intent
 import android.graphics.PixelFormat
+import android.graphics.Color
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -26,6 +27,7 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.inputmethod.EditorInfo
 import android.widget.LinearLayout
+import android.widget.Button
 import android.widget.TextView
 import android.widget.ScrollView
 import dev.lip.core.EditorGuard
@@ -42,6 +44,8 @@ class LipAccessibilityService : AccessibilityService() {
     private var reviewText: TextView? = null
     private var reviewScroll: View? = null
     private var reviewActions: View? = null
+    private var rawChoice: Button? = null
+    private var cleanedChoice: Button? = null
     private var reviewFeedback: TextView? = null
     private var params: WindowManager.LayoutParams? = null
     private val main = Handler(Looper.getMainLooper())
@@ -149,6 +153,13 @@ class LipAccessibilityService : AccessibilityService() {
         val showing = reviewing || dictation.phase == Phase.LISTENING || dictation.phase == Phase.TRANSCRIBING
         reviewScroll?.visibility = if (showing) View.VISIBLE else View.GONE
         reviewActions?.visibility = if (reviewing) View.VISIBLE else View.GONE
+        listOf(rawChoice to true, cleanedChoice to false).forEach { (button, raw) ->
+            button?.apply {
+                isEnabled = if (raw) dictation.canUseRaw else dictation.canUseCleaned
+                isSelected = dictation.outputIsRaw == raw
+                background = surface(if (isSelected) Palette.lavender else Color.WHITE, dp(14).toFloat(), Color.rgb(218, 215, 208))
+            }
+        }
         val value = dictation.preview
         val changedText = reviewText?.text?.toString() != value
         reviewText?.text = value
@@ -218,10 +229,15 @@ class LipAccessibilityService : AccessibilityService() {
         }.also { container.addView(it, LinearLayout.LayoutParams(dp(210), dp(160)).apply {
             gravity = Gravity.CENTER_HORIZONTAL; bottomMargin = dp(6)
         }) }
-        reviewActions = LinearLayout(this).apply {
-            addView(action("Raw") { dictation.useRaw() }, LinearLayout.LayoutParams(0, dp(48), 1f))
-            addView(action("Copy") { copy(this@LipAccessibilityService, dictation.text) }, LinearLayout.LayoutParams(0, dp(48), 1f))
-        }.also { container.addView(it) }
+        reviewActions = column().apply {
+            val choices = LinearLayout(this@LipAccessibilityService)
+            rawChoice = action("Raw") { dictation.useRaw() }.apply { contentDescription = "Raw transcript" }
+            cleanedChoice = action("Cleaned") { dictation.useCleaned() }.apply { contentDescription = "Cleaned transcript" }
+            choices.addView(rawChoice, LinearLayout.LayoutParams(0, dp(48), 1f))
+            choices.addView(cleanedChoice, LinearLayout.LayoutParams(0, dp(48), 1f).apply { marginStart = dp(8) })
+            addSpaced(choices, 4)
+            addView(action("Copy") { copy(this@LipAccessibilityService, dictation.text) }, LinearLayout.LayoutParams(-1, dp(48)))
+        }.also { container.addView(it, LinearLayout.LayoutParams(dp(220), -2)) }
         reviewFeedback = label("", 12f).apply {
             setPadding(dp(12), dp(6), dp(12), dp(10))
             maxLines = 5
@@ -287,6 +303,7 @@ class LipAccessibilityService : AccessibilityService() {
     private fun removeBubble() {
         bubble?.let { view -> runCatching { getSystemService(WindowManager::class.java).removeView(view) } }
         bubble = null
+        rawChoice = null; cleanedChoice = null
     }
 
     companion object {

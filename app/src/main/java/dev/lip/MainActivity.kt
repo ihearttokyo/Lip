@@ -9,8 +9,6 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
-import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.Gravity
@@ -31,8 +29,11 @@ class MainActivity : Activity() {
     private var status: TextView? = null
     private var preview: TextView? = null
     private var record: Button? = null
+    private var rawChoice: Button? = null
+    private var cleanedChoice: Button? = null
     private var waveform: WaveformView? = null
     private var signingIn = false
+    private var cancelModelSetup: (() -> Unit)? = null
     private var inAppRecording = false
     private var testEditor: EditText? = null
     private var scratch = ""
@@ -55,6 +56,13 @@ class MainActivity : Activity() {
             else -> "Try dictation"
         }
         waveform?.level = dictation.level
+        listOf(rawChoice to true, cleanedChoice to false).forEach { (button, raw) ->
+            button?.apply {
+                isEnabled = if (raw) dictation.canUseRaw else dictation.canUseCleaned
+                isSelected = dictation.outputIsRaw == raw
+                background = surface(if (isSelected) Palette.lavender else Color.WHITE, dp(14).toFloat(), Color.rgb(218, 215, 208))
+            }
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -82,11 +90,16 @@ class MainActivity : Activity() {
         inAppRecording = false
         super.onPause()
     }
+    override fun onDestroy() {
+        cancelModelSetup?.invoke(); cancelModelSetup = null
+        super.onDestroy()
+    }
 
     private fun render() {
         saveScratch()
         accountTitle = null; accountDetail = null; accountButton = null
         status = null; preview = null; record = null; waveform = null; testEditor = null
+        rawChoice = null; cleanedChoice = null
         val root = column().apply { setBackgroundColor(Palette.cream) }
         root.setOnApplyWindowInsetsListener { view, insets ->
             val bars = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
@@ -197,8 +210,13 @@ class MainActivity : Activity() {
             background = surface(Color.WHITE, dp(16).toFloat())
         }.also { page.addSpaced(it) }
         page.addSpaced(action("Copy completed text") { copy(dictation.text.ifEmpty { dictation.raw }) })
-        page.addSpaced(action("Use raw transcript") { dictation.useRaw() })
-        page.addSpaced(label("Speech quality and language availability depend on your phone's offline model. ChatGPT-plan cleanup is a preview, not unlimited API access.", 12f), 0)
+        val choices = LinearLayout(this)
+        rawChoice = action("Raw") { dictation.useRaw() }.apply { contentDescription = "Raw transcript" }
+        cleanedChoice = action("Cleaned") { dictation.useCleaned() }.apply { contentDescription = "Cleaned transcript" }
+        choices.addView(rawChoice, LinearLayout.LayoutParams(0, dp(48), 1f))
+        choices.addView(cleanedChoice, LinearLayout.LayoutParams(0, dp(48), 1f).apply { marginStart = dp(8) })
+        page.addSpaced(choices)
+        page.addSpaced(label("Lip's downloaded multilingual model runs locally. Recognition can make mistakes. ChatGPT-plan cleanup is a preview, not unlimited API access.", 12f), 0)
     }
 
     private fun updateAccountCard() {
@@ -353,7 +371,7 @@ class MainActivity : Activity() {
 
     private fun dictionary() {
         title("Spell it\nyour way.", "Names, technical terms and phrases you want preserved.")
-        page.addSpaced(label("One entry per line. These terms accompany your transcript when ChatGPT cleanup is enabled; they do not train the on-device speech model.", 14f))
+        page.addSpaced(label("One entry per line. Lip supplies these terms as speech-recognition hints and ChatGPT cleanup context. Hints can help names; they do not train the local model or guarantee spelling.", 14f))
         val words = EditText(this).apply {
             hint = "Pianoforte\ngetUser\n東京\n你好"
             minLines = 7
@@ -479,16 +497,44 @@ class MainActivity : Activity() {
 
     private fun modelDialog() {
         AlertDialog.Builder(this).setTitle("Offline speech model")
-            .setMessage("Lip requires on-device recognition for ${store.language}. Your phone's speech provider supplies the model; downloads may use the network. Lip never switches to cloud speech.")
-            .setNegativeButton("Speech settings") { _, _ -> startActivity(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS)) }
-            .setPositiveButton("Request model download") { _, _ ->
-                try {
-                    if (!SpeechRecognizer.isOnDeviceRecognitionAvailable(this)) { toast("No on-device recognizer installed"); return@setPositiveButton }
-                    val recognizer = SpeechRecognizer.createOnDeviceSpeechRecognizer(this)
-                    recognizer.triggerModelDownload(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).putExtra(RecognizerIntent.EXTRA_LANGUAGE, store.language))
-                    android.os.Handler(mainLooper).postDelayed({ recognizer.destroy() }, 2_000)
-                    toast("Offline model requested; check your speech provider's download status")
-                } catch (_: Exception) { toast("Provider cannot download here. Open offline speech settings.") }
+            .setMessage("Lip's multilingual Whisper model runs locally for English, Japanese and Mandarin. Download: 574 MB; keep at least 650 MB free. Wi-Fi is recommended. Audio never leaves this device. Recognition can still make mistakes; review important text.")
+            .setNegativeButton("Not now", null)
+            .setPositiveButton("Install / verify") { _, _ ->
+                // Each setup dialog owns its cancellation; a delayed Cancel cannot affect a later attempt.
+                val installer = dev.lip.speech.ModelFile(java.io.File(noBackupFilesDir, "speech"))
+                val canceled = java.util.concurrent.atomic.AtomicBoolean(false)
+                fun cancelSetup() {
+                    canceled.set(true)
+                    Thread { runCatching { installer.cancel() } }.start()
+                }
+                val progress = label("Verifying the local speech model…", 14f).apply { setPadding(dp(20), dp(16), dp(20), dp(16)) }
+                var finished = false
+                val dialog = AlertDialog.Builder(this).setTitle("Local speech setup").setView(progress)
+                    .setNegativeButton("Cancel") { _, _ -> cancelSetup() }
+                    .setOnCancelListener { if (!finished) cancelSetup() }.create()
+                val cancelAttempt: () -> Unit = {
+                    cancelSetup()
+                    if (dialog.isShowing) dialog.dismiss()
+                }
+                cancelModelSetup?.invoke()
+                cancelModelSetup = cancelAttempt
+                dialog.show()
+                Work.io.execute {
+                    val outcome = runCatching {
+                        check(!canceled.get()) { "Speech setup canceled" }
+                        installer.install { received, total ->
+                            if (canceled.get()) throw java.util.concurrent.CancellationException("Speech setup canceled")
+                            runOnUiThread { if (!isDestroyed && !canceled.get() && dialog.isShowing) progress.text = "Downloading speech model · ${received * 100 / total}%" }
+                        }
+                    }
+                    runOnUiThread {
+                        if (cancelModelSetup === cancelAttempt) cancelModelSetup = null
+                        finished = true
+                        if (!isDestroyed && dialog.isShowing) dialog.dismiss()
+                        if (!isFinishing && !isDestroyed && !canceled.get()) toast(if (outcome.isSuccess) "Speech model verified and ready offline"
+                            else outcome.exceptionOrNull()?.message ?: "Speech setup failed; existing model preserved")
+                    }
+                }
             }.show()
     }
 

@@ -3,39 +3,43 @@ package dev.lip
 import android.annotation.SuppressLint
 import android.Manifest
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
-import android.media.AudioFormat
-import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.speech.RecognitionListener
-import android.speech.RecognitionSupport
-import android.speech.RecognitionSupportCallback
-import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
 import dev.lip.auth.ChatGptClient
 import dev.lip.core.CaptureSession
-import dev.lip.core.TextRules
+import dev.lip.core.CleanupRules
+import dev.lip.core.OutputAssessment
+import dev.lip.speech.ModelFile
+import dev.lip.speech.LocalCapture
+import dev.lip.speech.WhisperEngine
+import dev.lip.speech.nativeSpeech
+import java.io.File
 import java.util.concurrent.Executors
 
-object Work { val io = Executors.newFixedThreadPool(2) }
+object Work {
+    val io = Executors.newFixedThreadPool(2)
+    val speech = Executors.newSingleThreadExecutor { task -> Thread(task, "lip-model-lifetime").apply { isDaemon = true } }
+}
 
 enum class Phase { IDLE, LISTENING, TRANSCRIBING, CLEANING, INSERTING, READY, ERROR }
 
 class Dictation private constructor(private val context: Context) {
     val store = AppStore(context)
     val chatGpt = ChatGptClient(context)
+    val speechModel = ModelFile(File(context.noBackupFilesDir, "speech"))
     private val main = Handler(Looper.getMainLooper())
-    private var recognizer: SpeechRecognizer? = null
-    private var audio: PcmSource? = null
+    private var localCapture: LocalCapture? = null
+    @Volatile private var speechEngine: WhisperEngine? = null
+    private val speechState = Any()
     private var capture: CaptureSession? = null
     @Volatile private var operation = 0L
     private var insertAction: ((String, (Boolean) -> Unit) -> Unit)? = null
     private var insertValid: () -> Boolean = { false }
     private var attemptedInsertion = false
+    private val output = OutputChoices()
+    private var cleanedStatus = ""
     private val listeners = mutableSetOf<() -> Unit>()
-    private var timeout: Runnable? = null
     private var previewTask: Runnable? = null
     private var previewOperation: Long? = null
     private var liveClean = ""
@@ -52,6 +56,9 @@ class Dictation private constructor(private val context: Context) {
     val busy get() = phase in setOf(Phase.LISTENING, Phase.TRANSCRIBING, Phase.CLEANING, Phase.INSERTING)
     val canInsert get() = phase == Phase.READY && !attemptedInsertion && insertAction != null && insertValid()
     val canInsertHere get() = phase == Phase.READY && text.isNotEmpty() && !attemptedInsertion
+    val canUseRaw get() = !busy && output.raw.isNotBlank()
+    val canUseCleaned get() = !busy && !output.cleaned.isNullOrBlank()
+    val outputIsRaw: Boolean? get() = if (output.selected.isBlank()) null else output.isRaw
     val preview: String get() {
         val current = capture
         return if (phase == Phase.LISTENING && current != null && liveRevision == current.revision && liveClean.isNotEmpty())
@@ -66,18 +73,16 @@ class Dictation private constructor(private val context: Context) {
     fun start(insert: ((String, (Boolean) -> Unit) -> Unit)? = null, stillValid: () -> Boolean = { true }) {
         check(Looper.myLooper() == Looper.getMainLooper())
         if (busy) return
+        output.reset(); cleanedStatus = ""
         if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             state(Phase.ERROR, "Enable microphone access in Lip first"); return
-        }
-        if (!SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) {
-            state(Phase.ERROR, "On-device speech is unavailable. Install your phone's offline speech service/model."); return
         }
         val id = ++operation
         sessionLanguage = store.language; sessionStyle = store.style
         capture = CaptureSession(sessionLanguage)
         insertAction = insert; insertValid = stillValid; attemptedInsertion = false
         raw = ""; text = ""; level = 0f; liveClean = ""; liveRevision = -1; liveFailed = false
-        state(Phase.LISTENING, "Checking offline speech support…")
+        state(Phase.LISTENING, "Loading local speech model · microphone off")
         Work.io.execute {
             val words = runCatching { store.dictionary() }.getOrDefault(emptyList())
             main.post {
@@ -89,94 +94,55 @@ class Dictation private constructor(private val context: Context) {
     }
 
     private fun prepareRecognition(id: Long) {
-        try {
-            val source = PcmSource(context).also { audio = it }
-            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, sessionLanguage)
-                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE, source.input)
-                putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_CHANNEL_COUNT, 1)
-                putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_ENCODING, AudioFormat.ENCODING_PCM_16BIT)
-                putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_SAMPLING_RATE, 16_000)
-                putExtra(RecognizerIntent.EXTRA_SEGMENTED_SESSION, RecognizerIntent.EXTRA_AUDIO_SOURCE)
-                putExtra(RecognizerIntent.EXTRA_BIASING_STRINGS, ArrayList(dictionary))
-                if (sessionStyle == "polished") putExtra(RecognizerIntent.EXTRA_ENABLE_FORMATTING, RecognizerIntent.FORMATTING_OPTIMIZE_LATENCY)
+        val language = sessionLanguage
+        val prompt = buildString {
+            for (word in dictionary) {
+                val extra = (if (isEmpty()) "" else ", ") + word
+                if (length + extra.length > WhisperEngine.MAX_PROMPT_CHARACTERS) break
+                append(extra)
             }
-            val engine = SpeechRecognizer.createOnDeviceSpeechRecognizer(context).also { recognizer = it }
-            engine.setRecognitionListener(object : RecognitionListener {
-                override fun onReadyForSpeech(params: Bundle?) { if (accepting(id) && phase == Phase.LISTENING) { clearTimeout(); state(Phase.LISTENING, "Listening · tap to finish") } }
-                override fun onBeginningOfSpeech() = Unit
-                override fun onRmsChanged(rmsdB: Float) = Unit // PCM measures the actual local microphone.
-                override fun onBufferReceived(buffer: ByteArray?) = Unit
-                override fun onEndOfSpeech() = Unit // An utterance endpoint is not the user's Finish action.
-                override fun onPartialResults(results: Bundle?) {
-                    if (accepting(id)) {
-                        if (phase == Phase.LISTENING) clearTimeout()
-                        capture?.partial(words(results)); updateTranscript(id)
-                    }
+        }
+        // All opens/closes share one queue. Cancelled contexts are never borrowed by a new session.
+        Work.speech.execute {
+            if (id != operation || phase != Phase.LISTENING) return@execute
+            try {
+                val existing = synchronized(speechState) { speechEngine }
+                val loaded = nativeSpeech { existing ?: WhisperEngine(
+                    speechModel.verifiedFile()?.absolutePath ?: error("Install Lip's offline speech model in Microphone settings first.")) }
+                val published = synchronized(speechState) {
+                    if (id != operation || phase != Phase.LISTENING) false
+                    else { speechEngine = loaded; true }
                 }
-                override fun onSegmentResults(results: Bundle) {
-                    if (accepting(id)) {
-                        if (phase == Phase.LISTENING) clearTimeout()
-                        capture?.segment(words(results)); updateTranscript(id); schedulePreview(id)
-                    }
+                if (!published) {
+                    if (loaded !== existing) loaded.close()
+                    return@execute
                 }
-                override fun onEndOfSegmentedSession() {
-                    if (!accepting(id)) return
-                    if (capture?.finishing == true) completeCapture(id)
-                    else failCapture("Offline service ended the continuous session early. Transcript kept; try another supported speech provider.")
+                main.post {
+                    if (id != operation || phase != Phase.LISTENING) return@post
+                    try {
+                        val recording = nativeSpeech { LocalCapture(context, loaded, language, prompt,
+                            onStableSegment = { value -> if (accepting(id)) {
+                                capture?.segment(value); updateTranscript(id); schedulePreview(id)
+                            } },
+                            onPartial = { value -> if (accepting(id)) {
+                                capture?.partial(value); updateTranscript(id)
+                            } },
+                            onEnd = { completeCapture(id) },
+                            onError = { status -> if (accepting(id)) failCapture(status) },
+                            onLevel = { value -> if (id == operation && phase == Phase.LISTENING) { level = value; changed() } }) }
+                        localCapture = recording
+                        recording.start()
+                        state(Phase.LISTENING, "Listening locally · tap to finish")
+                    } catch (_: Exception) { if (accepting(id)) failCapture("Cannot start local speech capture. Transcript kept.") }
                 }
-                override fun onResults(results: Bundle?) {
-                    if (!accepting(id)) return
-                    // A provider ignoring segmented mode must not silently become one-utterance dictation.
-                    capture?.segment(words(results)); updateTranscript(id)
-                    if (capture?.finishing == true) completeCapture(id)
-                    else failCapture("This offline service did not honor continuous mode. Transcript kept; a compatible service is required.")
-                }
-                override fun onError(error: Int) {
-                    if (!accepting(id)) return
-                    failCapture(when (error) {
-                        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Microphone unavailable. Grant access, or try inside Lip."
-                        SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED, SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE -> "Offline model missing for $sessionLanguage. Install it in Lip's speech settings."
-                        SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Speech service ended without a result. Transcript kept."
-                        SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Speech service is busy. Finish other recording and try again."
-                        else -> "Offline speech stopped (code $error). Transcript kept; check the speech provider."
-                    })
-                }
-                override fun onEvent(eventType: Int, params: Bundle?) = Unit
-            })
-            var started = false
-            fun begin() {
-                if (started || id != operation || phase != Phase.LISTENING) return
-                started = true; clearTimeout()
-                try {
-                    engine.startListening(intent)
-                    source.start({ value -> main.post { if (id == operation && phase == Phase.LISTENING) { level = value; changed() } } },
-                        { main.post { if (accepting(id)) failCapture("Microphone interrupted or silenced. Transcript kept.") } })
-                    state(Phase.LISTENING, "Microphone on · waiting for offline recognizer")
-                    timeout = Runnable { if (accepting(id) && phase == Phase.LISTENING) failCapture("Offline recognizer did not become ready. Transcript kept.") }.also { main.postDelayed(it, 12_000) }
-                } catch (_: Exception) { failCapture("Cannot capture microphone audio. Check permission and offline speech support.") }
+            } catch (_: Exception) {
+                main.post { if (id == operation && phase == Phase.LISTENING)
+                    failCapture("Local speech unavailable. Verify the model in Microphone settings and free device memory.") }
             }
-            timeout = Runnable { if (id == operation && !started) failCapture("Speech support check timed out. Check your offline provider.") }.also { main.postDelayed(it, 12_000) }
-            engine.checkRecognitionSupport(intent, context.mainExecutor, object : RecognitionSupportCallback {
-                override fun onSupportResult(support: RecognitionSupport) {
-                    if (!accepting(id)) return
-                    if (support.installedOnDeviceLanguages.none { it.equals(sessionLanguage, true) || it.equals(sessionLanguage.substringBefore('-'), true) })
-                        failCapture("Offline model missing for $sessionLanguage. Install it in Lip's speech settings.")
-                    else begin()
-                }
-                override fun onError(error: Int) {
-                    if (!accepting(id)) return
-                    if (error == SpeechRecognizer.ERROR_CANNOT_CHECK_SUPPORT) begin()
-                    else failCapture("Offline provider cannot support this session (code $error). Check speech settings.")
-                }
-            })
-        } catch (_: Exception) { failCapture("Cannot prepare on-device speech. Check microphone and offline model settings.") }
+        }
     }
 
     private fun accepting(id: Long) = id == operation && capture?.ended == false && phase in setOf(Phase.LISTENING, Phase.TRANSCRIBING)
-    private fun words(results: Bundle?) = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
     private fun updateTranscript(id: Long) {
         raw = capture?.transcript.orEmpty()
         if (raw.length > 32_768) { failCapture("Transcript reached the safe text limit. Text kept; start another dictation."); return }
@@ -186,21 +152,18 @@ class Dictation private constructor(private val context: Context) {
     fun stop() {
         if (phase != Phase.LISTENING) return
         capture?.stop()
-        if (audio?.started != true) { completeCapture(operation); return }
-        state(Phase.TRANSCRIBING, "Finishing on-device transcript")
-        audio?.finishAudio() // Segmented request ends only when this PCM stream closes.
-        clearTimeout()
-        if (recognizer == null) { completeCapture(operation); return }
-        val id = operation
-        timeout = Runnable { if (id == operation && phase == Phase.TRANSCRIBING) failCapture("Speech service did not finish. Partial transcript kept.") }
-            .also { main.postDelayed(it, 12_000) }
+        state(Phase.TRANSCRIBING, "Finishing local transcript")
+        val recording = localCapture
+        if (recording == null) { completeCapture(operation); return }
+        recording.finish() // Final decode follows real pipe EOF, including the last accepted packet.
     }
 
     fun cancel() {
         if (phase == Phase.INSERTING) { message = "Insertion already requested. Check the field; Cancel cannot undo it."; changed(); return }
         operation++
-        capture?.cancel(); recognizer?.cancel(); releaseRecognizer()
+        capture?.cancel(); releaseRecognizer()
         insertAction = null; raw = ""; text = ""
+        output.reset(); cleanedStatus = ""
         state(Phase.IDLE, "Canceled · tap to speak")
     }
 
@@ -212,21 +175,24 @@ class Dictation private constructor(private val context: Context) {
     }
     private fun failCapture(status: String) {
         raw = capture?.complete() ?: raw
-        operation++; releaseRecognizer(); text = TextRules.normalize(raw)
+        operation++; releaseRecognizer(); text = raw
+        output.complete(raw, null); cleanedStatus = ""
         state(if (text.isEmpty()) Phase.ERROR else Phase.READY, status)
         if (text.isNotEmpty()) saveHistory(Transcript(raw = raw, clean = text, language = sessionLanguage, usedChatGpt = false), operation)
     }
-    private fun clearTimeout() { timeout?.let(main::removeCallbacks); timeout = null }
-    private fun releaseRecognizer() {
-        clearTimeout(); previewTask?.let(main::removeCallbacks); previewTask = null
-        audio?.close(); audio = null
-        val previous = recognizer; recognizer = null; previous?.destroy()
+    private fun releaseRecognizer(keepWarm: Boolean = false) {
+        previewTask?.let(main::removeCallbacks); previewTask = null
+        localCapture?.cancel(); localCapture = null
+        if (!keepWarm) {
+            val previous = synchronized(speechState) { speechEngine.also { speechEngine = null } }
+            previous?.let { engine -> Work.speech.execute { engine.close() } }
+        }
         level = 0f
     }
     private fun completeCapture(id: Long) {
         if (!accepting(id)) return
         val value = capture?.complete().orEmpty()
-        raw = value; releaseRecognizer(); finish(value, id)
+        raw = value; releaseRecognizer(keepWarm = true); finish(value, id)
     }
 
     private fun schedulePreview(id: Long) {
@@ -239,24 +205,28 @@ class Dictation private constructor(private val context: Context) {
             val revision = current.revision
             val stable = current.finalized
             val style = sessionStyle
+            val language = sessionLanguage
             val words = dictionary
             previewOperation = id
             Work.io.execute {
-                val cleaned = runCatching { if (id == operation) clean(stable, style, words, id, live = true) else null }.getOrNull()
+                val cleaned = runCatching { if (id == operation) clean(stable, style, language, words, id, live = true) else null }.getOrNull()
                 main.post {
                     if (previewOperation == id) previewOperation = null
                     if (id != operation) { schedulePreview(operation); return@post }
                     if (phase != Phase.LISTENING) return@post
                     if (cleaned == null) { liveFailed = true; message = "Listening · live cleanup unavailable; raw preview kept"; changed(); return@post }
                     if (revision == current.revision && store.cloudConsent && store.liveCleanup) {
-                        liveClean = cleaned; liveRevision = revision; changed()
+                        liveClean = cleaned.value; liveRevision = revision
+                        message = if (cleaned.assessment.acceptableForAuto) "Listening · ChatGPT preview" else "Listening · preview needs review: ${cleaned.assessment.reasons.first()}"
+                        changed()
                     } else if (revision != current.revision) schedulePreview(id)
                 }
             }
         }.also { main.postDelayed(it, 2_000) }
     }
 
-    private fun clean(value: String, style: String, words: List<String>, id: Long, live: Boolean = false): String? {
+    private data class Cleaned(val value: String, val assessment: OutputAssessment)
+    private fun clean(value: String, style: String, language: String, words: List<String>, id: Long, live: Boolean = false): Cleaned? {
         fun permitted() = id == operation && store.cloudConsent && (!live || store.liveCleanup && phase == Phase.LISTENING)
         if (!permitted() || chatGpt.session()?.canUsePlan != true) return null
         if (!permitted()) return null
@@ -265,31 +235,36 @@ class Dictation private constructor(private val context: Context) {
         if (!permitted()) return null
         val cleaned = chatGpt.clean(value, model, style, words)
         require(cleaned.isNotBlank() && cleaned.length <= 65_536)
-        return cleaned
+        return Cleaned(cleaned, CleanupRules.assess(value, cleaned, style, language))
     }
 
     private fun finish(value: String, id: Long) {
-        val normalized = TextRules.normalize(value)
-        if (normalized.isEmpty()) { state(Phase.ERROR, "No speech detected. Tap to try again."); return }
+        if (value.isBlank()) { output.reset(); cleanedStatus = ""; state(Phase.ERROR, "No speech detected. Tap to try again."); return }
         val language = sessionLanguage
         val style = sessionStyle
         val words = dictionary
         state(Phase.CLEANING, if (style == "verbatim") "Preparing transcript" else "Cleaning up your words")
         Work.io.execute {
             if (id != operation) return@execute
-            val cleaned = if (style == "verbatim") normalized else runCatching { clean(normalized, style, words, id) }.getOrNull()
+            val local = CleanupRules.local(value, style, language)
+            val cleaned = if (style == "verbatim") null else runCatching { clean(value, style, language, words, id) }.getOrNull()
             main.post {
                 if (id != operation) return@post
                 val polished = style != "verbatim" && cleaned != null && store.cloudConsent
-                text = if (style == "verbatim" || polished) cleaned ?: normalized else normalized
-                state(Phase.READY, when {
+                val completed = if (polished) cleaned!!.value else local
+                output.complete(value, if (style == "verbatim") null else completed)
+                text = completed
+                val safeForAuto = style == "verbatim" || polished && cleaned!!.assessment.acceptableForAuto
+                cleanedStatus = when {
                     style == "verbatim" -> "Ready · on-device transcript"
-                    polished -> "Ready · cleaned with ChatGPT"
-                    else -> "Cleanup unavailable · raw kept. Review, reconnect, or use raw; nothing auto-inserted."
-                })
-                val entry = Transcript(raw = value, clean = text, language = language, usedChatGpt = polished)
+                    polished && safeForAuto -> "Ready · cleaned with ChatGPT"
+                    polished -> "Review required · ${cleaned!!.assessment.reasons.joinToString("; ")}"
+                    else -> "Local formatting only · raw kept. Connect ChatGPT for semantic cleanup; nothing auto-inserted."
+                }
+                state(Phase.READY, cleanedStatus)
+                val entry = Transcript(raw = value, clean = completed, language = language, usedChatGpt = polished)
                 saveHistory(entry, id)
-                if (store.autoInsert && (polished || style == "verbatim") && canInsert) insert()
+                if (store.autoInsert && safeForAuto && canInsert) insert()
             }
         }
     }
@@ -323,8 +298,30 @@ class Dictation private constructor(private val context: Context) {
         try { action(text, complete) } catch (_: Exception) { complete(false) }
         main.postDelayed({ complete(false) }, 1_500)
     }
-    fun useRaw() {
-        if (raw.isNotBlank() && !busy) { text = TextRules.normalize(raw); state(Phase.READY, "Raw transcript selected") }
+    fun useRaw() = useOutput(raw = true)
+    fun useCleaned() = useOutput(raw = false)
+    private fun useOutput(raw: Boolean) {
+        if (output.isRaw == raw) return
+        val selected = output.select(raw, busy) ?: return
+        text = selected
+        message = if (raw) "Raw transcript selected" else cleanedStatus
+        changed() // Selection never renews insertion authority or dispatches another commit.
+    }
+    internal class OutputChoices {
+        var raw = ""; private set
+        var cleaned: String? = null; private set
+        var isRaw = true; private set
+        val selected: String get() = if (isRaw) raw else cleaned.orEmpty()
+        fun complete(raw: String, cleaned: String?) {
+            this.raw = raw; this.cleaned = cleaned; isRaw = cleaned == null
+        }
+        fun select(raw: Boolean, busy: Boolean): String? {
+            if (busy) return null
+            val value = (if (raw) this.raw else cleaned)?.takeIf { it.isNotBlank() } ?: return null
+            isRaw = raw
+            return value
+        }
+        fun reset() = complete("", null)
     }
     companion object {
         @SuppressLint("StaticFieldLeak") // Holds only the process-lifetime application context.
