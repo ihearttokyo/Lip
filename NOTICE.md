@@ -48,4 +48,13 @@ rights or resolve licensing for other model variants.
 Experimental full large-v3 and Silero VAD weight files used in local validation
 are not bundled or configured for download by this production model installer.
 
+## Public speech evaluation fixture
+
+The repository distributes one unchanged Google FLEURS EN13 test PCM file
+under [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/), separately from
+Lip's MIT code. It is not bundled in the application APK. Dataset revision,
+source attribution, conversion and hashes are recorded in the
+[fixture notice](eval/android/fixtures/README.md); corpus transcripts and
+references retain their original attribution in [eval/README.md](eval/README.md).
+
 The website uses system fonts, native HTML controls, and original vector/CSS artwork. It has no third-party font package or frontend framework. Android, Gboard, ChatGPT, OpenAI, and GitHub are names or trademarks of their respective owners; their mention is descriptive, not an endorsement. Lip is independently maintained.

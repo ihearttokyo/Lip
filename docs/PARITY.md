@@ -51,19 +51,21 @@ recognition-provider dependency does not waive real-device acceptance.
 The existing public-repo/APK/site publication authorization continues. No
 new API spend, cloud sync, proprietary code/assets or global permission change
 is authorized. Preserve v0.1.0 as the rollback point. Physical-phone microphone, routing and latency acceptance remain unverified.
-No phone is currently connected. This does not block actual local-engine
-benchmarks, emulator microphone injection, or Lip OAuth via host-loopback
-forwarding. Continue those independent checks under HILLCLIMB.md.
+No phone is currently connected. Build validation now runs on isolated
+GitHub-hosted Linux runners. Hosted runtime diagnostics are being prepared;
+successful compilation does not close the runtime lane. Authenticated cleanup
+still requires the user's OpenAI sign-in and authorization.
 
 ## Current evidence
 
-As of October 8, 2026, the native engine is development work, not part of the
+As of October 9, 2026, the native engine is development work, not part of the
 published v0.2.0 APK. This table is the authoritative summary of measured
 speech evidence. Functional parity remains **unverified**; existing accuracy
 and latency failures are not waived by successful packaging or unit tests.
 
 | Lane | Actual evidence | Limit or remaining gate |
 | --- | --- | --- |
+| Hosted build and current test runner | At source `186a6cb`, [push](https://github.com/ihearttokyo/Lip/actions/runs/37798699163) and [PR](https://github.com/ihearttokyo/Lip/actions/runs/37798706308) checks passed unit tests, lint, ARM/x86 native compilation, main/test APK builds and landing-page checks. Both APKs were retrieved; ZIP/DEX inspection confirms both native ABIs and the compiled `cancel_active` runner. | Build and static artifact evidence only. Actual active-cancellation RED/GREEN, microphone, phone and authenticated cleanup remain open. The prepared vendor callback patch is inactive; no new release or Pages deployment. |
 | Published artifact | v0.2.0 targets `cf311b38da3dcf6983008f6236e29eb255b7db7b`; that source has no bundled whisper.cpp/JNI engine or model installer. | The download still depends on Android's on-device segmented recognition provider. Development results below do not describe that APK. |
 | Recorded-human host ASR | Frozen FLEURS subset: 18 read-speech recordings, six each in English, Japanese and Mandarin. Scorer v2 applies the pre-run 5% per-clip error ceiling and required fact anchors. Base Q5_1 passed 2/18; small Q5_1 passed 5/18; large-v3-turbo Q5_0 passed 15/18. | Three turbo cases still fail on uncommon names/terms (`fleurs-en-003`, `fleurs-zh-020`, `fleurs-zh-034`). A pass is not perfect transcription. This small read-speech subset does not establish spontaneous dictation, spoken correction, or formatting quality. |
 | Host aggregate errors | Turbo beam-5: English WER 6/109 = 5.50%; Japanese CER 2/207 = 0.97%; Mandarin CER 12/187 = 6.42%. Greedy/best-of-5 also passed 15/18: English/Japanese totals unchanged, Mandarin CER 13/187 = 6.95%. | These are pooled errors/reference units, not average per-clip rates. JNI uses greedy decoding; do not substitute beam results for Android evidence. References, anchors and thresholds were unchanged; scorer v2 only fixes narrative whitespace matching and preserves the original receipts. |
