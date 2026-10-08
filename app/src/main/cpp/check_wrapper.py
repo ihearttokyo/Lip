@@ -66,6 +66,23 @@ runner = (root / 'app/src/androidTest/java/dev/lip/LocalAsrRunner.kt').read_text
 closed_assertion = 'check(runCatching { engine.transcribe(pcm, "en") }.exceptionOrNull()?.javaClass == IllegalStateException::class.java)'
 assert runner.count(closed_assertion) == 2, 'Both closed-engine checks must reject a normal return without catching their own assertion'
 assert 'catch (_: IllegalStateException)' not in runner, 'Closed assertion may catch its own failure'
+cancel_runner = runner[runner.index('private fun cancelActive('):]
+assert cancel_runner.count('native.size == expectedWorkers') == 2, \
+    'Both mel and post-mel cohorts must match the hardware-calibrated worker count, not one worker'
+assert 'native.size == 1' not in cancel_runner
+assert 'import android.system.Os\n' in runner and 'import android.system.OsConstants\n' in runner
+assert 'val onlineProcessors = Os.sysconf(OsConstants._SC_NPROCESSORS_ONLN)' in cancel_runner
+assert 'val expectedWorkers = onlineProcessors.coerceIn(1L, 4L).toInt() - 1' in cancel_runner
+assert 'params.n_threads = static_cast<int>(std::min(4u, std::max(1u, std::thread::hardware_concurrency())));' in native
+assert 'check(expectedWorkers > 0)' in cancel_runner, 'Invalid/one-core queries cannot provide a native worker witness'
+assert '.put("onlineProcessors", onlineProcessors).put("expectedNativeWorkers", expectedWorkers)' in cancel_runner
+assert 'if (active && native.size == expectedWorkers && firstCohort.isEmpty())' in cancel_runner
+assert 'firstCohort = native.map { it.identity }.toSet()' in cancel_runner
+assert re.search(r'val afterFirstCohort = native.size == expectedWorkers && firstCohort.isNotEmpty\(\) &&\s*'
+                 r'native.all \{ it.identity !in firstCohort \}', cancel_runner)
+assert 'check(progressed(caller.tid) && native.all { progressed(it.tid) })' in cancel_runner, \
+    'Caller and every owned native worker must progress across the stable two-second witness'
+assert 'native.any { progressed(it.tid) }' not in cancel_runner
 if args.cancel_patch:
     vendor = args.cancel_patch.read_text()
     helper = vendor[vendor.index('static bool ggml_graph_compute_helper(\n      ggml_backend_sched_t'):

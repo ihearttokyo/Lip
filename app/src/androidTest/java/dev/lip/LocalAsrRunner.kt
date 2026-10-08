@@ -5,6 +5,8 @@ import android.app.Instrumentation
 import android.os.Bundle
 import android.os.Process
 import android.os.SystemClock
+import android.system.Os
+import android.system.OsConstants
 import dev.lip.speech.WhisperEngine
 import org.json.JSONArray
 import org.json.JSONObject
@@ -319,6 +321,10 @@ class LocalAsrRunner : Instrumentation() {
                 armed.set(true)
                 go.countDown()
                 if (cancel) {
+                    val onlineProcessors = Os.sysconf(OsConstants._SC_NPROCESSORS_ONLN)
+                    val expectedWorkers = onlineProcessors.coerceIn(1L, 4L).toInt() - 1
+                    phase.put("onlineProcessors", onlineProcessors).put("expectedNativeWorkers", expectedWorkers)
+                    check(expectedWorkers > 0) { "Online processor count cannot provide a native worker witness" }
                     val preflightEnd = SystemClock.elapsedRealtimeNanos() + 20_000_000_000L
                     var firstCohort = emptySet<String>()
                     var previous = emptyList<NativeTask>()
@@ -331,13 +337,12 @@ class LocalAsrRunner : Instrumentation() {
                         val native = currentTasks.filter { it.tid != caller.tid }
                         val active = before && inNative(thread) && currentTasks.any { it.identity == caller.identity }
                         if (active) phase.put("nativeStackObserved", true)
-                        // ponytail: frozen two-core canary expects one native worker; recalibrate for other guests.
-                        if (active && native.size == 1 && firstCohort.isEmpty()) {
+                        if (active && native.size == expectedWorkers && firstCohort.isEmpty()) {
                             firstCohort = native.map { it.identity }.toSet()
                             phase.put("firstNativeCohort", JSONArray(native.map { it.json() }))
                         }
                         // Pinned mel has one joined cohort; any later native cohort is post-mel.
-                        val afterFirstCohort = native.size == 1 && firstCohort.isNotEmpty() &&
+                        val afterFirstCohort = native.size == expectedWorkers && firstCohort.isNotEmpty() &&
                             native.all { it.identity !in firstCohort }
                         val now = SystemClock.elapsedRealtimeNanos()
                         if (!active || !afterFirstCohort || previous.any { old -> currentTasks.none { it.identity == old.identity } }) {
@@ -351,7 +356,7 @@ class LocalAsrRunner : Instrumentation() {
                                     val previous = previous.singleOrNull { it.identity == current.identity } ?: return false
                                     return current.cpuTicks > previous.cpuTicks
                                 }
-                                check(progressed(caller.tid) && native.any { progressed(it.tid) }) { "Active JNI cohort made no CPU progress" }
+                                check(progressed(caller.tid) && native.all { progressed(it.tid) }) { "Active JNI cohort made no CPU progress" }
                                 phase.put("cpuProgress2s", true).put("stableStartedNs", stableFrom).put("stableEndedNs", now)
                                     .put("cpuBefore", JSONArray(previous.map { it.json() })).put("cpuAfter", JSONArray(currentTasks.map { it.json() }))
                                     .put("encoderBeginWitness", "post-first-native-cohort turnover on pinned mel/encoder callpath; inferred, not a callback or exact kernel-stage trace")
