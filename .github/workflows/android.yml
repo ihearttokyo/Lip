@@ -49,12 +49,12 @@ jobs:
       github.repository == 'ihearttokyo/Lip' && github.event.repository.private == false &&
       github.event_name == 'push' && contains(github.event.head_commit.message, '[qwen17-canary]')
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - name: One original human CPU canary (not Android acceptance)
+      - name: Qualified CPU canary and requested research stage (not Android acceptance)
         run: python3 -B eval/qwen17_ci.py
       - name: Retain bounded public research text only
         if: always()
