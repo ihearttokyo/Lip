@@ -40,7 +40,8 @@ jobs:
           verified = set()
           for database in (root / 'app/.cxx').rglob('compile_commands.json'):
               abi = next((abi for abi in ('arm64-v8a', 'x86_64') if abi in database.parts), None)
-              if abi is None:
+              # AGP's tools directory mirrors the real build database; it is not a build root.
+              if abi is None or 'tools' in database.relative_to(root / 'app/.cxx').parts:
                   continue
               rows = [row for row in json.loads(database.read_text()) if pathlib.Path(row['file']).name == 'whisper.cpp']
               assert len(rows) == 1, (abi, 'Expected exactly one Whisper translation unit')

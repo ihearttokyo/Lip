@@ -102,6 +102,17 @@ class NativeBuildGuardTest(unittest.TestCase):
         self.rows["arm64-v8a"][0]["arguments"] += ["-target", TARGETS["x86_64"]]
         self.reject_guard("compiler target")
 
+    def test_agp_tools_mirror_cannot_replace_real_build_databases(self):
+        mirror = self.root / "app/.cxx/tools/debug/arm64-v8a/compile_commands.json"
+        mirror.parent.mkdir(parents=True)
+        mirror.write_text(json.dumps(self.rows["arm64-v8a"]))
+        result = self.guard_result()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        for database in self.databases.values():
+            database.unlink()
+        self.rows.clear()
+        self.reject_guard("set()")
+
     def test_later_long_target_override_rejected(self):
         self.rows["arm64-v8a"][0]["arguments"] += ["--target", TARGETS["x86_64"]]
         self.reject_guard("compiler target")
