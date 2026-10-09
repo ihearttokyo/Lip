@@ -265,6 +265,13 @@ class CpuArtifactsTest(unittest.TestCase):
         self.assertIn("github.event_name == 'push'", workflow)
         self.assertIn("contains(github.event.head_commit.message, '[cpu-dotprod]')", workflow)
 
+    def test_runner_paths_are_step_scoped_not_invalid_job_context(self):
+        workflow = (ROOT / '.github/workflows/cpu-experiment.yml').read_text()
+        self.assertNotIn('${{ runner.', workflow.split('    steps:\n')[0])
+        path = '${{ runner.temp }}/lip-cpu-${{ github.sha }}-dotprod-${{ matrix.lipDotprod }}'
+        self.assertEqual(workflow.count('          LIP_CPU_EVIDENCE: ' + path), 2)
+        self.assertIn('path: ${{ env.LIP_CPU_EVIDENCE }}', workflow)
+
     def test_launch_guard_rejects_unmarked_or_wrong_push_before_capture(self):
         valid = {'LIP_DOTPROD': 'false', 'GITHUB_SHA': SHA,
                  'GITHUB_REPOSITORY': 'ihearttokyo/Lip',

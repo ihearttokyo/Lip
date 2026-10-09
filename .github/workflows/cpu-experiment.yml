@@ -23,7 +23,6 @@ jobs:
     env:
       LIP_DOTPROD: ${{ matrix.lipDotprod }}
       LIP_CPU_ARTIFACT_NAME: Lip-cpu-${{ github.sha }}-dotprod-${{ matrix.lipDotprod }}-${{ github.run_id }}-${{ github.run_attempt }}
-      LIP_CPU_EVIDENCE: ${{ runner.temp }}/lip-cpu-${{ github.sha }}-dotprod-${{ matrix.lipDotprod }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -75,10 +74,13 @@ jobs:
       - name: Capture bounded artifacts or partial diagnostics (not acceptance)
         if: always()
         env:
+          LIP_CPU_EVIDENCE: ${{ runner.temp }}/lip-cpu-${{ github.sha }}-dotprod-${{ matrix.lipDotprod }}
           LIP_CPU_GATE_OUTCOME: ${{ steps.build.outcome == 'success' && steps.compiled.outcome == 'success' && 'success' || 'failure' }}
         run: python3 -B eval/cpu_artifacts.py
       - name: Retain public artifacts and diagnostics
         if: always()
+        env:
+          LIP_CPU_EVIDENCE: ${{ runner.temp }}/lip-cpu-${{ github.sha }}-dotprod-${{ matrix.lipDotprod }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ env.LIP_CPU_ARTIFACT_NAME }}
