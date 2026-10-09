@@ -1,0 +1,2139 @@
+{
+  "schema_version": 1,
+  "outcome": "rejected_for_quality_and_nonregression_not_promoted",
+  "acceptance": "not_assessed",
+  "evidence_class": "actual_public_hosted_CPU_inference_with_independently_recomputed_text_scores",
+  "scope": "Small frozen read-speech and public quiet-derivative comparison; not Android, microphone, spontaneous dictation, warm latency or authenticated formatting evidence.",
+  "source_commit": "e53c0105d25534b9adfe9d8bdb0677b883ad8a84",
+  "runtime_revision": "306c88f4d1286aec1bf96e544632897886af5501",
+  "run_url": "https://github.com/ihearttokyo/Lip/actions/runs/37954346970",
+  "artifact_id": 11628717378,
+  "artifact_zip_bytes": 322127,
+  "artifact_zip_sha256": "1928d6ef49ae15fb25138598d637bb6a77df95a5aaaabac8cd1d8a23c308ab32",
+  "verified_text_files": 374,
+  "verified_text_bytes": 811380,
+  "runner_sha256": "04adcd5d695b6ebdbc94cafcb1cd459fd801736a54a8ca04c828afef04c19c73",
+  "pins_sha256": "1aa1e62a09418df630cb4b23e149adb1770e2de482fe20bfecb1d92208399c56",
+  "source_sha256": {
+    "eval/corpus.json": "46b5595291997beda8b5648541400640a80b458a411c2572bd9d4f83f49c01ef",
+    "eval/controls.json": "eb8a7133e3dcd11d056bc2324384b3d7b664fff29d700f052b1cb67d9e6a0620",
+    "eval/benchmark.py": "a681b82e4c444756bda0f3440a84c0ef3df47819e9da0af5628f6f4db4621e76",
+    "eval/fetch_corpus.py": "6a1eaa51507aff890c5c334c632b0e5fdd6634acdd109c26207a2c5e2a3a50bf",
+    "eval/vad_holdouts.py": "15e880e14aea1e93210e7f9dfd744cddce9ae12bad11906010325eba2f17b435",
+    "eval/observe_vad.py": "f4a05cb94ed37e751da117135eb99b999753444332160b25ce724be28baade9b",
+    "eval/controls.py": "a8a842b294cc0d465ff173925d737fbc7b66944527041efe8fbe123fc52ca93a",
+    "eval/qwen17_ci.py": "2b1cf07f50e9fbba586dd4de44f14e30fd8cbb4384669ae9ad9e252a4c8d79ad",
+    "eval/qwen17_cli.py": "baab465befce891e41138ed146da9975c75aadadf0bbb3b2861430d09a0215b1",
+    "eval/sensevoice_cli.py": "e9688330565adf99a794b4b2e89397b0568c69a56ac51a7a5bb835ac7eaa0b0a"
+  },
+  "model": {
+    "bytes": 574041195,
+    "sha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+    "revision": "5359861c739e955e79d9a303bcbc70fb988958b1"
+  },
+  "common_decoder_parameters": {
+    "n_threads": 4,
+    "best_of": 5,
+    "audio_ctx": 0,
+    "n_max_text_ctx": 224,
+    "no_context": 1,
+    "no_timestamps": 0,
+    "token_timestamps": 0,
+    "use_gpu": 0,
+    "flash_attn": 1,
+    "vad": 0,
+    "translate": 0,
+    "temperature": 0,
+    "temperature_inc": 0.200000003,
+    "entropy_thold": 2.4000001,
+    "logprob_thold": -1,
+    "no_speech_thold": 0.600000024,
+    "prompt_bytes": 0,
+    "n_processors": 1
+  },
+  "variable": "Only max_initial_ts: 1.0 versus 30.0, common binary/model/backend; adjacent pairs alternate first arm.",
+  "results_verified": 72,
+  "summary": {
+    "1.0": {
+      "original": {
+        "total": 18,
+        "score_passes": 15,
+        "strict_passes": 15,
+        "errors": 20,
+        "reference_units": 503
+      },
+      "quiet": {
+        "total": 12,
+        "score_passes": 1,
+        "strict_passes": 1,
+        "errors": 179,
+        "reference_units": 356
+      },
+      "controls": {
+        "total": 6,
+        "score_passes": 1,
+        "strict_passes": 0,
+        "errors": 39,
+        "reference_units": 0
+      }
+    },
+    "30.0": {
+      "original": {
+        "total": 18,
+        "score_passes": 15,
+        "strict_passes": 15,
+        "errors": 20,
+        "reference_units": 503
+      },
+      "quiet": {
+        "total": 12,
+        "score_passes": 3,
+        "strict_passes": 3,
+        "errors": 126,
+        "reference_units": 356
+      },
+      "controls": {
+        "total": 6,
+        "score_passes": 1,
+        "strict_passes": 0,
+        "errors": 39,
+        "reference_units": 0
+      }
+    }
+  },
+  "quality_passed": false,
+  "per_case_nonregression_passed": false,
+  "regression": {
+    "id": "fleurs-ja-010-minus42db-pause-before",
+    "control_errors": 1,
+    "candidate_errors": 3,
+    "reference_units": 30,
+    "control_passed": true,
+    "candidate_passed": false,
+    "interpretation": "ASCII 3 versus fullwidth ３ plus 怪我人 versus けが人 orthography. Three people and negation remain; this is not demonstrated count or negation loss. Frozen failure remains unchanged."
+  },
+  "control_scope": "Six language labels reuse two unique WAVs. Strict empty requires no raw text and no segments, not punctuation-normalized scoring. Standard CLI omits production exact-zero bypass; its silence hallucinations do not demonstrate failure of the JNI/Kotlin zero guard. Nonzero noise remains unqualified.",
+  "maximum_recorded_native_peak_rss_bytes": 841371648,
+  "timing_scope": "Cold fresh-process CLI, not warm Android or Stop-to-final latency.",
+  "experiment_elapsed_seconds": 1704.161817638,
+  "attribution": {
+    "public_audio": "FLEURS (2022), Conneau et al., Google; CC-BY-4.0. Public-human sources unchanged; fixed -24/-42 dB PCM16 with leading or trailing seeded noise; no cropping, VAD, gain recovery or output filtering.",
+    "source_card": "https://huggingface.co/datasets/google/fleurs",
+    "paper": "https://arxiv.org/abs/2205.12446",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "native": "ggml/whisper.cpp authors; MIT; pinned upstream license retained in the hosted artifact."
+  },
+  "limits": [
+    "All original/quiet references, fact anchors and 5% per-clip ceilings unchanged.",
+    "Original 15/18 and candidate quiet 3/12 do not establish perfect transcription.",
+    "No token confidence, per-segment no-speech probability or detailed decoder/fallback trace was collected.",
+    "Android scheduler cancellation patch was not applied to this host binary.",
+    "No production policy/model/phone change, release, merge or parity promotion."
+  ],
+  "cases": [
+    {
+      "id": "fleurs-en-000",
+      "arm": "1.0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "048169439c0328b758349af74aeb54a82a7a476e309709eb791dced06db25d48",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 15,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "satellite",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "5414588c40aaca6face4fea72a1f5d2a04472de8372c9114edd5a7d303dc57e8",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-000",
+      "arm": "30.0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "048169439c0328b758349af74aeb54a82a7a476e309709eb791dced06db25d48",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 15,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "satellite",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "5414588c40aaca6face4fea72a1f5d2a04472de8372c9114edd5a7d303dc57e8",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-003",
+      "arm": "1.0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "7172cc6e8a7b006a8175c57df13bb69db0c6249dc09d7b015c98722d5af9734c",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 5,
+          "reference_units": 10,
+          "rate": 0.5
+        },
+        "checks": [
+          {
+            "name": "name",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "18326e7f575c9c3274b032baf7cdc74f316438426da77d80612c46c88c1d3889",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-003",
+      "arm": "30.0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "7172cc6e8a7b006a8175c57df13bb69db0c6249dc09d7b015c98722d5af9734c",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 5,
+          "reference_units": 10,
+          "rate": 0.5
+        },
+        "checks": [
+          {
+            "name": "name",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "18326e7f575c9c3274b032baf7cdc74f316438426da77d80612c46c88c1d3889",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-011",
+      "arm": "1.0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "409c1b0f2e86fbc7996c1122e8ccbd0ff30bae145395b456e4ffa6b8c8279c12",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 24,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "3d47bd0c696114db7fafbbf8adbbdaaf1f4c86c58a14ff049e6a9b14a1277f48",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-en-011",
+      "arm": "30.0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "409c1b0f2e86fbc7996c1122e8ccbd0ff30bae145395b456e4ffa6b8c8279c12",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 24,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "3d47bd0c696114db7fafbbf8adbbdaaf1f4c86c58a14ff049e6a9b14a1277f48",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-en-011-minus24db-pause-after",
+      "arm": "1.0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "a1753cfe60369b5075f9d6ecb1181ab5000eaedeaa119862b3d1453c4579e3bc",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 3,
+          "reference_units": 24,
+          "rate": 0.125
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "1cada5e273c98af91ed0e2311172eafe950f70bca56c3b4b15e254eeb5b92c3f",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-en-011-minus24db-pause-after",
+      "arm": "30.0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "a1753cfe60369b5075f9d6ecb1181ab5000eaedeaa119862b3d1453c4579e3bc",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 3,
+          "reference_units": 24,
+          "rate": 0.125
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "1cada5e273c98af91ed0e2311172eafe950f70bca56c3b4b15e254eeb5b92c3f",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-en-011-minus24db-pause-before",
+      "arm": "1.0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "3ccce5c4a5860dba16dbb75904a49ac36f5d426da8f2f0ab6af1577cbcd23bd6",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 23,
+          "reference_units": 24,
+          "rate": 0.9583333333333334
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "f16346b87d5e10c3dba5863105b98ef623412033ede9d42239067531c8f9bc6e",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-011-minus24db-pause-before",
+      "arm": "30.0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "3ccce5c4a5860dba16dbb75904a49ac36f5d426da8f2f0ab6af1577cbcd23bd6",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 24,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "43ee6c62c3009583caf4c8927ab534ef6755af172d86c437b6968c0ee590690e",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-011-minus42db-pause-after",
+      "arm": "1.0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "1b45beb9f53a8789b91b2ea66081854dd787f85a66a76d100fa429063e9dbd48",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 24,
+          "reference_units": 24,
+          "rate": 1.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "bccb36421c32fd24fe7d39b410b0f4edbe696599236548fac942263bbc8f8be0",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-011-minus42db-pause-after",
+      "arm": "30.0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "1b45beb9f53a8789b91b2ea66081854dd787f85a66a76d100fa429063e9dbd48",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 24,
+          "reference_units": 24,
+          "rate": 1.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "bccb36421c32fd24fe7d39b410b0f4edbe696599236548fac942263bbc8f8be0",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-011-minus42db-pause-before",
+      "arm": "1.0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "eb9a358a7debbec967b67faa65cf3fd398f0545177589e5f94cabdc42dc7f9cc",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 24,
+          "reference_units": 24,
+          "rate": 1.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "c7213e9b64b315c73cb768d0da8876bd067d2f517cfc83df7f0ac1fc644d8163",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-011-minus42db-pause-before",
+      "arm": "30.0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "eb9a358a7debbec967b67faa65cf3fd398f0545177589e5f94cabdc42dc7f9cc",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 24,
+          "reference_units": 24,
+          "rate": 1.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "c7213e9b64b315c73cb768d0da8876bd067d2f517cfc83df7f0ac1fc644d8163",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-013",
+      "arm": "1.0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "431d013d01d25cbf8d42587f4a14df57d09dbe9cbc2af4ea91ba93f9bd290ec4",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 17,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "3089534c00a191bcc34cb2ec3f98358f82cd7eab257db71cfac6d5c0183e6abf",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-en-013",
+      "arm": "30.0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "431d013d01d25cbf8d42587f4a14df57d09dbe9cbc2af4ea91ba93f9bd290ec4",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 17,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "3089534c00a191bcc34cb2ec3f98358f82cd7eab257db71cfac6d5c0183e6abf",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-en-017",
+      "arm": "1.0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "952145e2808bf8ea6354ec0ea656652a0eeff61438a466fa4f0f3568f89c23a3",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 17,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "year",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "aff85e8e4502bb57efd09d96bda05c47443c091d5dc5baf3d6a7a78a68c8c076",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-017",
+      "arm": "30.0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "952145e2808bf8ea6354ec0ea656652a0eeff61438a466fa4f0f3568f89c23a3",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 17,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "year",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "aff85e8e4502bb57efd09d96bda05c47443c091d5dc5baf3d6a7a78a68c8c076",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-021",
+      "arm": "1.0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "df7a78f49dc92468b8e79a2ffb98d78622ead12f70f567eca0ac472a81ba21b6",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 26,
+          "rate": 0.038461538461538464
+        },
+        "checks": [
+          {
+            "name": "counts",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "injured",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "uncertainty",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "4c15316a8ac449c4e1dbd564f56335da4c5d521c367f5954f8f879a8a4338948",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-021",
+      "arm": "30.0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "df7a78f49dc92468b8e79a2ffb98d78622ead12f70f567eca0ac472a81ba21b6",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 26,
+          "rate": 0.038461538461538464
+        },
+        "checks": [
+          {
+            "name": "counts",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "injured",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "uncertainty",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "4c15316a8ac449c4e1dbd564f56335da4c5d521c367f5954f8f879a8a4338948",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-002",
+      "arm": "1.0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "88391f365cdecc51a56ef5f9322c441c0107ab8d0c6f7a3a09f2334ffe8c56ff",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 28,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "duration",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "76063982909f72d8a57d30d6337ea1fda466eee942d5ede36b6e09b34df724b1",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-002",
+      "arm": "30.0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "88391f365cdecc51a56ef5f9322c441c0107ab8d0c6f7a3a09f2334ffe8c56ff",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 28,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "duration",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "76063982909f72d8a57d30d6337ea1fda466eee942d5ede36b6e09b34df724b1",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-010",
+      "arm": "1.0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "79f4e7148a35d78e986911d939c1664737209e33c4e46dae944e28bb624afdfb",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 30,
+          "rate": 0.03333333333333333
+        },
+        "checks": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "0ae22edecc76cde1833313aec281c7a2f8d0ce794680b164d38ac675a648eb10",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-010",
+      "arm": "30.0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "79f4e7148a35d78e986911d939c1664737209e33c4e46dae944e28bb624afdfb",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 30,
+          "rate": 0.03333333333333333
+        },
+        "checks": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "0ae22edecc76cde1833313aec281c7a2f8d0ce794680b164d38ac675a648eb10",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-010-minus24db-pause-after",
+      "arm": "1.0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "a9736f3a19f41e85797dc595b247a29940a80c8977d519ecfcd2aa52ca5d0543",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 31,
+          "reference_units": 30,
+          "rate": 1.0333333333333334
+        },
+        "checks": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "f7b6c5e34be23eb859361a0708e3635e070d62b45169a14bdc8acda555cb2d2c",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-ja-010-minus24db-pause-after",
+      "arm": "30.0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "a9736f3a19f41e85797dc595b247a29940a80c8977d519ecfcd2aa52ca5d0543",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 31,
+          "reference_units": 30,
+          "rate": 1.0333333333333334
+        },
+        "checks": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "f7b6c5e34be23eb859361a0708e3635e070d62b45169a14bdc8acda555cb2d2c",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-ja-010-minus24db-pause-before",
+      "arm": "1.0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "57381b0849eef52e5db1ee0016be718deb7b942fff495275d67f32795d5ae193",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 31,
+          "reference_units": 30,
+          "rate": 1.0333333333333334
+        },
+        "checks": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "f7b6c5e34be23eb859361a0708e3635e070d62b45169a14bdc8acda555cb2d2c",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-ja-010-minus24db-pause-before",
+      "arm": "30.0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "57381b0849eef52e5db1ee0016be718deb7b942fff495275d67f32795d5ae193",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 30,
+          "rate": 0.03333333333333333
+        },
+        "checks": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "0ae22edecc76cde1833313aec281c7a2f8d0ce794680b164d38ac675a648eb10",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-010-minus42db-pause-after",
+      "arm": "1.0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "6d862898fb6201478f4f3b8ac1d7381e0d96488875e67ea77f0f43a80685ec90",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 31,
+          "reference_units": 30,
+          "rate": 1.0333333333333334
+        },
+        "checks": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "f7b6c5e34be23eb859361a0708e3635e070d62b45169a14bdc8acda555cb2d2c",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-ja-010-minus42db-pause-after",
+      "arm": "30.0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "6d862898fb6201478f4f3b8ac1d7381e0d96488875e67ea77f0f43a80685ec90",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 31,
+          "reference_units": 30,
+          "rate": 1.0333333333333334
+        },
+        "checks": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "f7b6c5e34be23eb859361a0708e3635e070d62b45169a14bdc8acda555cb2d2c",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-ja-010-minus42db-pause-before",
+      "arm": "1.0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "23e34ac5ae1690aabe13b227c4197c47061d8de0f629b0b586ded483c67785da",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 30,
+          "rate": 0.03333333333333333
+        },
+        "checks": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "0ae22edecc76cde1833313aec281c7a2f8d0ce794680b164d38ac675a648eb10",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-010-minus42db-pause-before",
+      "arm": "30.0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "23e34ac5ae1690aabe13b227c4197c47061d8de0f629b0b586ded483c67785da",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 3,
+          "reference_units": 30,
+          "rate": 0.1
+        },
+        "checks": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "234bb34278b20af56cda95d82906aed96748b72f2a2ad9cdbfe8800bc078cbde",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-013",
+      "arm": "1.0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "66b2cadee94dcfd09ab9d64e0872510377435a855fcf93f27c296caecdefefec",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 41,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "name",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "9bf2d92cfa9cf8dc6efb1546a2d4dd1149026749f9673e7fa5b4db08751e72d5",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-013",
+      "arm": "30.0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "66b2cadee94dcfd09ab9d64e0872510377435a855fcf93f27c296caecdefefec",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 41,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "name",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "9bf2d92cfa9cf8dc6efb1546a2d4dd1149026749f9673e7fa5b4db08751e72d5",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-025",
+      "arm": "1.0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "791a961a253abc6af431fbf7a2e63376ba573bbc4ce4f32f2d690316bdf82357",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 35,
+          "rate": 0.02857142857142857
+        },
+        "checks": [
+          {
+            "name": "unchanged",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "a3c932b16de7e96548ce619806e50a7f7d74f11fc8fd1269888e4d645583eb0a",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-025",
+      "arm": "30.0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "791a961a253abc6af431fbf7a2e63376ba573bbc4ce4f32f2d690316bdf82357",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 35,
+          "rate": 0.02857142857142857
+        },
+        "checks": [
+          {
+            "name": "unchanged",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "a3c932b16de7e96548ce619806e50a7f7d74f11fc8fd1269888e4d645583eb0a",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-030",
+      "arm": "1.0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "a548ddfc95de96b390e9b491cef0884ecb3aaec0ea773085baa40c16450b019d",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 41,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "score",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "streak",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "b0fb257ee6d16eee6e9cf1f578719bca4dffc1508e7b978d32433d27e711cab5",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-030",
+      "arm": "30.0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "a548ddfc95de96b390e9b491cef0884ecb3aaec0ea773085baa40c16450b019d",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 41,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "score",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "streak",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "b0fb257ee6d16eee6e9cf1f578719bca4dffc1508e7b978d32433d27e711cab5",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-034",
+      "arm": "1.0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "287ea58715c3a94b2751d960d823b67060878a6861ba7f5643dacc30fb2c8c8b",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 32,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "width",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "d3663df0f46a17518bb223f3fccdcecb5c4443f76e43d10090df4005c977c929",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-034",
+      "arm": "30.0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "287ea58715c3a94b2751d960d823b67060878a6861ba7f5643dacc30fb2c8c8b",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 32,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "width",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "d3663df0f46a17518bb223f3fccdcecb5c4443f76e43d10090df4005c977c929",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-001",
+      "arm": "1.0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "577a635c2261680c61dda5fecbc4f83bff6f37f453665b8d9d1a68f210f57c0a",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 35,
+          "rate": 0.02857142857142857
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "9d06af0f58950620ba7ccae8410baee5d41078ea6cca80049b8ce3f7dafe67b6",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-001",
+      "arm": "30.0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "577a635c2261680c61dda5fecbc4f83bff6f37f453665b8d9d1a68f210f57c0a",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 35,
+          "rate": 0.02857142857142857
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "9d06af0f58950620ba7ccae8410baee5d41078ea6cca80049b8ce3f7dafe67b6",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-001-minus24db-pause-after",
+      "arm": "1.0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "947bcde389236492077f20f5210ef21fe556569633354f148f62f6ac316adf00",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 2,
+          "reference_units": 35,
+          "rate": 0.05714285714285714
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "c20e6e225c4b452dc0ac35656b788eac7ba9fe25203261381cc66e586c0c859e",
+      "segment_count": 4
+    },
+    {
+      "id": "fleurs-zh-001-minus24db-pause-after",
+      "arm": "30.0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "947bcde389236492077f20f5210ef21fe556569633354f148f62f6ac316adf00",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 2,
+          "reference_units": 35,
+          "rate": 0.05714285714285714
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "c20e6e225c4b452dc0ac35656b788eac7ba9fe25203261381cc66e586c0c859e",
+      "segment_count": 4
+    },
+    {
+      "id": "fleurs-zh-001-minus24db-pause-before",
+      "arm": "1.0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "4b4c4b30de8c0832b58cc5059497022dad1075baedb5afd5eccaa824572b0d53",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 3,
+          "reference_units": 35,
+          "rate": 0.08571428571428572
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "a57e6897b9672f139c418f89802c989fabf55a08e132c049d7468846dad34144",
+      "segment_count": 4
+    },
+    {
+      "id": "fleurs-zh-001-minus24db-pause-before",
+      "arm": "30.0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "4b4c4b30de8c0832b58cc5059497022dad1075baedb5afd5eccaa824572b0d53",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 35,
+          "rate": 0.02857142857142857
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "0ab132fa74464b9700efc0e2bc18aae8efcaf2ec8366dba8d442f20520d3530b",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-001-minus42db-pause-after",
+      "arm": "1.0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "6b0e2b4da500e0cbdcd80798a9531a55a63b47d4b533d8a01a211feb570d37f5",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 3,
+          "reference_units": 35,
+          "rate": 0.08571428571428572
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "754ffee69560412ab5569a034a6a661bdd3af94008c816cc044348453229e208",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-001-minus42db-pause-after",
+      "arm": "30.0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "6b0e2b4da500e0cbdcd80798a9531a55a63b47d4b533d8a01a211feb570d37f5",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 3,
+          "reference_units": 35,
+          "rate": 0.08571428571428572
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "754ffee69560412ab5569a034a6a661bdd3af94008c816cc044348453229e208",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-001-minus42db-pause-before",
+      "arm": "1.0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "634c55c5f1e981fd5b52265b2384bdf327f08a3aee55eecb0f61f6d9de0ed529",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 3,
+          "reference_units": 35,
+          "rate": 0.08571428571428572
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "37c848b0cf5fb4529adcfda3fad0a9ebf038d264d56704fa559c3dd9577e6317",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-001-minus42db-pause-before",
+      "arm": "30.0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "634c55c5f1e981fd5b52265b2384bdf327f08a3aee55eecb0f61f6d9de0ed529",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 3,
+          "reference_units": 35,
+          "rate": 0.08571428571428572
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "37c848b0cf5fb4529adcfda3fad0a9ebf038d264d56704fa559c3dd9577e6317",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-008",
+      "arm": "1.0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "602f0fc4a334f4927b221b836f1735a09888f017956d02e1aaf97526a10cc964",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 31,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "score",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "streak",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "d5ff9594ccdf10518af8227e29217c17386ca71981d96bc6d160dc580fd1d1f8",
+      "segment_count": 3
+    },
+    {
+      "id": "fleurs-zh-008",
+      "arm": "30.0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "602f0fc4a334f4927b221b836f1735a09888f017956d02e1aaf97526a10cc964",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 31,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "score",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "streak",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "d5ff9594ccdf10518af8227e29217c17386ca71981d96bc6d160dc580fd1d1f8",
+      "segment_count": 3
+    },
+    {
+      "id": "fleurs-zh-011",
+      "arm": "1.0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "740b099bcbe2ef18d0605505bdf34494086b2422ce9677b4ab92bc056780aeff",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 14,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "term",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "67ab43dbf1823c552bf9b0d32f6b336420cbc328d68398132bb40d349f8eaa38",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-011",
+      "arm": "30.0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "740b099bcbe2ef18d0605505bdf34494086b2422ce9677b4ab92bc056780aeff",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 14,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "term",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "67ab43dbf1823c552bf9b0d32f6b336420cbc328d68398132bb40d349f8eaa38",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-020",
+      "arm": "1.0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "46a8db323b5e51dcbb06813f5ebb303d7688326b6cc51ba6e609296c75973f59",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 9,
+          "reference_units": 58,
+          "rate": 0.15517241379310345
+        },
+        "checks": [
+          {
+            "name": "year",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "stamp count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "name",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "4d9d85fc27981f8c88aebad6ba18d41013d91acebb0ed40b221801c82302cab1",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-020",
+      "arm": "30.0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "46a8db323b5e51dcbb06813f5ebb303d7688326b6cc51ba6e609296c75973f59",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 9,
+          "reference_units": 58,
+          "rate": 0.15517241379310345
+        },
+        "checks": [
+          {
+            "name": "year",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "stamp count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "name",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "4d9d85fc27981f8c88aebad6ba18d41013d91acebb0ed40b221801c82302cab1",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-022",
+      "arm": "1.0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "7cda86aca73eac3283e3e12a90a550b3eb2c3ac33d6c202d7c0759eea384f7b4",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 36,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "5e7165c3c0e3811c7603e9619a3a23502e2e1c38b9b12115bc2a3525c9c4d8d1",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-zh-022",
+      "arm": "30.0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "7cda86aca73eac3283e3e12a90a550b3eb2c3ac33d6c202d7c0759eea384f7b4",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 36,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "strict_passed": true,
+      "raw_sha256": "5e7165c3c0e3811c7603e9619a3a23502e2e1c38b9b12115bc2a3525c9c4d8d1",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-zh-034",
+      "arm": "1.0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "eba0b68aa12dd62c40f78ea201be03e51f790c1811c8f6b5a646c17a1a9691ed",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 2,
+          "reference_units": 13,
+          "rate": 0.15384615384615385
+        },
+        "checks": [
+          {
+            "name": "name",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "684f04e8d68be7cb53e6251dc014e16a3fa5ca85010bbdaf4c85964ba5eb3589",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-034",
+      "arm": "30.0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "eba0b68aa12dd62c40f78ea201be03e51f790c1811c8f6b5a646c17a1a9691ed",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 2,
+          "reference_units": 13,
+          "rate": 0.15384615384615385
+        },
+        "checks": [
+          {
+            "name": "name",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "684f04e8d68be7cb53e6251dc014e16a3fa5ca85010bbdaf4c85964ba5eb3589",
+      "segment_count": 1
+    },
+    {
+      "id": "noise-en",
+      "arm": "1.0",
+      "language": "en",
+      "origin": "negative_control",
+      "audio_sha256": "af9a9dfee9e45c53834a5258369d5308d95f47ea7e423f0a44c8cb8b147b5d45",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 0,
+          "rate": 0.0
+        },
+        "checks": [],
+        "passed": true
+      },
+      "strict_passed": false,
+      "raw_sha256": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8",
+      "segment_count": 1
+    },
+    {
+      "id": "noise-en",
+      "arm": "30.0",
+      "language": "en",
+      "origin": "negative_control",
+      "audio_sha256": "af9a9dfee9e45c53834a5258369d5308d95f47ea7e423f0a44c8cb8b147b5d45",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 0,
+          "rate": 0.0
+        },
+        "checks": [],
+        "passed": true
+      },
+      "strict_passed": false,
+      "raw_sha256": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8",
+      "segment_count": 1
+    },
+    {
+      "id": "noise-ja",
+      "arm": "1.0",
+      "language": "ja",
+      "origin": "negative_control",
+      "audio_sha256": "af9a9dfee9e45c53834a5258369d5308d95f47ea7e423f0a44c8cb8b147b5d45",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 2,
+          "reference_units": 0,
+          "rate": null
+        },
+        "checks": [],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "8f90d85ec13a0b1b12d81203f2f3262ca156028a94aeaf91ae52fcd5a9de4170",
+      "segment_count": 1
+    },
+    {
+      "id": "noise-ja",
+      "arm": "30.0",
+      "language": "ja",
+      "origin": "negative_control",
+      "audio_sha256": "af9a9dfee9e45c53834a5258369d5308d95f47ea7e423f0a44c8cb8b147b5d45",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 2,
+          "reference_units": 0,
+          "rate": null
+        },
+        "checks": [],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "8f90d85ec13a0b1b12d81203f2f3262ca156028a94aeaf91ae52fcd5a9de4170",
+      "segment_count": 1
+    },
+    {
+      "id": "noise-zh",
+      "arm": "1.0",
+      "language": "zh",
+      "origin": "negative_control",
+      "audio_sha256": "af9a9dfee9e45c53834a5258369d5308d95f47ea7e423f0a44c8cb8b147b5d45",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 0,
+          "rate": null
+        },
+        "checks": [],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "f867f34178594f891eb70a4260f62b1d9289cfa60394f9fee1cbbe4a8b4bf436",
+      "segment_count": 1
+    },
+    {
+      "id": "noise-zh",
+      "arm": "30.0",
+      "language": "zh",
+      "origin": "negative_control",
+      "audio_sha256": "af9a9dfee9e45c53834a5258369d5308d95f47ea7e423f0a44c8cb8b147b5d45",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 0,
+          "rate": null
+        },
+        "checks": [],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "f867f34178594f891eb70a4260f62b1d9289cfa60394f9fee1cbbe4a8b4bf436",
+      "segment_count": 1
+    },
+    {
+      "id": "silence-en",
+      "arm": "1.0",
+      "language": "en",
+      "origin": "negative_control",
+      "audio_sha256": "262d1f34f300560a4c82ba8127ddea9e1d72946f187fdbd3e8f70ee096077aec",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 2,
+          "reference_units": 0,
+          "rate": null
+        },
+        "checks": [],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "8569efc4ed5a6273140c2b6ec0ab8d99f4398210808fbb7c0cbbae4fbcc21350",
+      "segment_count": 1
+    },
+    {
+      "id": "silence-en",
+      "arm": "30.0",
+      "language": "en",
+      "origin": "negative_control",
+      "audio_sha256": "262d1f34f300560a4c82ba8127ddea9e1d72946f187fdbd3e8f70ee096077aec",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 2,
+          "reference_units": 0,
+          "rate": null
+        },
+        "checks": [],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "8569efc4ed5a6273140c2b6ec0ab8d99f4398210808fbb7c0cbbae4fbcc21350",
+      "segment_count": 1
+    },
+    {
+      "id": "silence-ja",
+      "arm": "1.0",
+      "language": "ja",
+      "origin": "negative_control",
+      "audio_sha256": "262d1f34f300560a4c82ba8127ddea9e1d72946f187fdbd3e8f70ee096077aec",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 14,
+          "reference_units": 0,
+          "rate": null
+        },
+        "checks": [],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "0b60f62b46171b8625b7f25a66c4d8072d12e6b62786a283d8665a86d73791c2",
+      "segment_count": 1
+    },
+    {
+      "id": "silence-ja",
+      "arm": "30.0",
+      "language": "ja",
+      "origin": "negative_control",
+      "audio_sha256": "262d1f34f300560a4c82ba8127ddea9e1d72946f187fdbd3e8f70ee096077aec",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 14,
+          "reference_units": 0,
+          "rate": null
+        },
+        "checks": [],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "0b60f62b46171b8625b7f25a66c4d8072d12e6b62786a283d8665a86d73791c2",
+      "segment_count": 1
+    },
+    {
+      "id": "silence-zh",
+      "arm": "1.0",
+      "language": "zh",
+      "origin": "negative_control",
+      "audio_sha256": "262d1f34f300560a4c82ba8127ddea9e1d72946f187fdbd3e8f70ee096077aec",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 20,
+          "reference_units": 0,
+          "rate": null
+        },
+        "checks": [],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "f8aea53f45f5ee2d5be723939c20b25e7fc30b8cfca87933b4130a9a7933cac3",
+      "segment_count": 1
+    },
+    {
+      "id": "silence-zh",
+      "arm": "30.0",
+      "language": "zh",
+      "origin": "negative_control",
+      "audio_sha256": "262d1f34f300560a4c82ba8127ddea9e1d72946f187fdbd3e8f70ee096077aec",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 20,
+          "reference_units": 0,
+          "rate": null
+        },
+        "checks": [],
+        "passed": false
+      },
+      "strict_passed": false,
+      "raw_sha256": "f8aea53f45f5ee2d5be723939c20b25e7fc30b8cfca87933b4130a9a7933cac3",
+      "segment_count": 1
+    }
+  ]
+}
