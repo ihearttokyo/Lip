@@ -91,7 +91,7 @@ public class PhoneUiProtocolTest {
                 QUERY.replace("\"id\"", "'id'"), QUERY.replace("\"id\":1", "\"id\":01"),
                 QUERY.replace("Try dictation", "raw\nnewline")}) rejects(json);
     }
-    @Test public void jsonEscapesRoundTripWithoutCoercion() {
+    @Test public void jsonEscapesRoundTripWithoutCoercion() throws Exception {
         for (String text : new String[]{"line\nnext\t\"quote\"\\slash/", "🙂東京", "\b\f\r", "\u0000"}) {
             JSONObject json = new JSONObject(EDIT).put("text", text);
             assertEquals(text, parse(json.toString(), 1).text);
