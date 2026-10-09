@@ -96,9 +96,49 @@
   "latency_acceptance": false,
   "not_checked": [
     "physical_microphone",
-    "active_cancellation",
     "Gboard_insertion",
     "authenticated_cleanup"
   ],
-  "prepared_cancellation_calibration": "source_only; same_original_deadlines_and_full_cohort_progress; native_vendor_patch_inactive"
+  "prepared_cancellation_calibration": "Live eight-core witness verified; pristine cancellation deadline failed. Generated vendor callback patch activated after this RED; patched build and runtime verification pending.",
+  "active_cancellation": {
+    "installed_source": "fda41f973ef4d4039b48d301234d0614d3288b91",
+    "main_apk_sha256": "41ca9ea0c3b14fac43991c09111e87181b987fea2489ea9940fa108e3fe44bbb",
+    "test_apk_sha256": "73b61a19bd3f5f951fd718b86419f07ff7e0c11346d0baa9a3a219627e8c7cfa",
+    "pristine_vendor": true,
+    "model_sha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+    "pcm_sha256": "e42fdeed81feac1d9d660e888ceb0351e785760f24ec7b8e9d8420cfe96a800f",
+    "online_cpus": 8,
+    "expected_native_workers": 3,
+    "native_stack_observed": true,
+    "all_owned_threads_cpu_progress_2s": true,
+    "cohort_turnover_witness": "post-first-native-cohort turnover on pinned mel/encoder callpath; inferred, not a callback or exact kernel-stage trace",
+    "cancel_call_elapsed_ns": 10156,
+    "cleanup_deadline_ms": 15000,
+    "cleanup_deadline_pass": false,
+    "cancel_to_final_observation_ms": 29868.113426,
+    "late_cleanup_only": true,
+    "cancellation_exception": true,
+    "returned_transcript": false,
+    "same_context_zero_reset": true,
+    "closed_engine_checks": true,
+    "closed": true,
+    "handle": 0,
+    "native_tasks_quiescent": true,
+    "staging_removed": true,
+    "parent_hold": false,
+    "fresh_nonzero_skipped": true,
+    "passed": false
+  },
+  "cpu_profile": {
+    "installed_source": "fda41f973ef4d4039b48d301234d0614d3288b91",
+    "evidence_class": "live_app_only_native_inference_window_not_whole_run",
+    "duration_seconds": 10,
+    "sample_frequency_hz": 99,
+    "samples": 2726,
+    "lost_samples": 0,
+    "q5_dot_product_sample_percent": 73.88,
+    "flash_attention_sample_percent": 17.1,
+    "profiling_limits_unchanged": true,
+    "speedup_measured": false
+  }
 }

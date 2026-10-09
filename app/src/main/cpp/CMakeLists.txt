@@ -16,5 +16,6 @@ set(GGML_METAL OFF CACHE BOOL "" FORCE)
 set(GGML_ACCELERATE OFF CACHE BOOL "" FORCE)
 
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../../../../third_party/whisper.cpp" whisper EXCLUDE_FROM_ALL)
+include(patches/whisper-scheduler-abort.cmake)
 add_library(lip_whisper SHARED whisper_jni.cpp)
 target_link_libraries(lip_whisper PRIVATE whisper)

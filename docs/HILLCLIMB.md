@@ -6,6 +6,25 @@ Perfect recognition for every possible speaker/noise condition cannot be
 certified by a finite benchmark; this work measures errors and closes concrete
 failures rather than asserting perfection.
 
+## October 9 overnight scope
+
+Work deadline: October 10, 2026, 08:48 JST. The owner has disconnected the
+phone until morning. Continue source repairs, independent reviews and hosted
+builds; preserve all app history, credentials and device settings. Resume
+physical tests only after reconnection.
+
+Priorities are near-real-time local transcription, working ChatGPT text
+cleanup with specific failure reporting, and readable floating-bubble controls
+at the owner's existing font size. ChatGPT-login-only remains required:
+separately billed STT and cloud audio uploads were expressly declined. Current
+official OAuth preview limits exclude audio/transcription. No simulated or
+static check may replace the pending phone/managed-login acceptance gates.
+
+The measured CPU-window bottleneck is Q5 dot products. Qualify a narrowly
+controlled runtime-selected optimization before testing it; retain the pinned
+model, references, decoding policy and original quality/latency gates. An
+optimization build is experimental until representative phone evidence passes.
+
 ## Frozen first-stage gates
 
 - English word error rate and Japanese/Mandarin character error rate: at most
@@ -47,9 +66,8 @@ change may turn failure into a pass.
    lane. Its absence does not justify stopping independent engine, formatting,
    HTTP or Android-injection work.
 
-Use bounded serial inference/native builds initially. Six useful children are
-currently available to this session; requested larger ceilings do not override
-platform slots or abnormal memory/swap guards. All children are explicitly
+Use bounded serial inference/native builds initially. Use up to eight useful children within platform slots and memory limits,
+with no more than six heavy or unmeasured jobs. All children are explicitly
 pinned to GPT6.1-Sol/xhigh for this task. Model/effort/tier telemetry limitations
 are not acceptance blockers. Parent owns integration, reviews, evidence and
 publication. Existing releases are retained; PR merge authority is separate.

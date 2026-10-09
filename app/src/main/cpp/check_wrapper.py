@@ -18,6 +18,12 @@ assert engine.is_file(), 'WhisperEngine is missing'
 kotlin = engine.read_text()
 native = (root / 'app/src/main/cpp/whisper_jni.cpp').read_text()
 cmake = (root / 'app/src/main/cpp/CMakeLists.txt').read_text()
+# shortcut: root CMake must stay unconditional; review this shape guard if block syntax is needed.
+assert not re.search(r'#\[=*\[|\b(?:else(?:if)?|(?:end)?(?:if|foreach|while|function|macro|block))\s*\(',
+                     cmake, re.I), 'Root CMake block syntax needs review; source checks cannot prove activation'
+patch_include = 'include(patches/whisper-scheduler-abort.cmake)'
+assert sum(line.strip() == patch_include for line in cmake.splitlines()) == 1, 'Scheduled inference cancellation patch must be active'
+assert cmake.index('add_subdirectory(') < cmake.index(patch_include) < cmake.index('add_library(lip_whisper ')
 
 methods = set(re.findall(r'external fun (\w+)\(', kotlin))
 exports = set(re.findall(r'Java_dev_lip_speech_WhisperEngine_(\w+)\(', native))

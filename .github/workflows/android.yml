@@ -32,6 +32,32 @@ jobs:
           "$ANDROID_HOME/ndk/30.0.16248370/toolchains/llvm/prebuilt/linux-x86_64/bin/clang" --version
       - name: Unit tests, lint, and build
         run: ./gradlew testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest --no-daemon
+      - name: Verify compiled cancellation patch in both ABIs
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, shlex, subprocess
+          root = pathlib.Path.cwd()
+          verified = set()
+          for database in (root / 'app/.cxx').rglob('compile_commands.json'):
+              abi = next((abi for abi in ('arm64-v8a', 'x86_64') if abi in database.parts), None)
+              if abi is None:
+                  continue
+              rows = [row for row in json.loads(database.read_text()) if pathlib.Path(row['file']).name == 'whisper.cpp']
+              assert len(rows) == 1, (abi, 'Expected exactly one Whisper translation unit')
+              row = rows[0]
+              directory = pathlib.Path(row['directory'])
+              source = (directory / row['file']).resolve()
+              arguments = row.get('arguments') or shlex.split(row['command'])
+              target = {'arm64-v8a': 'aarch64-none-linux-android33', 'x86_64': 'x86_64-none-linux-android33'}[abi]
+              assert not any(arg in ('--target', '-target') for arg in arguments), (abi, 'Alternate compiler target syntax is outside the pinned NDK shape')
+              assert [arg for arg in arguments if arg.startswith('--target=')] == ['--target=' + target], (abi, 'Wrong Android compiler target')
+              assert arguments.count('-c') == 1, (abi, 'Expected one compiler input')
+              compiled = (directory / arguments[arguments.index('-c') + 1]).resolve()
+              assert compiled == source and source.parent == database.parent / 'whisper-cancel', (abi, 'Pristine or unrelated source must not compile')
+              subprocess.run(['python3', 'app/src/main/cpp/check_wrapper.py', '--cancel-patch', str(source)], check=True)
+              verified.add(abi)
+          assert verified == {'arm64-v8a', 'x86_64'}, verified
+          PY
       - name: Landing-page checks
         run: node docs/app.js --self-test && node --check docs/app.js
       - name: Audio evaluation contract tests (no inference)

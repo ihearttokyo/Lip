@@ -47,7 +47,7 @@ local and out of Git.
 
 ## Local speech backend
 
-- Engine: [whisper.cpp 1.9.2](https://github.com/ggml-org/whisper.cpp/tree/306c88f4d1286aec1bf96e544632897886af5501), pinned submodule commit `306c88f4d1286aec1bf96e544632897886af5501`, with vendored GGML.
+- Engine: [whisper.cpp 1.9.2](https://github.com/ggml-org/whisper.cpp/tree/306c88f4d1286aec1bf96e544632897886af5501), pinned submodule commit `306c88f4d1286aec1bf96e544632897886af5501`, with vendored GGML. The build applies a [hash-bound cancellation patch](../app/src/main/cpp/patches/whisper-scheduler-abort.json) to a generated source copy, leaving the submodule pristine. It forwards abort callbacks into scheduled CPU backends; model, decoding and thread policy are unchanged.
 - Model: `ggml-large-v3-turbo-q5_0.bin`, [publisher revision 5359861c](https://huggingface.co/ggerganov/whisper.cpp/blob/5359861c739e955e79d9a303bcbc70fb988958b1/README.md), exactly 574,041,195 bytes. SHA-256: `394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2`.
 - Installation: user-requested anonymous HTTPS download, bounded transfer, checksum and disk-readback verification, then same-directory atomic publication. Failure/cancellation preserves an existing verified model; no automatic retry or cloud audio fallback.
 - Capture: microphone PCM remains transient and local. Worker-side inference coalesces bounded windows; Finish drains accepted PCM, while Cancel fences late callbacks and cooperatively aborts native work. The selected language and local dictionary prompt condition transcription, not translation. A dictionary prompt does not retrain the model or guarantee spelling.
