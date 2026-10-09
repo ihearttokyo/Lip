@@ -1,17 +1,26 @@
 # Physical-phone acceptance
 
-Status: not run. Do not call functional parity complete from the emulator or
-these test instructions. Use the signed v0.2 APK, an eligible ChatGPT account,
-Gboard and non-sensitive sample speech. Keep private audio/tokens out of Git.
-The instrumentation runner is disposable-emulator-only: it changes that
-emulator's accessibility configuration. Never run it on a personal phone.
+Status: packaged native lifecycle, one file-fed English clip and active
+cancellation have run on the Android 16 phone. Latency and cancellation
+deadlines failed; microphone, multilingual phone quality and authenticated
+cleanup remain open. See [PARITY.md](PARITY.md) for actual evidence.
+
+The signed development repair pair is prepared for a state-preserving update
+after reconnection. The published v0.2 APK predates the bundled native engine.
+Keep Gboard, history, sign-in, accessibility services, font and DNS settings
+unchanged. Never uninstall or clear Lip for an update. Keep private audio and
+tokens out of Git. `LipSmokeRunner` and isolated-emulator-only audio/auth
+runners must not run on a personal phone. The separate Java `PhoneUiRunner`
+preserves other accessibility services; its real-phone runtime is still a gate.
 
 ## Local capture
 
 For English, Japanese and Mandarin separately:
 
-1. Explicitly install the offline language model. Turn network access off,
-   choose Verbatim, focus a normal editor and start from the bubble.
+1. Verify the installed multilingual model and record current settings before
+   any authorized temporary test change. Focus a normal non-sensitive editor
+   and start from the bubble; no network or permission change is required to
+   keep microphone audio local.
 2. Speak for three minutes, including a 20-second pause and immediate speech
    after an utterance endpoint. Move through the launcher into another app.
 3. Confirm the bubble remains stoppable, partial text appears before Finish,
@@ -21,11 +30,11 @@ For English, Japanese and Mandarin separately:
 5. Repeat Cancel, lock-screen, password-field and competing-recording cases.
    Capture must stop and late results must not restart or insert text.
 
-Record phone/OS/provider/model versions, raw transcripts, observed gaps,
+Record phone/OS/engine/model versions, raw transcripts, observed gaps,
 first-partial and stop-to-final times, silencing, Bluetooth behavior and
-thermal/memory effects locally. An unsupported or early-ending native provider
-fails acceptance; test a compatible provider or integrate a licensed local
-engine rather than hiding interruptions with a restart loop.
+thermal/memory effects locally. Early-ending capture, missing words or slow
+Finish fail acceptance; do not hide them with a restart loop or weaken the
+frozen speech and latency gates.
 
 ## Authenticated cleanup
 

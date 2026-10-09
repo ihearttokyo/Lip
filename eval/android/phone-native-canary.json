@@ -99,7 +99,7 @@
     "Gboard_insertion",
     "authenticated_cleanup"
   ],
-  "prepared_cancellation_calibration": "Live eight-core witness verified; pristine cancellation deadline failed. Generated vendor callback patch activated after this RED; patched build and runtime verification pending.",
+  "prepared_cancellation_calibration": "Live eight-core witness verified; pristine cancellation deadline failed. Generated vendor callback patch passes hosted source/compile checks for both ABIs; signed repair APK pair prepared, not installed. Patched runtime pending.",
   "active_cancellation": {
     "installed_source": "fda41f973ef4d4039b48d301234d0614d3288b91",
     "main_apk_sha256": "41ca9ea0c3b14fac43991c09111e87181b987fea2489ea9940fa108e3fe44bbb",
@@ -140,5 +140,25 @@
     "flash_attention_sample_percent": 17.1,
     "profiling_limits_unchanged": true,
     "speedup_measured": false
+  },
+  "prepared_repair_build": {
+    "source": "d01bfed60fca9c11d1f690089264de4ca07c483a",
+    "evidence_class": "hosted_build_and_static_apk_not_phone_runtime",
+    "ci_push": 37930263306,
+    "ci_pr": 37930269936,
+    "ci_conclusion": "success",
+    "compiled_cancel_source_sha256": "4cee50443113fab137c0ae6c93fcf5a701c92c600588ba7f1bc840ed3dfacdd7",
+    "compiled_abis": [
+      "arm64-v8a",
+      "x86_64"
+    ],
+    "main_apk_sha256": "8763d8f3bdba49bc9a116b503211e6c57e20c6c1b03f50c72c9526ff28e770b5",
+    "test_apk_sha256": "76ba7d5bc0d8242a6d02eb2a0ac3a3f4529d52a85bb3cb343d249609ef1480c6",
+    "same_installed_signer": true,
+    "signing_preserved_ci_payloads": true,
+    "elf_zip_16k_alignment": true,
+    "java_phone_bridge_dex_verified": true,
+    "installed": false,
+    "runtime_acceptance": false
   }
 }
