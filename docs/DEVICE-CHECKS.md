@@ -13,6 +13,29 @@ tokens out of Git. `LipSmokeRunner` and isolated-emulator-only audio/auth
 runners must not run on a personal phone. The separate Java `PhoneUiRunner`
 preserves other accessibility services; its real-phone runtime is still a gate.
 
+## Public acoustic canary
+
+The separate app-target Java `PhoneMicRunner` replays the complete, attributed
+FLEURS EN13 PCM through the phone speaker into the production microphone path.
+It is prepared for phone validation, not microphone or speech acceptance proof.
+Verify the app is idle before launching: app-target instrumentation can restart
+its process. Use only the matching same-sign main/test pair, never clear data.
+
+The runner requires the existing English preference, microphone permission and
+verified model. It refuses legacy-history migration, linked/replaced staging
+paths, muted media and an unobserved capture lifecycle. Stage only the frozen
+fixture after its fresh UUID `PHONE_MIC_READY` message, with one writer and an
+atomic `fixture.tmp` rename. No settings, global volume or existing history are
+changed; a new public-canary history record is retained.
+
+Retain `PHONE_MIC_RESULT` before another run. Incomplete or unverified cleanup
+fails, even if capture eventually returns. The original 15-second observation
+and cleanup gates and Stop-to-final below five seconds remain unchanged.
+`OBSERVED_PENDING_PARENT_SCORE` is not speech success: score actual raw output
+with the frozen seventeen-word reference, zero word errors under the 5% ceiling
+and both count/negation anchors. Speaker replay is not human, multilingual,
+Bluetooth or cross-app Gboard coverage; those independent checks remain open.
+
 ## Local capture
 
 For English, Japanese and Mandarin separately:

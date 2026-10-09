@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "acceptance": "static_hosted_capture_only_not_android_runtime_or_functional_parity",
+  "evidence_class": "actual_hosted_cross_build_and_static_artifact_inspection",
+  "source_sha": "e92e6b1958724a1540f6ffa0a37ec87ebda7ff57",
+  "vendor_pin": "306c88f4d1286aec1bf96e544632897886af5501",
+  "workflow_run": 37938131129,
+  "draft_pr": "https://github.com/ihearttokyo/Lip/pull/2",
+  "image_version": "20261004.327.1",
+  "arms": {
+    "false": {
+      "artifact_id": 11620010945,
+      "artifact_zip_sha256": "68760be0634bad9df83a6b5d4c56434130d72f043d31d14059a32a3451cbf1aa",
+      "capture_status": "complete_capture",
+      "gate_outcome": "success",
+      "producer_acceptance": "not_assessed",
+      "main_apk": {
+        "sha256": "1212e004a305df432bd59a421633e5829503c232d2120b9721f6f1a4afd76526",
+        "bytes": 6637822
+      },
+      "test_apk": {
+        "sha256": "01c2438b182c8be177e4e6b7fea6bbb010078788aafed064da28a0e2972fcce3",
+        "bytes": 457156
+      }
+    },
+    "true": {
+      "artifact_id": 11621675228,
+      "artifact_zip_sha256": "706b6d0948628b94414d57d579bddfd2fe2158156b1f5c882fff9908abdd6dd4",
+      "capture_status": "complete_capture",
+      "gate_outcome": "success",
+      "producer_acceptance": "not_assessed",
+      "main_apk": {
+        "sha256": "fa50fb07b34df864e3b2bbbd69db15fa43b9c96edce96f2374b4b698e38821ff",
+        "bytes": 6964186
+      },
+      "test_apk": {
+        "sha256": "c9df1c2b92c69dc17e77726429d8535dad2c6b79556c7de612b9d4d167fd033b",
+        "bytes": 457156
+      }
+    }
+  },
+  "static_gates": {
+    "source_metadata_and_flags": true,
+    "same_sha_single_build_property": true,
+    "main_and_test_dex_manifests_equal_across_arms": true,
+    "common_native_binaries_equal_across_arms": false,
+    "same_abi_elf_dependency_closure": true,
+    "stock_ndk30_shared_stl_and_notices": true,
+    "stripped_unstripped_allocated_sections_and_build_ids_match": true,
+    "elf_and_zip_16k_alignment": true,
+    "candidate_pre_score_init_resolver_and_baseline_scorer_inspected": true,
+    "generated_cancel_compilation_guard_success_both_abis": true,
+    "generated_hosted_cancel_source_bytes_independently_rehashed": false
+  },
+  "candidate_instructions": {
+    "sdot_total": 717,
+    "q5_0_q8_0_sdot": 4,
+    "q5_1_q8_1_sdot": 4,
+    "q5_K_q8_K_sdot": 16,
+    "direct_lse_atomics": 13,
+    "baseline_and_scorer_sdot": 0
+  },
+  "limits": [
+    "No Android installation, CPU module selection, older-ARM fallback or SIGILL test.",
+    "No speech, microphone, cancellation recovery, warm RTF, Stop-to-final or authenticated cleanup test.",
+    "Common native binary bytes differ across arms; common compiler command flags match.",
+    "Control-off uses shared GGML/STL packaging and is not the original static rollback.",
+    "Production branch and published release retain the original CPU policy; experiment is isolated and unpromoted."
+  ]
+}
