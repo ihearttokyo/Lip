@@ -1,0 +1,397 @@
+{
+  "schema_version": 1,
+  "runtime_revision": "306c88f4d1286aec1bf96e544632897886af5501",
+  "source_sha256": {
+    "eval/initial_ts_ci.py": "04adcd5d695b6ebdbc94cafcb1cd459fd801736a54a8ca04c828afef04c19c73",
+    "eval/initial-ts-pins.json": "1f4e05b8b8d8fb7907789e6c3709ae7cd6e7cd014010dd4c47651f4fdbd6df6c",
+    ".github/workflows/initial-ts-experiment.yml": "6c94851def3805a53fcd3c0e7270d4dd1149f37184ebe40cdb39afc5102c1fc9",
+    "app/src/main/cpp/whisper_jni.cpp": "7f6e5ed3587b7ed1bb7a1cb4da81290caef35db8042e9d36e7a7c823727b2d04",
+    "third_party/whisper.cpp/src/whisper.cpp": "00d02d64b6818ef24ab97cc2184794634668e7cb0343ede2791d78a3f651dc45",
+    "NOTICE.md": "ee599072fb1086cf84455c7a6680e2096ca06718f114e47909114615be596911"
+  },
+  "models": {
+    "q5_0": {
+      "name": "ggml-large-v3-turbo-q5_0.bin",
+      "revision": "5359861c739e955e79d9a303bcbc70fb988958b1",
+      "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-large-v3-turbo-q5_0.bin",
+      "bytes": 574041195,
+      "sha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2"
+    },
+    "q4_0": {
+      "name": "ggml-large-v3-turbo-q4_0.bin",
+      "revision": "2df9591948d91c0a80d47faa2a3a96d195ce138a",
+      "url": "https://huggingface.co/Pomni/whisper-large-v3-turbo-ggml-allquants/resolve/2df9591948d91c0a80d47faa2a3a96d195ce138a/ggml-large-v3-turbo-q4_0.bin",
+      "bytes": 473992235,
+      "sha256": "2ceb779ca61ce46ed6e9aa43c4a0f8a89a37f683df3c0ba3119238fcd5852155"
+    }
+  },
+  "provenance": {
+    "variable": "complete model artifact; original weights are not certified identical",
+    "q5_0": "ggerganov pinned official whisper.cpp conversion; OpenAI Whisper MIT",
+    "q4_0": "Pomni community conversion, source ancestry not certified; research only, not distributed; MIT modelcard/OpenAI turbo",
+    "q4_model_card": "https://huggingface.co/Pomni/whisper-large-v3-turbo-ggml-allquants/blob/2df9591948d91c0a80d47faa2a3a96d195ce138a/README.md",
+    "q4_artifact_receipt_sha256": "1df999d0d0ffa39ebe94f3e0a3bffe0e642c8f6799bed25c70a4655ddeeef52c"
+  },
+  "prior_evidence": {
+    "initial_source_sha": "e53c0105d25534b9adfe9d8bdb0677b883ad8a84",
+    "initial_review_receipt_sha256": "2dbae4af64328a54de39a9bc53d5e67eec56417f22cccb94b7156f7bff845ec6",
+    "verified_results_sha256": "c84a0c1469f41521994547cfac2856eae0b9a946835c76d8ad03203fdf0de5e2",
+    "initial_ts_decision": "reject_candidate_under_frozen_contract",
+    "initial_ts_summary": {
+      "1.0": {
+        "original": {
+          "total": 18,
+          "score_passes": 15,
+          "strict_passes": 15,
+          "errors": 20,
+          "reference_units": 503
+        },
+        "quiet": {
+          "total": 12,
+          "score_passes": 1,
+          "strict_passes": 1,
+          "errors": 179,
+          "reference_units": 356
+        },
+        "controls": {
+          "total": 6,
+          "score_passes": 1,
+          "strict_passes": 0,
+          "errors": 39,
+          "reference_units": 0
+        }
+      },
+      "30.0": {
+        "original": {
+          "total": 18,
+          "score_passes": 15,
+          "strict_passes": 15,
+          "errors": 20,
+          "reference_units": 503
+        },
+        "quiet": {
+          "total": 12,
+          "score_passes": 3,
+          "strict_passes": 3,
+          "errors": 126,
+          "reference_units": 356
+        },
+        "controls": {
+          "total": 6,
+          "score_passes": 1,
+          "strict_passes": 0,
+          "errors": 39,
+          "reference_units": 0
+        }
+      }
+    },
+    "initial_ts_failures": {
+      "1.0": [
+        {
+          "id": "fleurs-en-003",
+          "population": "original",
+          "errors": 5,
+          "failed_anchors": [
+            "name"
+          ]
+        },
+        {
+          "id": "fleurs-en-011-minus24db-pause-after",
+          "population": "quiet",
+          "errors": 3,
+          "failed_anchors": []
+        },
+        {
+          "id": "fleurs-en-011-minus24db-pause-before",
+          "population": "quiet",
+          "errors": 23,
+          "failed_anchors": [
+            "negation"
+          ]
+        },
+        {
+          "id": "fleurs-en-011-minus42db-pause-after",
+          "population": "quiet",
+          "errors": 24,
+          "failed_anchors": [
+            "negation"
+          ]
+        },
+        {
+          "id": "fleurs-en-011-minus42db-pause-before",
+          "population": "quiet",
+          "errors": 24,
+          "failed_anchors": [
+            "negation"
+          ]
+        },
+        {
+          "id": "fleurs-ja-010-minus24db-pause-after",
+          "population": "quiet",
+          "errors": 31,
+          "failed_anchors": []
+        },
+        {
+          "id": "fleurs-ja-010-minus24db-pause-before",
+          "population": "quiet",
+          "errors": 31,
+          "failed_anchors": []
+        },
+        {
+          "id": "fleurs-ja-010-minus42db-pause-after",
+          "population": "quiet",
+          "errors": 31,
+          "failed_anchors": []
+        },
+        {
+          "id": "fleurs-zh-001-minus24db-pause-after",
+          "population": "quiet",
+          "errors": 2,
+          "failed_anchors": []
+        },
+        {
+          "id": "fleurs-zh-001-minus24db-pause-before",
+          "population": "quiet",
+          "errors": 3,
+          "failed_anchors": []
+        },
+        {
+          "id": "fleurs-zh-001-minus42db-pause-after",
+          "population": "quiet",
+          "errors": 3,
+          "failed_anchors": [
+            "negation"
+          ]
+        },
+        {
+          "id": "fleurs-zh-001-minus42db-pause-before",
+          "population": "quiet",
+          "errors": 3,
+          "failed_anchors": [
+            "negation"
+          ]
+        },
+        {
+          "id": "fleurs-zh-020",
+          "population": "original",
+          "errors": 9,
+          "failed_anchors": [
+            "name"
+          ]
+        },
+        {
+          "id": "fleurs-zh-034",
+          "population": "original",
+          "errors": 2,
+          "failed_anchors": []
+        },
+        {
+          "id": "noise-en",
+          "population": "controls",
+          "errors": 0,
+          "failed_anchors": []
+        },
+        {
+          "id": "noise-ja",
+          "population": "controls",
+          "errors": 2,
+          "failed_anchors": []
+        },
+        {
+          "id": "noise-zh",
+          "population": "controls",
+          "errors": 1,
+          "failed_anchors": []
+        },
+        {
+          "id": "silence-en",
+          "population": "controls",
+          "errors": 2,
+          "failed_anchors": []
+        },
+        {
+          "id": "silence-ja",
+          "population": "controls",
+          "errors": 14,
+          "failed_anchors": []
+        },
+        {
+          "id": "silence-zh",
+          "population": "controls",
+          "errors": 20,
+          "failed_anchors": []
+        }
+      ],
+      "30.0": [
+        {
+          "id": "fleurs-en-003",
+          "population": "original",
+          "errors": 5,
+          "failed_anchors": [
+            "name"
+          ]
+        },
+        {
+          "id": "fleurs-en-011-minus24db-pause-after",
+          "population": "quiet",
+          "errors": 3,
+          "failed_anchors": []
+        },
+        {
+          "id": "fleurs-en-011-minus42db-pause-after",
+          "population": "quiet",
+          "errors": 24,
+          "failed_anchors": [
+            "negation"
+          ]
+        },
+        {
+          "id": "fleurs-en-011-minus42db-pause-before",
+          "population": "quiet",
+          "errors": 24,
+          "failed_anchors": [
+            "negation"
+          ]
+        },
+        {
+          "id": "fleurs-ja-010-minus24db-pause-after",
+          "population": "quiet",
+          "errors": 31,
+          "failed_anchors": []
+        },
+        {
+          "id": "fleurs-ja-010-minus42db-pause-after",
+          "population": "quiet",
+          "errors": 31,
+          "failed_anchors": []
+        },
+        {
+          "id": "fleurs-ja-010-minus42db-pause-before",
+          "population": "quiet",
+          "errors": 3,
+          "failed_anchors": [
+            "negation"
+          ]
+        },
+        {
+          "id": "fleurs-zh-001-minus24db-pause-after",
+          "population": "quiet",
+          "errors": 2,
+          "failed_anchors": []
+        },
+        {
+          "id": "fleurs-zh-001-minus42db-pause-after",
+          "population": "quiet",
+          "errors": 3,
+          "failed_anchors": [
+            "negation"
+          ]
+        },
+        {
+          "id": "fleurs-zh-001-minus42db-pause-before",
+          "population": "quiet",
+          "errors": 3,
+          "failed_anchors": [
+            "negation"
+          ]
+        },
+        {
+          "id": "fleurs-zh-020",
+          "population": "original",
+          "errors": 9,
+          "failed_anchors": [
+            "name"
+          ]
+        },
+        {
+          "id": "fleurs-zh-034",
+          "population": "original",
+          "errors": 2,
+          "failed_anchors": []
+        },
+        {
+          "id": "noise-en",
+          "population": "controls",
+          "errors": 0,
+          "failed_anchors": []
+        },
+        {
+          "id": "noise-ja",
+          "population": "controls",
+          "errors": 2,
+          "failed_anchors": []
+        },
+        {
+          "id": "noise-zh",
+          "population": "controls",
+          "errors": 1,
+          "failed_anchors": []
+        },
+        {
+          "id": "silence-en",
+          "population": "controls",
+          "errors": 2,
+          "failed_anchors": []
+        },
+        {
+          "id": "silence-ja",
+          "population": "controls",
+          "errors": 14,
+          "failed_anchors": []
+        },
+        {
+          "id": "silence-zh",
+          "population": "controls",
+          "errors": 20,
+          "failed_anchors": []
+        }
+      ]
+    },
+    "initial_ts_regressions": [
+      "fleurs-ja-010-minus42db-pause-before"
+    ],
+    "historical_q4": {
+      "pin": {
+        "kind": "research_candidate_only",
+        "distributed": false,
+        "url": "https://huggingface.co/Pomni/whisper-large-v3-turbo-ggml-allquants/resolve/2df9591948d91c0a80d47faa2a3a96d195ce138a/ggml-large-v3-turbo-q4_0.bin",
+        "revision": "2df9591948d91c0a80d47faa2a3a96d195ce138a",
+        "bytes": 473992235,
+        "sha256": "2ceb779ca61ce46ed6e9aa43c4a0f8a89a37f683df3c0ba3119238fcd5852155",
+        "publisher": "Pomni community conversion, source ancestry not certified",
+        "license": "MIT modelcard/OpenAI turbo",
+        "transport": "firstGETtruncated; exactRangeResume+fullSHAverified",
+        "header": [
+          1734831468,
+          51866,
+          1500,
+          1280,
+          20,
+          32,
+          448,
+          1280,
+          20,
+          4,
+          128,
+          2002
+        ],
+        "timestamp": 1791404033.2183099
+      },
+      "artifact_receipt_sha256": "1df999d0d0ffa39ebe94f3e0a3bffe0e642c8f6799bed25c70a4655ddeeef52c",
+      "human_receipt_sha256": "f34e52010ed7ef99742e3ca9d4a8a042df6a48a3bdfb6175113c3996ec47336d",
+      "rescored_cases": 18,
+      "strict_passes": 15,
+      "historical_per_clip_regressions": [
+        "fleurs-zh-020"
+      ],
+      "native_receipt_sha256": "08ebeb6eeb030205b86ad6b66656d08306b5de970c7cf9a0cd7091fb9d69a982",
+      "native_warm_ms": 9137,
+      "latency_pass": false,
+      "provenance_limit": "Pomni community conversion, source ancestry not certified",
+      "fresh_model_bytes_verified": false
+    },
+    "historical_q5_native_warm_seconds": 20.811,
+    "phone_forecast": "none; historical warm single-clip Q4 still fails latency gates",
+    "vad_discard": "not_authorized; quiet speech/control maximum probabilities overlap; no safe universal cutoff shown"
+  }
+}
