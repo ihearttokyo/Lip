@@ -51,6 +51,7 @@ android {
         }
     }
     testOptions { unitTests.isReturnDefaultValues = true }
+    sourceSets.getByName("test").java.srcDir("src/androidTest/java/dev/lip/uiprotocol")
 }
 
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
