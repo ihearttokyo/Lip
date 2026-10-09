@@ -1,4 +1,18 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- AGP rewrites the first instrumentation entry to the configured default runner. -->
+    <instrumentation android:name="dev.lip.LipSmokeRunner" android:targetPackage="dev.lip.android" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.AudioInjectionRunner" android:targetPackage="dev.lip.android" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.LocalAsrRunner" android:targetPackage="dev.lip.android" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.LipAuthRunner" android:targetPackage="dev.lip.android" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.MicTailRunner" android:targetPackage="dev.lip.android" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.LocalFlowRunner" android:targetPackage="dev.lip.android" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.PcmToneRunner" android:targetPackage="dev.lip.android" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.PlatformSpeechProbe" android:targetPackage="dev.lip.android" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.PlatformSpeechDownloadRunner" android:targetPackage="dev.lip.android" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.PlatformSpeechPipeRunner" android:targetPackage="dev.lip.android" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.PlatformSpeechMicRunner" android:targetPackage="dev.lip.android" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.PhoneUiRunner" android:targetPackage="dev.lip.android.test" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.PhoneMicRunner" android:targetPackage="dev.lip.android" android:functionalTest="true" />
     <application>
         <activity android:name="dev.lip.EditorFixtureActivity" android:exported="true"
             android:theme="@android:style/Theme.Material.Light.NoActionBar" />

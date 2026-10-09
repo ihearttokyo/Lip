@@ -10,6 +10,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          submodules: recursive
       - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: temurin
@@ -18,13 +20,123 @@ jobs:
       - name: Check Gradle wrapper integrity
         run: echo '81a82aaea5abcc8ff68b3dfcb58b3c3c429378efd98e7433460610fecd7ae45f  gradle/wrapper/gradle-wrapper.jar' | sha256sum --check
       - name: Install pinned SDK components
-        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ''platforms;android-36'' ''build-tools;36.0.0'''
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            'platforms;android-36' 'build-tools;36.0.0' 'ndk;30.0.16248370' 'cmake;4.1.2'
+      - name: Check native build inputs
+        run: |
+          test -f third_party/whisper.cpp/CMakeLists.txt
+          python3 app/src/main/cpp/check_wrapper.py
+          "$ANDROID_HOME/cmake/4.1.2/bin/cmake" --version
+          "$ANDROID_HOME/cmake/4.1.2/bin/ninja" --version
+          "$ANDROID_HOME/ndk/30.0.16248370/toolchains/llvm/prebuilt/linux-x86_64/bin/clang" --version
       - name: Unit tests, lint, and build
-        run: ./gradlew testDebugUnitTest lintDebug assembleDebug --no-daemon
+        run: ./gradlew testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest --no-daemon
+      - name: Verify compiled cancellation patch in both ABIs
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, shlex, subprocess
+          root = pathlib.Path.cwd()
+          verified = set()
+          for database in (root / 'app/.cxx').rglob('compile_commands.json'):
+              abi = next((abi for abi in ('arm64-v8a', 'x86_64') if abi in database.parts), None)
+              # AGP's tools directory mirrors the real build database; it is not a build root.
+              if abi is None or 'tools' in database.relative_to(root / 'app/.cxx').parts:
+                  continue
+              rows = [row for row in json.loads(database.read_text()) if pathlib.Path(row['file']).name == 'whisper.cpp']
+              assert len(rows) == 1, (abi, 'Expected exactly one Whisper translation unit')
+              row = rows[0]
+              directory = pathlib.Path(row['directory'])
+              source = (directory / row['file']).resolve()
+              arguments = row.get('arguments') or shlex.split(row['command'])
+              target = {'arm64-v8a': 'aarch64-none-linux-android33', 'x86_64': 'x86_64-none-linux-android33'}[abi]
+              assert not any(arg in ('--target', '-target') for arg in arguments), (abi, 'Alternate compiler target syntax is outside the pinned NDK shape')
+              assert [arg for arg in arguments if arg.startswith('--target=')] == ['--target=' + target], (abi, 'Wrong Android compiler target')
+              assert arguments.count('-c') == 1, (abi, 'Expected one compiler input')
+              compiled = (directory / arguments[arguments.index('-c') + 1]).resolve()
+              assert compiled == source and source.parent == database.parent / 'whisper-cancel', (abi, 'Pristine or unrelated source must not compile')
+              subprocess.run(['python3', 'app/src/main/cpp/check_wrapper.py', '--cancel-patch', str(source)], check=True)
+              verified.add(abi)
+          assert verified == {'arm64-v8a', 'x86_64'}, verified
+          PY
       - name: Landing-page checks
         run: node docs/app.js --self-test && node --check docs/app.js
+      - name: Audio evaluation contract tests (no inference)
+        run: python3 -B -m unittest discover -s eval -p 'test_*.py' -v
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: Lip-debug-${{ github.sha }}
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          retention-days: 7
+  qwen17_canary:
+    needs: verify
+    if: >-
+      github.repository == 'ihearttokyo/Lip' && github.event.repository.private == false &&
+      github.event_name == 'push' && contains(github.event.head_commit.message, '[qwen17-canary]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Qualified CPU canary and requested research stage (not Android acceptance)
+        run: python3 -B eval/qwen17_ci.py
+      - name: Retain bounded public research text only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Lip-qwen17-canary-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/lip-qwen17-evidence/*.json
+            ${{ runner.temp }}/lip-qwen17-evidence/*.log
+            ${{ runner.temp }}/lip-qwen17-evidence/*.txt
+          if-no-files-found: warn
+          retention-days: 7
+  cancel_probe:
+    needs: verify
+    if: >-
+      github.repository == 'ihearttokyo/Lip' && github.event.repository.private == false &&
+      github.event_name == 'push' && contains(github.event.head_commit.message, '[android-cancel]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: Lip-debug-${{ github.sha }}
+          path: app/build/outputs/apk
+      - name: Install isolated cancellation guest
+        run: |
+          test "$(uname -s)" = Linux
+          test "$(id -u)" -gt 0
+          test -c /dev/kvm
+          test "$(stat -c '%U:%G' /dev/kvm)" = root:kvm
+          id
+          stat -c 'kvm_mode=%a kvm_owner=%U kvm_group=%G' /dev/kvm
+          sudo -n -u "$(id -un)" -g kvm -- test -r /dev/kvm
+          sudo -n -u "$(id -un)" -g kvm -- test -w /dev/kvm
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --channel=0 \
+            'platform-tools' 'emulator' 'system-images;android-36;default;x86_64'
+      - name: Collect cancellation diagnostic (not acceptance)
+        timeout-minutes: 30
+        run: |
+          # Same UID, existing device group for this process only; no permission edits.
+          sudo -n -u "$(id -un)" -g kvm \
+            --preserve-env=ANDROID_HOME,GITHUB_ACTIONS,GITHUB_WORKSPACE,GITHUB_SHA,GITHUB_REPOSITORY,GITHUB_RUN_ID,GITHUB_RUN_ATTEMPT,GITHUB_SERVER_URL,RUNNER_OS,RUNNER_ENVIRONMENT,RUNNER_ARCH,RUNNER_TEMP,ImageOS,ImageVersion,JAVA_HOME \
+            /usr/bin/bash eval/android/run_cancel_ci.sh
+      - name: Retain public cancellation diagnostic text
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Lip-cancel-diagnostic-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/lip-cancel-diagnostic/*.txt
+          if-no-files-found: warn
           retention-days: 7

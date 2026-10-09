@@ -1,0 +1,26 @@
+--- a/src/whisper.cpp
++++ b/src/whisper.cpp
+@@ -193,0 +194,2 @@
++       ggml_abort_callback   abort_callback,
++                      void * abort_callback_data,
+@@ -198,0 +201,5 @@
++
++        auto * set_abort_callback_fn = (ggml_backend_set_abort_callback_t) ggml_backend_reg_get_proc_address(reg, "ggml_backend_set_abort_callback");
++        if (set_abort_callback_fn) {
++            set_abort_callback_fn(backend, abort_callback, abort_callback_data);
++        }
+@@ -2406 +2413 @@
+-            if (!ggml_graph_compute_helper(sched, gf, n_threads)) {
++            if (!ggml_graph_compute_helper(sched, gf, n_threads, abort_callback, abort_callback_data)) {
+@@ -2431 +2438 @@
+-        if (!ggml_graph_compute_helper(sched, gf, n_threads)) {
++        if (!ggml_graph_compute_helper(sched, gf, n_threads, abort_callback, abort_callback_data)) {
+@@ -2447 +2454 @@
+-        if (!ggml_graph_compute_helper(sched, gf, n_threads)) {
++        if (!ggml_graph_compute_helper(sched, gf, n_threads, abort_callback, abort_callback_data)) {
+@@ -2944 +2951 @@
+-        if (!ggml_graph_compute_helper(sched, gf, n_threads)) {
++        if (!ggml_graph_compute_helper(sched, gf, n_threads, abort_callback, abort_callback_data)) {
+@@ -5164 +5171 @@
+-        if (!ggml_graph_compute_helper(sched, gf, vctx->n_threads, false)) {
++        if (!ggml_graph_compute_helper(sched, gf, vctx->n_threads, nullptr, nullptr, false)) {

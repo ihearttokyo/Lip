@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "scope": "One original human hosted Linux CPU canary, not Android, warm latency, full corpus or redistribution clearance.",
+  "commit": "de47f3f88ffcb4ddb3138723f147f3d7e320d041",
+  "run_url": "https://github.com/ihearttokyo/Lip/actions/runs/37823211837",
+  "artifact_id": 11570732733,
+  "artifact_sha256": "9a695df70ea3fb2e67a8229727b3501d9e3dc8dead6b2d0d58b94563a001d5ad",
+  "runtime_revision": "71ad0590f4808b6202f9213d166913858c73b1bc",
+  "weight_sha256": [
+    "58e22d0532d4eacaf034cfac17a6fed159f37c41390c710186783be439d1fc57",
+    "46c1d533af3f354ceb37ce855dbceff7da7fa7cf1e6a523df3b13440bd164c0d"
+  ],
+  "binary": {
+    "bytes": 15673696,
+    "sha256": "08d5cebbf3b5513899499dc33d329bae0cd5a4b8f1f4503748301bb98adb077a"
+  },
+  "case_id": "fleurs-en-013",
+  "audio_sha256": "431d013d01d25cbf8d42587f4a14df57d09dbe9cbc2af4ea91ba93f9bd290ec4",
+  "scorer_sha256": "a681b82e4c444756bda0f3440a84c0ef3df47819e9da0af5628f6f4db4621e76",
+  "scorer_version": 2,
+  "max_error_rate": 0.05,
+  "passed": true,
+  "raw_errors": 0,
+  "critical_checks": [
+    {
+      "name": "negation",
+      "target": "raw",
+      "matching_view": "narrative_whitespace",
+      "passed": true
+    },
+    {
+      "name": "count",
+      "target": "raw",
+      "matching_view": "narrative_whitespace",
+      "passed": true
+    }
+  ],
+  "natural_eos": true,
+  "truncated": false,
+  "template_sha256": "fcf7a096fe99a48fd9ad2b250bf9237e96e8f48bffec1c7ea4d3f225176cd40e",
+  "cpu_threads": 4,
+  "server_peak_rss_bytes": 3295793152,
+  "cold_start_seconds": 1.017987627000025,
+  "request_seconds": 5.085598617000073,
+  "outer_elapsed_seconds": 8.038729295000053,
+  "response_sha256": "eda9731acfb0c1fdd6f84a0e85011ab0f558a26166fada7b3bb782c15fcf8e2c",
+  "admission": "Parent downloaded digest-verified immutable artifact, independently parsed exact response, recomputed frozen score and verified source/weight and resource bounds before expanding to18.",
+  "source_manifest_sha256": "46b5595291997beda8b5648541400640a80b458a411c2572bd9d4f83f49c01ef",
+  "admitted_manifest_sha256": "652a8f83bb863796a80e91caff8a896456afddef31244854c02eb8e64cb34640"
+}

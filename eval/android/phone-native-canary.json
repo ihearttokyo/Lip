@@ -1,0 +1,164 @@
+{
+  "schema_version": 1,
+  "acceptance": "partial_native_only_not_functional_parity",
+  "evidence_class": "live_physical_android_packaged_jni_file_fed_not_microphone",
+  "installed_source": "6e127186617f635973f2bf1332ef8d57176bdf12",
+  "android_api": 36,
+  "abi": "arm64-v8a",
+  "online_cpus": 8,
+  "main_apk_sha256": "ff37855fbe17220f0d821c99862c4f5c21d825332236206bfb420a99c75b069b",
+  "test_apk_sha256": "9cb2226d93d398115d7a8984561c9cddfbc3608955fac75d5da8fec8988acc2f",
+  "model_sha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+  "pcm_sha256": "e42fdeed81feac1d9d660e888ceb0351e785760f24ec7b8e9d8420cfe96a800f",
+  "corpus_case": "fleurs-en-013",
+  "scorer_version": 2,
+  "max_error_rate": 0.05,
+  "zero_lifecycle": {
+    "modelLoadMs": 442,
+    "samples": 1,
+    "runs": [
+      {
+        "elapsedMs": 1,
+        "segments": []
+      },
+      {
+        "elapsedMs": 0,
+        "segments": []
+      }
+    ],
+    "exactZeroChecksPassed": true,
+    "invalidInputChecksPassed": true,
+    "freshZeroAfterCancelPassed": true,
+    "closedEngineChecksPassed": true
+  },
+  "human_model_load_ms": 400,
+  "human_samples": 120640,
+  "human_runs": [
+    {
+      "raw": " Although three people were inside the house when the car impacted it, none of them were hurt.",
+      "elapsed_ms": 32520,
+      "rtf": 4.312997347480106,
+      "quality": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 17,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "latency_pass": false
+    },
+    {
+      "raw": " Although three people were inside the house when the car impacted it, none of them were hurt.",
+      "elapsed_ms": 37369,
+      "rtf": 4.956100795755968,
+      "quality": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 17,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "latency_pass": false
+    }
+  ],
+  "latency_acceptance": false,
+  "not_checked": [
+    "physical_microphone",
+    "Gboard_insertion",
+    "authenticated_cleanup"
+  ],
+  "prepared_cancellation_calibration": "Live eight-core witness verified; pristine cancellation deadline failed. Generated vendor callback patch passes hosted source/compile checks for both ABIs; signed repair APK pair prepared, not installed. Patched runtime pending.",
+  "active_cancellation": {
+    "installed_source": "fda41f973ef4d4039b48d301234d0614d3288b91",
+    "main_apk_sha256": "41ca9ea0c3b14fac43991c09111e87181b987fea2489ea9940fa108e3fe44bbb",
+    "test_apk_sha256": "73b61a19bd3f5f951fd718b86419f07ff7e0c11346d0baa9a3a219627e8c7cfa",
+    "pristine_vendor": true,
+    "model_sha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+    "pcm_sha256": "e42fdeed81feac1d9d660e888ceb0351e785760f24ec7b8e9d8420cfe96a800f",
+    "online_cpus": 8,
+    "expected_native_workers": 3,
+    "native_stack_observed": true,
+    "all_owned_threads_cpu_progress_2s": true,
+    "cohort_turnover_witness": "post-first-native-cohort turnover on pinned mel/encoder callpath; inferred, not a callback or exact kernel-stage trace",
+    "cancel_call_elapsed_ns": 10156,
+    "cleanup_deadline_ms": 15000,
+    "cleanup_deadline_pass": false,
+    "cancel_to_final_observation_ms": 29868.113426,
+    "late_cleanup_only": true,
+    "cancellation_exception": true,
+    "returned_transcript": false,
+    "same_context_zero_reset": true,
+    "closed_engine_checks": true,
+    "closed": true,
+    "handle": 0,
+    "native_tasks_quiescent": true,
+    "staging_removed": true,
+    "parent_hold": false,
+    "fresh_nonzero_skipped": true,
+    "passed": false
+  },
+  "cpu_profile": {
+    "installed_source": "fda41f973ef4d4039b48d301234d0614d3288b91",
+    "evidence_class": "live_app_only_native_inference_window_not_whole_run",
+    "duration_seconds": 10,
+    "sample_frequency_hz": 99,
+    "samples": 2726,
+    "lost_samples": 0,
+    "q5_dot_product_sample_percent": 73.88,
+    "flash_attention_sample_percent": 17.1,
+    "profiling_limits_unchanged": true,
+    "speedup_measured": false
+  },
+  "prepared_repair_build": {
+    "source": "d01bfed60fca9c11d1f690089264de4ca07c483a",
+    "evidence_class": "hosted_build_and_static_apk_not_phone_runtime",
+    "ci_push": 37930263306,
+    "ci_pr": 37930269936,
+    "ci_conclusion": "success",
+    "compiled_cancel_source_sha256": "4cee50443113fab137c0ae6c93fcf5a701c92c600588ba7f1bc840ed3dfacdd7",
+    "compiled_abis": [
+      "arm64-v8a",
+      "x86_64"
+    ],
+    "main_apk_sha256": "8763d8f3bdba49bc9a116b503211e6c57e20c6c1b03f50c72c9526ff28e770b5",
+    "test_apk_sha256": "76ba7d5bc0d8242a6d02eb2a0ac3a3f4529d52a85bb3cb343d249609ef1480c6",
+    "same_installed_signer": true,
+    "signing_preserved_ci_payloads": true,
+    "elf_zip_16k_alignment": true,
+    "java_phone_bridge_dex_verified": true,
+    "installed": false,
+    "runtime_acceptance": false
+  }
+}

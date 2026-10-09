@@ -12,13 +12,21 @@ android {
     namespace = "dev.lip"
     compileSdk = 36
     buildToolsVersion = "36.0.0"
+    ndkVersion = "30.0.16248370"
     defaultConfig {
         applicationId = "dev.lip.android"
         minSdk = 33
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
         testInstrumentationRunner = "dev.lip.LipSmokeRunner"
+        ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
+    }
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "4.1.2"
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -33,18 +41,24 @@ android {
         }
     }
     buildTypes {
+        debug {
+            // Exercise production-speed CPU kernels while retaining native debug symbols.
+            externalNativeBuild { cmake { arguments += "-DCMAKE_BUILD_TYPE=RelWithDebInfo" } }
+        }
         release {
             isMinifyEnabled = false
             if (signing.isNotEmpty()) signingConfig = signingConfigs.getByName("release")
         }
     }
     testOptions { unitTests.isReturnDefaultValues = true }
+    sourceSets.getByName("test").java.srcDir("src/androidTest/java/dev/lip/uiprotocol")
 }
 
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
 
 val bundleNotices = tasks.register<Copy>("bundleNotices") {
-    from(rootProject.file("NOTICE.md"), rootProject.file("docs/assets/apache-2.0.txt"))
+    from(rootProject.file("NOTICE.md"), rootProject.file("docs/assets/apache-2.0.txt"),
+        rootProject.file("docs/assets/whisper-mit.txt").also { check(it.isFile) { "Native MIT notice is missing" } })
     into(layout.buildDirectory.dir("generated/notices"))
 }
 android.sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/notices"))
