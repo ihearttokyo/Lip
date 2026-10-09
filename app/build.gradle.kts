@@ -8,6 +8,11 @@ val signing = Properties().apply {
     }
 }
 
+// Experimental A/B arms share every setting except the standard ARM DOTPROD module.
+val lipDotprod = providers.gradleProperty("lipDotprod").orElse("false").get().also {
+    require(it == "true" || it == "false") { "lipDotprod must be true or false" }
+}
+
 android {
     namespace = "dev.lip"
     compileSdk = 36
@@ -20,6 +25,9 @@ android {
         versionCode = 2
         versionName = "0.2.0"
         testInstrumentationRunner = "dev.lip.LipSmokeRunner"
+        externalNativeBuild { cmake {
+            arguments += listOf("-DANDROID_STL=c++_shared", "-DLIP_GGML_DOTPROD=${if (lipDotprod == "true") "ON" else "OFF"}")
+        } }
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
     }
     externalNativeBuild {
@@ -50,6 +58,7 @@ android {
             if (signing.isNotEmpty()) signingConfig = signingConfigs.getByName("release")
         }
     }
+    packaging { jniLibs.useLegacyPackaging = true }
     testOptions { unitTests.isReturnDefaultValues = true }
     sourceSets.getByName("test").java.srcDir("src/androidTest/java/dev/lip/uiprotocol")
 }
@@ -58,6 +67,8 @@ kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarg
 
 val bundleNotices = tasks.register<Copy>("bundleNotices") {
     from(rootProject.file("NOTICE.md"), rootProject.file("docs/assets/apache-2.0.txt"),
+        rootProject.file("docs/assets/android-ndk-notice.txt").also { check(it.isFile) { "NDK notice is missing" } },
+        rootProject.file("docs/assets/android-ndk-toolchain-notice.txt").also { check(it.isFile) { "NDK toolchain notice is missing" } },
         rootProject.file("docs/assets/whisper-mit.txt").also { check(it.isFile) { "Native MIT notice is missing" } })
     into(layout.buildDirectory.dir("generated/notices"))
 }

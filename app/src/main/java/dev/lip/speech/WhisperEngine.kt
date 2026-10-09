@@ -5,7 +5,7 @@ import java.nio.ByteBuffer
 import java.util.concurrent.CancellationException
 
 /** CPU-only local ASR. Construct, transcribe and close on a worker; cancel is nonblocking. */
-class WhisperEngine(modelPath: String) : Closeable {
+class WhisperEngine(modelPath: String, nativeLibraryDir: String) : Closeable {
     private val state = Any()
     private val inference = Any()
     private var closed = false
@@ -14,7 +14,8 @@ class WhisperEngine(modelPath: String) : Closeable {
 
     init {
         require(modelPath.isNotBlank() && '\u0000' !in modelPath)
-        handle = nativeOpen(modelPath.toByteArray(Charsets.UTF_8))
+        require(nativeLibraryDir.startsWith("/") && '\u0000' !in nativeLibraryDir)
+        handle = nativeOpen(modelPath.toByteArray(Charsets.UTF_8), nativeLibraryDir.toByteArray(Charsets.UTF_8))
         check(handle != 0L) { "Cannot load the local speech model" }
     }
 
@@ -69,7 +70,7 @@ class WhisperEngine(modelPath: String) : Closeable {
         }
     }
 
-    private external fun nativeOpen(modelPath: ByteArray): Long
+    private external fun nativeOpen(modelPath: ByteArray, nativeLibraryDir: ByteArray): Long
     private external fun nativeTranscribe(handle: Long, pcm: FloatArray, language: ByteArray, prompt: ByteArray): Array<Segment>
     private external fun nativeAbort(handle: Long, abort: Boolean)
     private external fun nativeClose(handle: Long)

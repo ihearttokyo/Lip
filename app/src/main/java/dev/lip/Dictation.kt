@@ -109,7 +109,8 @@ class Dictation private constructor(private val context: Context) {
             try {
                 val existing = synchronized(speechState) { speechEngine }
                 val loaded = nativeSpeech { existing ?: WhisperEngine(
-                    speechModel.verifiedFile()?.absolutePath ?: error("Install Lip's offline speech model in Microphone settings first.")) }
+                    speechModel.verifiedFile()?.absolutePath ?: error("Install Lip's offline speech model in Microphone settings first."),
+                    context.applicationInfo.nativeLibraryDir) }
                 val published = synchronized(speechState) {
                     if (id != operation || phase != Phase.LISTENING) false
                     else { speechEngine = loaded; true }

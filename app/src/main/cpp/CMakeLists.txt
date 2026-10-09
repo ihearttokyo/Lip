@@ -15,6 +15,8 @@ set(GGML_BLAS OFF CACHE BOOL "" FORCE)
 set(GGML_METAL OFF CACHE BOOL "" FORCE)
 set(GGML_ACCELERATE OFF CACHE BOOL "" FORCE)
 
+include(patches/ggml-android-dotprod.cmake)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../../../../third_party/whisper.cpp" whisper EXCLUDE_FROM_ALL)
 include(patches/whisper-scheduler-abort.cmake)
 add_library(lip_whisper SHARED whisper_jni.cpp)

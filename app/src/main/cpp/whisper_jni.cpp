@@ -3,6 +3,8 @@
 // Copyright (c) 2023-2026 The ggml authors. See third_party/whisper.cpp/LICENSE.
 #include <jni.h>
 #include "whisper.h"
+#include "ggml-backend.h"
+#include <sys/stat.h>
 #include <algorithm>
 #include <atomic>
 #include <cmath>
@@ -44,16 +46,29 @@ bool bytes(JNIEnv *env, jbyteArray input, int maximum, std::string &output) {
 }
 
 bool should_abort(void *data) { return static_cast<Engine *>(data)->aborted.load(); }
-std::once_flag logging;
+std::once_flag initialization;
 } // namespace
 
 extern "C" JNIEXPORT jlong JNICALL
-Java_dev_lip_speech_WhisperEngine_nativeOpen(JNIEnv *env, jobject, jbyteArray path) {
+Java_dev_lip_speech_WhisperEngine_nativeOpen(JNIEnv *env, jobject, jbyteArray path, jbyteArray library_directory) {
     try {
         std::string model_path;
         if (!bytes(env, path, 4096, model_path)) return 0;
         if (model_path.empty()) { fail(env, "java/lang/IllegalArgumentException", "Speech model path is empty"); return 0; }
-        std::call_once(logging, [] { whisper_log_set([](ggml_log_level, const char *, void *) {}, nullptr); });
+        std::string library_path;
+        if (!bytes(env, library_directory, 4096, library_path)) return 0;
+        struct stat directory{};
+        if (library_path.empty() || library_path.front() != '/' ||
+            stat(library_path.c_str(), &directory) != 0 || !S_ISDIR(directory.st_mode)) {
+            fail(env, "java/lang/IllegalArgumentException", "Native speech library directory is unavailable"); return 0;
+        }
+        std::call_once(initialization, [&] {
+            whisper_log_set([](ggml_log_level, const char *, void *) {}, nullptr);
+            ggml_backend_load_all_from_path(library_path.c_str());
+        });
+        if (!ggml_backend_dev_by_type(GGML_BACKEND_DEVICE_TYPE_CPU)) {
+            fail(env, "java/lang/IllegalStateException", "Local speech CPU backend is unavailable"); return 0;
+        }
         auto engine = std::make_unique<Engine>();
         auto context_params = whisper_context_default_params();
         context_params.use_gpu = false;

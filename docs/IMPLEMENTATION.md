@@ -77,6 +77,15 @@ Compile/target API 36 uses the resident SDK; newer Android compatibility is a
 device-validation gate, not an unsupported claim. No swipe keyboard is included:
 the owner explicitly wants to retain Gboard for this release.
 
+The isolated `codex/lip-dotprod-experiment` branch uses shared GGML and NDK
+STL with Android's standard library extraction and GGML's existing backend
+loader. Both arms share those settings. `-PlipDotprod=false` keeps the ARM
+baseline module; `true` adds the standard runtime-scored DOTPROD module.
+The same model, decoder and cancellation patch remain in both arms. The
+default-off arm is an experimental shared-loader control, not the original
+static build. Packaging, unsupported-ARM safety and phone performance remain
+gates; neither arm is a release or a speedup claim.
+
 Functional parity, including real-device speech and authenticated cleanup, is
 tracked in [PARITY.md](PARITY.md). Artifact delivery alone is not acceptance.
 Live cleanup operates on stable segments after disclosed opt-in, never on
