@@ -340,6 +340,23 @@ class Qwen17CiTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             ci.require_capacity(6 * 1024 ** 3 - 1)
 
+    def test_run_logged_closes_stdout_when_owned_group_join_times_out(self):
+        command = ["fixture-build"]
+        error = ci.subprocess.TimeoutExpired(command, 5)
+        with patch.object(ci.subprocess, "Popen") as spawn, \
+                patch.object(ci.selectors, "DefaultSelector") as selector, \
+                patch.object(ci.os, "read", return_value=b""), \
+                patch.object(ci.time, "monotonic", return_value=0), \
+                patch.object(ci, "stop_owned_group", side_effect=error) as stop, \
+                self.assertRaises(ci.subprocess.TimeoutExpired) as caught:
+            child = spawn.return_value
+            child.wait.return_value = 0
+            selector.return_value.__enter__.return_value.select.return_value = [None]
+            ci.run_logged(command, {}, io.BytesIO())
+        self.assertIs(caught.exception, error)
+        stop.assert_called_once_with(child)
+        child.stdout.close.assert_called_once_with()
+
     def test_build_output_is_bounded_and_failed_group_is_joined(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "build.log"
