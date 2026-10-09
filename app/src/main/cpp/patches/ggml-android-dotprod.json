@@ -1,0 +1,18 @@
+{
+  "upstream": "https://github.com/ggml-org/whisper.cpp",
+  "pin": "306c88f4d1286aec1bf96e544632897886af5501",
+  "source": "ggml/src/CMakeLists.txt",
+  "license": "MIT",
+  "license_file": "third_party/whisper.cpp/LICENSE",
+  "license_sha256": "94f29bbed6a22c35b992c5c6ebf0e7c92f13b836b90f36f461c9cf2f0f1d010d",
+  "input_sha256": "b4210d3aded4f4d217209624f981ecb5c65b1592eca7e049ff14b13c60743cb5",
+  "patch": "ggml-android-dotprod.patch",
+  "patch_sha256": "2d7200528d578955f407f9af87537a6dc4297c3157ba3aeb7d6c15889b40adc3",
+  "output_sha256": "2e89853fd0d8a5923f880717751ad61844b2012c69b6fafbc9d434ff37e65740",
+  "hunk_count": 1,
+  "tree_hash_format": "SHA256 of sorted relative-path:SHA256\\n records (all GGML files)",
+  "input_tree_sha256": "0aedf899fcffc193db49e3144169e1f1159c2c91d0062be27637b9358d5d0b07",
+  "output_tree_sha256": "0e1c71f469a481d147a2cef97fcadf0d499d2524529c9a7d628f3f51c1371dc4",
+  "file_count": 1250,
+  "change": "Android CPU list only: upstream ARM baseline plus conditional upstream DOTPROD-only variant; no other GGML source changes."
+}

@@ -10,6 +10,8 @@ import subprocess
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--cancel-patch', type=Path, metavar='WHISPER_CPP',
                     help='Also check scheduler cancellation in this generated source')
+parser.add_argument('--ggml-source', type=Path, metavar='GGML_DIR',
+                    help='Also verify the complete generated GGML source copy')
 args = parser.parse_args()
 
 root = Path(__file__).resolve().parents[4]
@@ -89,6 +91,37 @@ assert re.search(r'val afterFirstCohort = native.size == expectedWorkers && firs
 assert 'check(progressed(caller.tid) && native.all { progressed(it.tid) })' in cancel_runner, \
     'Caller and every owned native worker must progress across the stable two-second witness'
 assert 'native.any { progressed(it.tid) }' not in cancel_runner
+patches = root / 'app/src/main/cpp/patches'
+ggml_include = 'include(patches/ggml-android-dotprod.cmake)'
+assert sum(line.strip() == ggml_include for line in cmake.splitlines()) == 1, 'CPU source-copy experiment must be active'
+assert cmake.index(ggml_include) < cmake.index('add_subdirectory(') < cmake.index(patch_include)
+assert re.search(r'set\(BUILD_SHARED_LIBS OFF\b', cmake[cmake.index(ggml_include):cmake.index('add_subdirectory(')]), 'Whisper must remain static'
+metadata = json.loads((patches / 'ggml-android-dotprod.json').read_text())
+assert metadata['pin'] == pin and metadata['license'] == 'MIT' and metadata['hunk_count'] == 1
+for path, key in ((root / 'third_party/whisper.cpp/ggml/src/CMakeLists.txt', 'input_sha256'),
+                  (patches / 'ggml-android-dotprod.patch', 'patch_sha256'),
+                  (root / 'third_party/whisper.cpp/LICENSE', 'license_sha256')):
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == metadata[key], key
+assert len(re.findall(r'^@@ ', (patches / 'ggml-android-dotprod.patch').read_text(), re.M)) == metadata['hunk_count']
+def tree_hash(directory):
+    files = sorted((path for path in directory.rglob('*') if path.is_file()),
+                   key=lambda path: path.relative_to(directory).as_posix())
+    records = ''.join(f'{path.relative_to(directory).as_posix()}:{hashlib.sha256(path.read_bytes()).hexdigest()}\n' for path in files)
+    return len(files), hashlib.sha256(records.encode()).hexdigest()
+assert tree_hash(root / 'third_party/whisper.cpp/ggml') == (metadata['file_count'], metadata['input_tree_sha256'])
+if args.ggml_source:
+    assert tree_hash(args.ggml_source) == (metadata['file_count'], metadata['output_tree_sha256']), 'Generated GGML source-copy drift'
+    assert hashlib.sha256((args.ggml_source / 'src/CMakeLists.txt').read_bytes()).hexdigest() == metadata['output_sha256']
+loader_guards = ('bytes(env, library_directory, 4096, library_path)', 'S_ISDIR(directory.st_mode)',
+                 'std::call_once(initialization,', 'whisper_log_set',
+                 'ggml_backend_load_all_from_path(library_path.c_str())',
+                 'ggml_backend_dev_by_type(GGML_BACKEND_DEVICE_TYPE_CPU)', 'whisper_init_from_file_with_params')
+positions = [native.index(guard) for guard in loader_guards]
+assert positions == sorted(positions), 'Validate directory, suppress logging, load once and require CPU before Whisper initialization'
+assert re.search(r'if \(!ggml_backend_dev_by_type\(GGML_BACKEND_DEVICE_TYPE_CPU\)\) \{\s*'
+                 r'fail\(env, "java/lang/IllegalStateException", "Local speech CPU backend is unavailable"\); return 0;\s*\}', native), 'Missing CPU must fail before Whisper dereferences it'
+assert 'nativeOpen(modelPath: ByteArray, nativeLibraryDir: ByteArray)' in kotlin
+assert runner.count('WhisperEngine(model.absolutePath, targetContext.applicationInfo.nativeLibraryDir)') == 2
 if args.cancel_patch:
     vendor = args.cancel_patch.read_text()
     helper = vendor[vendor.index('static bool ggml_graph_compute_helper(\n      ggml_backend_sched_t'):

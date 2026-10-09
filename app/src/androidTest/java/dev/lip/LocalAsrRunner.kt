@@ -95,7 +95,7 @@ class LocalAsrRunner : Instrumentation() {
                 if (output.getBoolean("passed")) resultCode = Activity.RESULT_OK
             } else {
             val opened = SystemClock.elapsedRealtime()
-            val engine = WhisperEngine(model.absolutePath)
+            val engine = WhisperEngine(model.absolutePath, targetContext.applicationInfo.nativeLibraryDir)
             val loadMs = SystemClock.elapsedRealtime() - opened
             val output = JSONObject().put("modelLoadMs", loadMs).put("samples", samples.size)
             engine.use {
@@ -250,7 +250,7 @@ class LocalAsrRunner : Instrumentation() {
                 var engine: WhisperEngine? = null
                 try {
                     loadStarted.set(SystemClock.elapsedRealtimeNanos())
-                    engine = WhisperEngine(model.absolutePath)
+                    engine = WhisperEngine(model.absolutePath, targetContext.applicationInfo.nativeLibraryDir)
                     engineRef.set(engine)
                     loadEnded.set(SystemClock.elapsedRealtimeNanos())
                     ready.countDown()
