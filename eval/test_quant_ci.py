@@ -46,6 +46,17 @@ class QuantTest(unittest.TestCase):
         ci.require_environment(env, event, sha, message, 'linux', 1001, '24.04')
         self.assertEqual(env['GITHUB_REF'], 'refs/heads/codex/lip-q4-quality')
 
+    def test_additive_mode_does_not_change_default_quant_contract(self):
+        cases = frozen()
+        self.assertEqual(ci.paired_schedule(cases, cases), ci.paired_schedule(cases, cases, normalization=False))
+        _, rows = self.results()
+        self.assertEqual(ci.completion(rows, cases), ci.completion(rows, cases, normalization=False))
+        self.assertIn('errors_q5', ci.completion(rows, cases)['pairs'][0])
+        self.assertIn('errors_q4', ci.completion(rows, cases)['pairs'][0])
+        for value in ('normalization', 1, None):
+            with self.assertRaises(ValueError): ci.paired_schedule(cases, cases, normalization=value)
+        self.assertEqual(ci.ARMS, ('q5_0', 'q4_0'))
+
     def test_all_frozen_pairs_use_artifact_arms_adjacent_alternating(self):
         cases = frozen()
         schedule = ci.paired_schedule(cases, cases)

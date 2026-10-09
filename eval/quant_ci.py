@@ -18,6 +18,7 @@ REF = 'refs/heads/codex/lip-q4-quality'
 WORKFLOW_REF = 'ihearttokyo/Lip/.github/workflows/quant-experiment.yml@' + REF
 MARKER = '[q4-quality-canary]'
 ARMS = ('q5_0', 'q4_0')
+NORMALIZATION_ARMS = ('baseline', 'normalized')
 WORK_NAME, EVIDENCE_NAME = 'lip-quant-work', 'lip-quant-evidence'
 INITIAL_PINS_SHA256 = '1f4e05b8b8d8fb7907789e6c3709ae7cd6e7cd014010dd4c47651f4fdbd6df6c'
 INITIAL_RUNNER_SHA256 = '04adcd5d695b6ebdbc94cafcb1cd459fd801736a54a8ca04c828afef04c19c73'
@@ -77,13 +78,15 @@ def frozen_cases(repository, initial):
             ts.load_json(repository / 'eval/controls.json')['cases'])
 
 
-def paired_schedule(cases, frozen):
+def paired_schedule(cases, frozen, *, normalization=False):
+    if type(normalization) is not bool: raise ValueError('Fixed experiment mode required')
+    arms = NORMALIZATION_ARMS if normalization else ARMS
     if (len(cases) != 36 or len(frozen) != 36 or len({c['id'] for c in cases}) != 36 or
             len({c['id'] for c in frozen}) != 36 or
             {c['id']: c for c in cases} != {c['id']: c for c in frozen}):
         raise ValueError('Require exactly the unchanged 18 originals, 12 public quiet and 6 controls')
     return [(case, arm) for index, case in enumerate(sorted(cases, key=lambda c: c['id']))
-            for arm in (ARMS if index % 2 == 0 else ARMS[::-1])]
+            for arm in (arms if index % 2 == 0 else arms[::-1])]
 
 
 def owned_directories(runner_temp):
@@ -134,15 +137,21 @@ def read_output(path, cap=ts.OUTPUT_BYTES):
     return data
 
 
-def run_native(case, arm, audio, binary, model, work, evidence, env, pin):
+def run_native(case, arm, audio, binary, model, work, evidence, env, pin, *, worker_script=None):
     if arm not in ARMS or model != work / pin['name'] or pin['name'] != 'ggml-large-v3-turbo-' + arm + '.bin':
         raise ValueError('Only the paired fixed artifact paths are allowed')
-    label = case['id'] + '-' + arm
-    if not re.fullmatch(r'[A-Za-z0-9_-]+-q[45]_0', label): raise ValueError('Unadmitted output label')
+    result_arm = arm
+    if worker_script is not None:
+        if (Path(worker_script) != Path(__file__).resolve().with_name('normalization_ci.py') or
+                arm != 'q5_0' or env.get('LIP_NORMALIZATION_ARM') not in NORMALIZATION_ARMS):
+            raise ValueError('Only the fixed Q5 normalization worker entry point is allowed')
+        result_arm = env['LIP_NORMALIZATION_ARM']
+    label = case['id'] + '-' + result_arm
+    if not re.fullmatch(r'[A-Za-z0-9_-]+-(?:q[45]_0|baseline|normalized)', label): raise ValueError('Unadmitted output label')
     outputs = work / label; outputs.mkdir(); stem = outputs / 'transcript'
-    command = [sys.executable, '-B', str(Path(__file__).resolve()), '--infer-worker',
+    command = [sys.executable, '-B', str(worker_script or Path(__file__).resolve()), '--infer-worker',
                str(binary), str(model), str(audio), case['language'], str(stem)]
-    result = {'id': case['id'], 'arm': arm, 'language': case['language'], 'audio_sha256': case['sha256'],
+    result = {'id': case['id'], 'arm': result_arm, 'language': case['language'], 'audio_sha256': case['sha256'],
               'origin': case['origin'], 'model': pin, 'command': ts.cli_command(binary, model, audio, case['language'], stem),
               'timing_scope': 'cold_per_clip_CLI_not_warm_Android', 'address_space_bytes': 8 * ts.GIB,
               'clip_timeout_seconds': 120, 'confidence': 'not_in_standard_non_full_JSON', 'decoder_trace': 'not_collected'}
@@ -197,8 +206,9 @@ def strict_pass(case, result):
             (case['origin'] != 'negative_control' or (result.get('raw') == '' and result.get('segments') == [])))
 
 
-def completion(results, cases):
-    schedule = paired_schedule(cases, cases)
+def completion(results, cases, *, normalization=False):
+    arms = NORMALIZATION_ARMS if normalization else ARMS
+    schedule = paired_schedule(cases, cases, normalization=normalization)
     complete = (len(results) == 72 and [(r.get('id'), r.get('arm')) for r in results] ==
                 [(c['id'], arm) for c, arm in schedule] and all(r.get('status') == 'ok' for r in results))
     report = {'schema_version': 1, 'status': 'complete_diagnostic' if complete else 'incomplete_diagnostic',
@@ -211,10 +221,10 @@ def completion(results, cases):
               'promotion': 'Never automatic; no production/model/APK change or distribution authorized.'}
     if not complete: return report
     by_key = {(r['id'], r['arm']): r for r in results}; pairs = []
-    summary = {arm: {population: {'total': 0, 'strict_passes': 0} for population in ('original', 'quiet', 'controls')} for arm in ARMS}
+    summary = {arm: {population: {'total': 0, 'strict_passes': 0} for population in ('original', 'quiet', 'controls')} for arm in arms}
     for case in sorted(cases, key=lambda c: c['id']):
-        base, candidate = (by_key[(case['id'], arm)] for arm in ARMS)
-        for arm, row in zip(ARMS, (base, candidate)):
+        base, candidate = (by_key[(case['id'], arm)] for arm in arms)
+        for arm, row in zip(arms, (base, candidate)):
             if row['score'] != ts.score_case(case, row['raw']): raise ValueError('Retained score differs from frozen scorer')
             population = 'controls' if case['origin'] == 'negative_control' else 'quiet' if '-minus' in case['id'] else 'original'
             summary[arm][population]['total'] += 1
@@ -229,20 +239,21 @@ def completion(results, cases):
         increased = candidate['score']['raw']['errors'] > base['score']['raw']['errors']
         failed_pass = strict_pass(case, base) and not strict_pass(case, candidate)
         pairs.append({'id': case['id'], 'population': population,
-                      'errors_q5': base['score']['raw']['errors'], 'errors_q4': candidate['score']['raw']['errors'],
+                      ('errors_baseline' if normalization else 'errors_q5'): base['score']['raw']['errors'],
+                      ('errors_normalized' if normalization else 'errors_q4'): candidate['score']['raw']['errors'],
                       'reference_units': base['score']['raw']['reference_units'],
                       'increased_errors': increased, 'new_failed_anchors': lost, 'lost_strict_pass': failed_pass,
                       'duplicate_segment_increase': repeated_increase, 'raw_changed': base['raw'] != candidate['raw'],
-                      'fact_anchor_outcomes': {arm: row['score']['checks'] for arm, row in zip(ARMS, (base, candidate))},
+                      'fact_anchor_outcomes': {arm: row['score']['checks'] for arm, row in zip(arms, (base, candidate))},
                       'measured_regression': increased or bool(lost) or failed_pass or repeated_increase,
                       'historical_regression_case': case['id'] == 'fleurs-zh-020'})
     nonregression = not any(p['measured_regression'] for p in pairs)
-    quality = all(strict_pass(case, by_key[(case['id'], arm)]) for case in cases for arm in ARMS)
-    candidate_quality = all(strict_pass(case, by_key[(case['id'], 'q4_0')]) for case in cases)
-    quiet_improved = summary['q4_0']['quiet']['strict_passes'] > summary['q5_0']['quiet']['strict_passes']
+    quality = all(strict_pass(case, by_key[(case['id'], arm)]) for case in cases for arm in arms)
+    candidate_quality = all(strict_pass(case, by_key[(case['id'], arms[1])]) for case in cases)
+    quiet_improved = summary[arms[1]]['quiet']['strict_passes'] > summary[arms[0]]['quiet']['strict_passes']
     report.update(quality_passed=quality, candidate_quality_passed=candidate_quality, summary=summary, pairs=pairs,
                   measured_nonregression_passed=nonregression, quiet_strict_passes_increased=quiet_improved,
-                  candidate_controls_exact_empty=summary['q4_0']['controls']['strict_passes'] == 6,
+                  candidate_controls_exact_empty=summary[arms[1]]['controls']['strict_passes'] == 6,
                   screen_eligible_for_independent_review=nonregression and quiet_improved and candidate_quality)
     return report
 
