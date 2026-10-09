@@ -1,0 +1,2636 @@
+{
+  "schema_version": 1,
+  "outcome": "rejected_for_quality_and_nonregression_not_promoted",
+  "acceptance": "not_assessed",
+  "evidence_class": "actual_public_hosted_CPU_inference_with_independently_recomputed_text_scores",
+  "scope": "Frozen public read-speech and quiet derivatives; not Android, microphone, spontaneous dictation, warm latency or authenticated formatting evidence.",
+  "source_commit": "931a96b08fa68aad69e1e5ab494a3ed519e4a3b0",
+  "runtime_revision": "306c88f4d1286aec1bf96e544632897886af5501",
+  "run_url": "https://github.com/ihearttokyo/Lip/actions/runs/37968190180",
+  "artifact_id": 11636750708,
+  "artifact_zip_bytes": 349033,
+  "artifact_zip_sha256": "55dcf6e9b0c5af88467b9c521a32a12f93c9f5d0126b18be8be801b2ca1ea87a",
+  "verified_text_files": 377,
+  "verified_text_bytes": 1236248,
+  "runner_sha256": "8e77343781997f6566da20149591eab5b6f0a91ecb1ad474d5721505c4d71781",
+  "pins_sha256": "8a73fa9fa5aaa69381d506a8b02929b1e09ec9b79556ce7e7d6653ceeb9be8ac",
+  "test_sha256": "ec917be2d5fa6fda52e284ae29281c67d402840f26e8e6894ea45bbcf81d7350",
+  "workflow_sha256": "25f5087061fe6246267aa2350719042ffb383fd15a647834455970a497b915bd",
+  "source_sha256": {
+    "eval/corpus.json": "46b5595291997beda8b5648541400640a80b458a411c2572bd9d4f83f49c01ef",
+    "eval/controls.json": "eb8a7133e3dcd11d056bc2324384b3d7b664fff29d700f052b1cb67d9e6a0620",
+    "eval/benchmark.py": "a681b82e4c444756bda0f3440a84c0ef3df47819e9da0af5628f6f4db4621e76",
+    "eval/fetch_corpus.py": "6a1eaa51507aff890c5c334c632b0e5fdd6634acdd109c26207a2c5e2a3a50bf",
+    "eval/vad_holdouts.py": "15e880e14aea1e93210e7f9dfd744cddce9ae12bad11906010325eba2f17b435",
+    "eval/observe_vad.py": "f4a05cb94ed37e751da117135eb99b999753444332160b25ce724be28baade9b",
+    "eval/controls.py": "a8a842b294cc0d465ff173925d737fbc7b66944527041efe8fbe123fc52ca93a",
+    "eval/qwen17_ci.py": "081d9043960f3edfb612678580c1348ee81b0567870ee3f270158d9e9642448e",
+    "eval/qwen17_cli.py": "baab465befce891e41138ed146da9975c75aadadf0bbb3b2861430d09a0215b1",
+    "eval/sensevoice_cli.py": "e9688330565adf99a794b4b2e89397b0568c69a56ac51a7a5bb835ac7eaa0b0a",
+    "eval/initial_ts_ci.py": "04adcd5d695b6ebdbc94cafcb1cd459fd801736a54a8ca04c828afef04c19c73",
+    "eval/initial-ts-pins.json": "1f4e05b8b8d8fb7907789e6c3709ae7cd6e7cd014010dd4c47651f4fdbd6df6c",
+    ".github/workflows/initial-ts-experiment.yml": "6c94851def3805a53fcd3c0e7270d4dd1149f37184ebe40cdb39afc5102c1fc9",
+    "app/src/main/cpp/whisper_jni.cpp": "7f6e5ed3587b7ed1bb7a1cb4da81290caef35db8042e9d36e7a7c823727b2d04",
+    "third_party/whisper.cpp/src/whisper.cpp": "00d02d64b6818ef24ab97cc2184794634668e7cb0343ede2791d78a3f651dc45",
+    "NOTICE.md": "ee599072fb1086cf84455c7a6680e2096ca06718f114e47909114615be596911"
+  },
+  "models": {
+    "q5_0": {
+      "bytes": 574041195,
+      "sha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+      "revision": "5359861c739e955e79d9a303bcbc70fb988958b1"
+    },
+    "q4_0": {
+      "bytes": 473992235,
+      "sha256": "2ceb779ca61ce46ed6e9aa43c4a0f8a89a37f683df3c0ba3119238fcd5852155",
+      "revision": "2df9591948d91c0a80d47faa2a3a96d195ce138a"
+    }
+  },
+  "common_decoder_parameters": {
+    "max_initial_ts": 1.0,
+    "n_threads": 4,
+    "best_of": 5,
+    "audio_ctx": 0,
+    "n_max_text_ctx": 224,
+    "no_context": 1,
+    "no_timestamps": 0,
+    "token_timestamps": 0,
+    "use_gpu": 0,
+    "flash_attn": 1,
+    "vad": 0,
+    "translate": 0,
+    "temperature": 0,
+    "temperature_inc": 0.200000003,
+    "entropy_thold": 2.4000001,
+    "logprob_thold": -1,
+    "no_speech_thold": 0.600000024,
+    "prompt_bytes": 0,
+    "n_processors": 1
+  },
+  "variable": "Only the complete Q5_0 versus Q4_0 model artifact. Common binary/backend/returned JNI parameters; adjacent pairs alternate first arm. Q4 original-weight ancestry is uncertified.",
+  "results_verified": 72,
+  "summary": {
+    "q5_0": {
+      "original": {
+        "total": 18,
+        "strict_passes": 15,
+        "errors": 20,
+        "reference_units": 503
+      },
+      "quiet": {
+        "total": 12,
+        "strict_passes": 1,
+        "errors": 179,
+        "reference_units": 356
+      },
+      "controls": {
+        "total": 6,
+        "strict_passes": 0,
+        "errors": 39,
+        "reference_units": 0
+      }
+    },
+    "q4_0": {
+      "original": {
+        "total": 18,
+        "strict_passes": 15,
+        "errors": 21,
+        "reference_units": 503
+      },
+      "quiet": {
+        "total": 12,
+        "strict_passes": 1,
+        "errors": 471,
+        "reference_units": 356
+      },
+      "controls": {
+        "total": 6,
+        "strict_passes": 0,
+        "errors": 51,
+        "reference_units": 0
+      }
+    }
+  },
+  "quality_passed": false,
+  "per_case_nonregression_passed": false,
+  "candidate_controls_exact_empty": false,
+  "quiet_strict_passes_increased": false,
+  "regressions": [
+    {
+      "id": "fleurs-en-011-minus24db-pause-before",
+      "population": "quiet",
+      "errors_q5": 23,
+      "errors_q4": 24,
+      "reference_units": 24,
+      "increased_errors": true,
+      "new_failed_anchors": [],
+      "lost_strict_pass": false,
+      "duplicate_segment_increase": false,
+      "raw_changed": true,
+      "fact_anchor_outcomes": {
+        "q5_0": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "q4_0": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ]
+      },
+      "measured_regression": true,
+      "historical_regression_case": false
+    },
+    {
+      "id": "fleurs-ja-010-minus24db-pause-after",
+      "population": "quiet",
+      "errors_q5": 31,
+      "errors_q4": 170,
+      "reference_units": 30,
+      "increased_errors": true,
+      "new_failed_anchors": [],
+      "lost_strict_pass": false,
+      "duplicate_segment_increase": true,
+      "raw_changed": true,
+      "fact_anchor_outcomes": {
+        "q5_0": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "q4_0": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ]
+      },
+      "measured_regression": true,
+      "historical_regression_case": false
+    },
+    {
+      "id": "fleurs-ja-010-minus42db-pause-after",
+      "population": "quiet",
+      "errors_q5": 31,
+      "errors_q4": 121,
+      "reference_units": 30,
+      "increased_errors": true,
+      "new_failed_anchors": [],
+      "lost_strict_pass": false,
+      "duplicate_segment_increase": true,
+      "raw_changed": true,
+      "fact_anchor_outcomes": {
+        "q5_0": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "q4_0": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ]
+      },
+      "measured_regression": true,
+      "historical_regression_case": false
+    },
+    {
+      "id": "fleurs-ja-010-minus42db-pause-before",
+      "population": "quiet",
+      "errors_q5": 1,
+      "errors_q4": 33,
+      "reference_units": 30,
+      "increased_errors": true,
+      "new_failed_anchors": [
+        "negation"
+      ],
+      "lost_strict_pass": true,
+      "duplicate_segment_increase": true,
+      "raw_changed": true,
+      "fact_anchor_outcomes": {
+        "q5_0": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "q4_0": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ]
+      },
+      "measured_regression": true,
+      "historical_regression_case": false
+    },
+    {
+      "id": "fleurs-zh-001-minus24db-pause-after",
+      "population": "quiet",
+      "errors_q5": 2,
+      "errors_q4": 3,
+      "reference_units": 35,
+      "increased_errors": true,
+      "new_failed_anchors": [],
+      "lost_strict_pass": false,
+      "duplicate_segment_increase": false,
+      "raw_changed": true,
+      "fact_anchor_outcomes": {
+        "q5_0": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "q4_0": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ]
+      },
+      "measured_regression": true,
+      "historical_regression_case": false
+    },
+    {
+      "id": "fleurs-zh-001-minus24db-pause-before",
+      "population": "quiet",
+      "errors_q5": 3,
+      "errors_q4": 36,
+      "reference_units": 35,
+      "increased_errors": true,
+      "new_failed_anchors": [],
+      "lost_strict_pass": false,
+      "duplicate_segment_increase": true,
+      "raw_changed": true,
+      "fact_anchor_outcomes": {
+        "q5_0": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "q4_0": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ]
+      },
+      "measured_regression": true,
+      "historical_regression_case": false
+    },
+    {
+      "id": "fleurs-zh-001-minus42db-pause-after",
+      "population": "quiet",
+      "errors_q5": 3,
+      "errors_q4": 5,
+      "reference_units": 35,
+      "increased_errors": true,
+      "new_failed_anchors": [],
+      "lost_strict_pass": false,
+      "duplicate_segment_increase": false,
+      "raw_changed": true,
+      "fact_anchor_outcomes": {
+        "q5_0": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "q4_0": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ]
+      },
+      "measured_regression": true,
+      "historical_regression_case": false
+    },
+    {
+      "id": "fleurs-zh-020",
+      "population": "original",
+      "errors_q5": 9,
+      "errors_q4": 10,
+      "reference_units": 58,
+      "increased_errors": true,
+      "new_failed_anchors": [],
+      "lost_strict_pass": false,
+      "duplicate_segment_increase": false,
+      "raw_changed": true,
+      "fact_anchor_outcomes": {
+        "q5_0": [
+          {
+            "name": "year",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "stamp count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "name",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "q4_0": [
+          {
+            "name": "year",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "stamp count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "name",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ]
+      },
+      "measured_regression": true,
+      "historical_regression_case": true
+    },
+    {
+      "id": "noise-ja",
+      "population": "controls",
+      "errors_q5": 2,
+      "errors_q4": 14,
+      "reference_units": 0,
+      "increased_errors": true,
+      "new_failed_anchors": [],
+      "lost_strict_pass": false,
+      "duplicate_segment_increase": false,
+      "raw_changed": true,
+      "fact_anchor_outcomes": {
+        "q5_0": [],
+        "q4_0": []
+      },
+      "measured_regression": true,
+      "historical_regression_case": false
+    }
+  ],
+  "semantic_review": {
+    "coverage": "All 36 raw/segment pairs independently reviewed",
+    "japanese_lost_pass": "JA010 -42 dB pause-before repeats the sentence and changes 怪我人 to けが人. Frozen negation-labelled anchor fails injury-word spelling; count three and actual negation remain. This does not demonstrate negation loss.",
+    "new_english_quiet_pass": "EN011 -24 dB pause-after retains unsupported So despite reaching the frozen 5% score. One English quiet gain offsets one Japanese loss.",
+    "unchanged_pass_limit": "JA025 適用 versus 適応 changes meaning despite passing the frozen error threshold."
+  },
+  "control_scope": "Six language labels reuse two WAVs. Strict empty requires no text and no segments, not punctuation-normalized scoring. Standard CLI omits production exact-zero bypass; these silence hallucinations establish no JNI/Kotlin zero-guard bug.",
+  "median_cold_seconds": {
+    "q5_0": 29.8361995665,
+    "q4_0": 15.19210243599997
+  },
+  "maximum_recorded_native_peak_rss_bytes": {
+    "q5_0": 841670656,
+    "q4_0": 753463296
+  },
+  "timing_scope": "Cold fresh-process x86 CLI; not warm Android, real-time factor, preview or Stop-to-final latency.",
+  "experiment_elapsed_seconds": 1760.476472693,
+  "attribution": {
+    "public_audio": "Google FLEURS, Conneau et al. (2022); CC BY 4.0. Fixed public -24/-42 dB PCM16 quiet variants with seeded leading/trailing noise. No cropping, VAD, gain recovery or filtering.",
+    "source_card": "https://huggingface.co/datasets/google/fleurs",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "native": "ggml/whisper.cpp authors; MIT; exact upstream license retained.",
+    "q4": "Pomni community whole-artifact publisher; original-weight ancestry uncertified; research only, no distribution or adoption."
+  },
+  "limits": [
+    "All references, anchors and per-clip 5% ceilings unchanged.",
+    "Original 15/18 and quiet 1/12 do not establish perfect transcription.",
+    "No confidence/no-speech probabilities or detailed decoder traces were collected.",
+    "No Android cancellation patch, phone test, release, merge or production promotion."
+  ],
+  "cases": [
+    {
+      "id": "fleurs-en-000",
+      "arm": "q5_0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "048169439c0328b758349af74aeb54a82a7a476e309709eb791dced06db25d48",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 15,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "satellite",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.755544509999993,
+      "peak_rss_bytes": 767557632,
+      "strict_passed": true,
+      "raw_sha256": "5414588c40aaca6face4fea72a1f5d2a04472de8372c9114edd5a7d303dc57e8",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-000",
+      "arm": "q4_0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "048169439c0328b758349af74aeb54a82a7a476e309709eb791dced06db25d48",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 15,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "satellite",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 14.75531301800001,
+      "peak_rss_bytes": 679968768,
+      "strict_passed": true,
+      "raw_sha256": "5414588c40aaca6face4fea72a1f5d2a04472de8372c9114edd5a7d303dc57e8",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-003",
+      "arm": "q4_0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "7172cc6e8a7b006a8175c57df13bb69db0c6249dc09d7b015c98722d5af9734c",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 5,
+          "reference_units": 10,
+          "rate": 0.5
+        },
+        "checks": [
+          {
+            "name": "name",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 15.61607342000002,
+      "peak_rss_bytes": 675119104,
+      "strict_passed": false,
+      "raw_sha256": "18326e7f575c9c3274b032baf7cdc74f316438426da77d80612c46c88c1d3889",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-003",
+      "arm": "q5_0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "7172cc6e8a7b006a8175c57df13bb69db0c6249dc09d7b015c98722d5af9734c",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 5,
+          "reference_units": 10,
+          "rate": 0.5
+        },
+        "checks": [
+          {
+            "name": "name",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 29.296858310999994,
+      "peak_rss_bytes": 770547712,
+      "strict_passed": false,
+      "raw_sha256": "18326e7f575c9c3274b032baf7cdc74f316438426da77d80612c46c88c1d3889",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-011",
+      "arm": "q5_0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "409c1b0f2e86fbc7996c1122e8ccbd0ff30bae145395b456e4ffa6b8c8279c12",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 24,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 30.21121356399999,
+      "peak_rss_bytes": 771117056,
+      "strict_passed": true,
+      "raw_sha256": "3d47bd0c696114db7fafbbf8adbbdaaf1f4c86c58a14ff049e6a9b14a1277f48",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-en-011",
+      "arm": "q4_0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "409c1b0f2e86fbc7996c1122e8ccbd0ff30bae145395b456e4ffa6b8c8279c12",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 24,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 14.933314179999968,
+      "peak_rss_bytes": 676995072,
+      "strict_passed": true,
+      "raw_sha256": "43ee6c62c3009583caf4c8927ab534ef6755af172d86c437b6968c0ee590690e",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-011-minus24db-pause-after",
+      "arm": "q4_0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "a1753cfe60369b5075f9d6ecb1181ab5000eaedeaa119862b3d1453c4579e3bc",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 24,
+          "rate": 0.041666666666666664
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 15.411123815999986,
+      "peak_rss_bytes": 686784512,
+      "strict_passed": true,
+      "raw_sha256": "6e6400982d7be740cdfc5fbd15968a636af3578fe0ca85499684c6946a7a8f54",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-en-011-minus24db-pause-after",
+      "arm": "q5_0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "a1753cfe60369b5075f9d6ecb1181ab5000eaedeaa119862b3d1453c4579e3bc",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 3,
+          "reference_units": 24,
+          "rate": 0.125
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 30.31047024999998,
+      "peak_rss_bytes": 773472256,
+      "strict_passed": false,
+      "raw_sha256": "1cada5e273c98af91ed0e2311172eafe950f70bca56c3b4b15e254eeb5b92c3f",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-en-011-minus24db-pause-before",
+      "arm": "q5_0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "3ccce5c4a5860dba16dbb75904a49ac36f5d426da8f2f0ab6af1577cbcd23bd6",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 23,
+          "reference_units": 24,
+          "rate": 0.9583333333333334
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 29.735052922999955,
+      "peak_rss_bytes": 841670656,
+      "strict_passed": false,
+      "raw_sha256": "f16346b87d5e10c3dba5863105b98ef623412033ede9d42239067531c8f9bc6e",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-011-minus24db-pause-before",
+      "arm": "q4_0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "3ccce5c4a5860dba16dbb75904a49ac36f5d426da8f2f0ab6af1577cbcd23bd6",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 24,
+          "reference_units": 24,
+          "rate": 1.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 19.38155143199998,
+      "peak_rss_bytes": 753463296,
+      "strict_passed": false,
+      "raw_sha256": "af74b43cdf12a201db275f289ac9f0943b5a7642d8e7aab6bff9948017da6699",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-011-minus42db-pause-after",
+      "arm": "q4_0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "1b45beb9f53a8789b91b2ea66081854dd787f85a66a76d100fa429063e9dbd48",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 22,
+          "reference_units": 24,
+          "rate": 0.9166666666666666
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 15.123792267999988,
+      "peak_rss_bytes": 753053696,
+      "strict_passed": false,
+      "raw_sha256": "16aad11b4c8da0231ff4104dd846479cd071a82c69fc9b824ab6fcc9a05fbed5",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-011-minus42db-pause-after",
+      "arm": "q5_0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "1b45beb9f53a8789b91b2ea66081854dd787f85a66a76d100fa429063e9dbd48",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 24,
+          "reference_units": 24,
+          "rate": 1.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 29.790241458000025,
+      "peak_rss_bytes": 841297920,
+      "strict_passed": false,
+      "raw_sha256": "bccb36421c32fd24fe7d39b410b0f4edbe696599236548fac942263bbc8f8be0",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-011-minus42db-pause-before",
+      "arm": "q5_0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "eb9a358a7debbec967b67faa65cf3fd398f0545177589e5f94cabdc42dc7f9cc",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 24,
+          "reference_units": 24,
+          "rate": 1.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 36.170085209000035,
+      "peak_rss_bytes": 840433664,
+      "strict_passed": false,
+      "raw_sha256": "c7213e9b64b315c73cb768d0da8876bd067d2f517cfc83df7f0ac1fc644d8163",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-011-minus42db-pause-before",
+      "arm": "q4_0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "eb9a358a7debbec967b67faa65cf3fd398f0545177589e5f94cabdc42dc7f9cc",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 22,
+          "reference_units": 24,
+          "rate": 0.9166666666666666
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 15.391253360000007,
+      "peak_rss_bytes": 744632320,
+      "strict_passed": false,
+      "raw_sha256": "9c019f195945c82e1c34fb97e81028809a4e7d2a7249537daac01482379a6f60",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-013",
+      "arm": "q4_0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "431d013d01d25cbf8d42587f4a14df57d09dbe9cbc2af4ea91ba93f9bd290ec4",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 17,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 15.516158940000025,
+      "peak_rss_bytes": 685289472,
+      "strict_passed": true,
+      "raw_sha256": "3089534c00a191bcc34cb2ec3f98358f82cd7eab257db71cfac6d5c0183e6abf",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-en-013",
+      "arm": "q5_0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "431d013d01d25cbf8d42587f4a14df57d09dbe9cbc2af4ea91ba93f9bd290ec4",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 17,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.859456422999983,
+      "peak_rss_bytes": 770945024,
+      "strict_passed": true,
+      "raw_sha256": "3089534c00a191bcc34cb2ec3f98358f82cd7eab257db71cfac6d5c0183e6abf",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-en-017",
+      "arm": "q5_0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "952145e2808bf8ea6354ec0ea656652a0eeff61438a466fa4f0f3568f89c23a3",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 17,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "year",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 30.069595669000023,
+      "peak_rss_bytes": 771010560,
+      "strict_passed": true,
+      "raw_sha256": "aff85e8e4502bb57efd09d96bda05c47443c091d5dc5baf3d6a7a78a68c8c076",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-017",
+      "arm": "q4_0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "952145e2808bf8ea6354ec0ea656652a0eeff61438a466fa4f0f3568f89c23a3",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 17,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "year",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 15.013763346000019,
+      "peak_rss_bytes": 676081664,
+      "strict_passed": true,
+      "raw_sha256": "d804345cc3baaca92277cbb17d479ff88befae3d7190fd6b228afafb69409aee",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-021",
+      "arm": "q4_0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "df7a78f49dc92468b8e79a2ffb98d78622ead12f70f567eca0ac472a81ba21b6",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 26,
+          "rate": 0.038461538461538464
+        },
+        "checks": [
+          {
+            "name": "counts",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "injured",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "uncertainty",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 15.047719528000016,
+      "peak_rss_bytes": 676495360,
+      "strict_passed": true,
+      "raw_sha256": "4c15316a8ac449c4e1dbd564f56335da4c5d521c367f5954f8f879a8a4338948",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-021",
+      "arm": "q5_0",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "df7a78f49dc92468b8e79a2ffb98d78622ead12f70f567eca0ac472a81ba21b6",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 26,
+          "rate": 0.038461538461538464
+        },
+        "checks": [
+          {
+            "name": "counts",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "injured",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "uncertainty",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.658940625000014,
+      "peak_rss_bytes": 771022848,
+      "strict_passed": true,
+      "raw_sha256": "4c15316a8ac449c4e1dbd564f56335da4c5d521c367f5954f8f879a8a4338948",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-002",
+      "arm": "q5_0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "88391f365cdecc51a56ef5f9322c441c0107ab8d0c6f7a3a09f2334ffe8c56ff",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 28,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "duration",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.567166692,
+      "peak_rss_bytes": 770875392,
+      "strict_passed": true,
+      "raw_sha256": "76063982909f72d8a57d30d6337ea1fda466eee942d5ede36b6e09b34df724b1",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-002",
+      "arm": "q4_0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "88391f365cdecc51a56ef5f9322c441c0107ab8d0c6f7a3a09f2334ffe8c56ff",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 28,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "duration",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 15.088041088999944,
+      "peak_rss_bytes": 685121536,
+      "strict_passed": true,
+      "raw_sha256": "76063982909f72d8a57d30d6337ea1fda466eee942d5ede36b6e09b34df724b1",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-010",
+      "arm": "q4_0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "79f4e7148a35d78e986911d939c1664737209e33c4e46dae944e28bb624afdfb",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 30,
+          "rate": 0.03333333333333333
+        },
+        "checks": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 15.073295327999972,
+      "peak_rss_bytes": 676356096,
+      "strict_passed": true,
+      "raw_sha256": "b97ffd14df83185ca90a7b0aa4fb841e3bc7821e682ab45b1dcd146e0c313bc5",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-ja-010",
+      "arm": "q5_0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "79f4e7148a35d78e986911d939c1664737209e33c4e46dae944e28bb624afdfb",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 30,
+          "rate": 0.03333333333333333
+        },
+        "checks": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.705676412000003,
+      "peak_rss_bytes": 770949120,
+      "strict_passed": true,
+      "raw_sha256": "0ae22edecc76cde1833313aec281c7a2f8d0ce794680b164d38ac675a648eb10",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-010-minus24db-pause-after",
+      "arm": "q5_0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "a9736f3a19f41e85797dc595b247a29940a80c8977d519ecfcd2aa52ca5d0543",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 31,
+          "reference_units": 30,
+          "rate": 1.0333333333333334
+        },
+        "checks": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 30.208912470999962,
+      "peak_rss_bytes": 774676480,
+      "strict_passed": false,
+      "raw_sha256": "f7b6c5e34be23eb859361a0708e3635e070d62b45169a14bdc8acda555cb2d2c",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-ja-010-minus24db-pause-after",
+      "arm": "q4_0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "a9736f3a19f41e85797dc595b247a29940a80c8977d519ecfcd2aa52ca5d0543",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 170,
+          "reference_units": 30,
+          "rate": 5.666666666666667
+        },
+        "checks": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 16.163088979999998,
+      "peak_rss_bytes": 677560320,
+      "strict_passed": false,
+      "raw_sha256": "0acd89393ccf36fa34d94d0fe3abd954639d44c8e571a9989ca707941e3b3caa",
+      "segment_count": 13
+    },
+    {
+      "id": "fleurs-ja-010-minus24db-pause-before",
+      "arm": "q4_0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "57381b0849eef52e5db1ee0016be718deb7b942fff495275d67f32795d5ae193",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 31,
+          "reference_units": 30,
+          "rate": 1.0333333333333334
+        },
+        "checks": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 15.196071447000008,
+      "peak_rss_bytes": 686907392,
+      "strict_passed": false,
+      "raw_sha256": "f7b6c5e34be23eb859361a0708e3635e070d62b45169a14bdc8acda555cb2d2c",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-ja-010-minus24db-pause-before",
+      "arm": "q5_0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "57381b0849eef52e5db1ee0016be718deb7b942fff495275d67f32795d5ae193",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 31,
+          "reference_units": 30,
+          "rate": 1.0333333333333334
+        },
+        "checks": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 29.878394952000008,
+      "peak_rss_bytes": 774717440,
+      "strict_passed": false,
+      "raw_sha256": "f7b6c5e34be23eb859361a0708e3635e070d62b45169a14bdc8acda555cb2d2c",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-ja-010-minus42db-pause-after",
+      "arm": "q5_0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "6d862898fb6201478f4f3b8ac1d7381e0d96488875e67ea77f0f43a80685ec90",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 31,
+          "reference_units": 30,
+          "rate": 1.0333333333333334
+        },
+        "checks": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 30.084588363999956,
+      "peak_rss_bytes": 773664768,
+      "strict_passed": false,
+      "raw_sha256": "f7b6c5e34be23eb859361a0708e3635e070d62b45169a14bdc8acda555cb2d2c",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-ja-010-minus42db-pause-after",
+      "arm": "q4_0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "6d862898fb6201478f4f3b8ac1d7381e0d96488875e67ea77f0f43a80685ec90",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 121,
+          "reference_units": 30,
+          "rate": 4.033333333333333
+        },
+        "checks": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 16.227220719,
+      "peak_rss_bytes": 678260736,
+      "strict_passed": false,
+      "raw_sha256": "991fca3b4099d8fd96e052e04a174d7e6763d382a27922838a839c3c2504954b",
+      "segment_count": 10
+    },
+    {
+      "id": "fleurs-ja-010-minus42db-pause-before",
+      "arm": "q4_0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "23e34ac5ae1690aabe13b227c4197c47061d8de0f629b0b586ded483c67785da",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 33,
+          "reference_units": 30,
+          "rate": 1.1
+        },
+        "checks": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 15.503257825999981,
+      "peak_rss_bytes": 687046656,
+      "strict_passed": false,
+      "raw_sha256": "153e8e84e17db04cc99fd6f214259026475d82d47980edb82b71a947790de3cc",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-ja-010-minus42db-pause-before",
+      "arm": "q5_0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "23e34ac5ae1690aabe13b227c4197c47061d8de0f629b0b586ded483c67785da",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 30,
+          "rate": 0.03333333333333333
+        },
+        "checks": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.77366060199995,
+      "peak_rss_bytes": 770011136,
+      "strict_passed": true,
+      "raw_sha256": "0ae22edecc76cde1833313aec281c7a2f8d0ce794680b164d38ac675a648eb10",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-013",
+      "arm": "q5_0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "66b2cadee94dcfd09ab9d64e0872510377435a855fcf93f27c296caecdefefec",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 41,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "name",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.71346616400001,
+      "peak_rss_bytes": 767901696,
+      "strict_passed": true,
+      "raw_sha256": "9bf2d92cfa9cf8dc6efb1546a2d4dd1149026749f9673e7fa5b4db08751e72d5",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-013",
+      "arm": "q4_0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "66b2cadee94dcfd09ab9d64e0872510377435a855fcf93f27c296caecdefefec",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 41,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "name",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 15.347791307999955,
+      "peak_rss_bytes": 670593024,
+      "strict_passed": true,
+      "raw_sha256": "9bf2d92cfa9cf8dc6efb1546a2d4dd1149026749f9673e7fa5b4db08751e72d5",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-025",
+      "arm": "q4_0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "791a961a253abc6af431fbf7a2e63376ba573bbc4ce4f32f2d690316bdf82357",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 35,
+          "rate": 0.02857142857142857
+        },
+        "checks": [
+          {
+            "name": "unchanged",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 15.154186903999971,
+      "peak_rss_bytes": 670748672,
+      "strict_passed": true,
+      "raw_sha256": "72fd789bbd48bccd022a7fcf6f4a9e05e877a03557e33dc9a086785dfe74ebac",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-ja-025",
+      "arm": "q5_0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "791a961a253abc6af431fbf7a2e63376ba573bbc4ce4f32f2d690316bdf82357",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 35,
+          "rate": 0.02857142857142857
+        },
+        "checks": [
+          {
+            "name": "unchanged",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.983858806999933,
+      "peak_rss_bytes": 765616128,
+      "strict_passed": true,
+      "raw_sha256": "a3c932b16de7e96548ce619806e50a7f7d74f11fc8fd1269888e4d645583eb0a",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-030",
+      "arm": "q5_0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "a548ddfc95de96b390e9b491cef0884ecb3aaec0ea773085baa40c16450b019d",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 41,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "score",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "streak",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.458917244999952,
+      "peak_rss_bytes": 767959040,
+      "strict_passed": true,
+      "raw_sha256": "b0fb257ee6d16eee6e9cf1f578719bca4dffc1508e7b978d32433d27e711cab5",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-030",
+      "arm": "q4_0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "a548ddfc95de96b390e9b491cef0884ecb3aaec0ea773085baa40c16450b019d",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 41,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "score",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "streak",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 15.450027572000067,
+      "peak_rss_bytes": 670810112,
+      "strict_passed": true,
+      "raw_sha256": "1bae83cd53fe7d5a55eb34ec99f8e8d76c0c86a31f04c12a68049a12b2009ed7",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-ja-034",
+      "arm": "q4_0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "287ea58715c3a94b2751d960d823b67060878a6861ba7f5643dacc30fb2c8c8b",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 32,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "width",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 14.962884807999899,
+      "peak_rss_bytes": 670433280,
+      "strict_passed": true,
+      "raw_sha256": "569907b068a9fe6a457ea746658aec10e402c818420924096d8da6a58b7b230a",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-ja-034",
+      "arm": "q5_0",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "287ea58715c3a94b2751d960d823b67060878a6861ba7f5643dacc30fb2c8c8b",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 32,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "width",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.690089686000192,
+      "peak_rss_bytes": 771014656,
+      "strict_passed": true,
+      "raw_sha256": "d3663df0f46a17518bb223f3fccdcecb5c4443f76e43d10090df4005c977c929",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-001",
+      "arm": "q5_0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "577a635c2261680c61dda5fecbc4f83bff6f37f453665b8d9d1a68f210f57c0a",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 35,
+          "rate": 0.02857142857142857
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 30.69154684099999,
+      "peak_rss_bytes": 770940928,
+      "strict_passed": true,
+      "raw_sha256": "9d06af0f58950620ba7ccae8410baee5d41078ea6cca80049b8ce3f7dafe67b6",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-001",
+      "arm": "q4_0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "577a635c2261680c61dda5fecbc4f83bff6f37f453665b8d9d1a68f210f57c0a",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 35,
+          "rate": 0.02857142857142857
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 15.698502422000047,
+      "peak_rss_bytes": 676765696,
+      "strict_passed": true,
+      "raw_sha256": "9d06af0f58950620ba7ccae8410baee5d41078ea6cca80049b8ce3f7dafe67b6",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-001-minus24db-pause-after",
+      "arm": "q4_0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "947bcde389236492077f20f5210ef21fe556569633354f148f62f6ac316adf00",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 3,
+          "reference_units": 35,
+          "rate": 0.08571428571428572
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 15.657852731000048,
+      "peak_rss_bytes": 686698496,
+      "strict_passed": false,
+      "raw_sha256": "4f7b58ea67bd6141b5456d586865c4c005f1029943f0ee74a8dfa0879bba3f96",
+      "segment_count": 4
+    },
+    {
+      "id": "fleurs-zh-001-minus24db-pause-after",
+      "arm": "q5_0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "947bcde389236492077f20f5210ef21fe556569633354f148f62f6ac316adf00",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 2,
+          "reference_units": 35,
+          "rate": 0.05714285714285714
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 30.105474783999853,
+      "peak_rss_bytes": 773337088,
+      "strict_passed": false,
+      "raw_sha256": "c20e6e225c4b452dc0ac35656b788eac7ba9fe25203261381cc66e586c0c859e",
+      "segment_count": 4
+    },
+    {
+      "id": "fleurs-zh-001-minus24db-pause-before",
+      "arm": "q5_0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "4b4c4b30de8c0832b58cc5059497022dad1075baedb5afd5eccaa824572b0d53",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 3,
+          "reference_units": 35,
+          "rate": 0.08571428571428572
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 29.957550381000146,
+      "peak_rss_bytes": 774336512,
+      "strict_passed": false,
+      "raw_sha256": "a57e6897b9672f139c418f89802c989fabf55a08e132c049d7468846dad34144",
+      "segment_count": 4
+    },
+    {
+      "id": "fleurs-zh-001-minus24db-pause-before",
+      "arm": "q4_0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "4b4c4b30de8c0832b58cc5059497022dad1075baedb5afd5eccaa824572b0d53",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 36,
+          "reference_units": 35,
+          "rate": 1.0285714285714285
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 16.05368146900014,
+      "peak_rss_bytes": 678023168,
+      "strict_passed": false,
+      "raw_sha256": "afe1db8945510a1397f0742622d9e3ae9765bdd3e46bee9bbe0c2608e645a71a",
+      "segment_count": 5
+    },
+    {
+      "id": "fleurs-zh-001-minus42db-pause-after",
+      "arm": "q4_0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "6b0e2b4da500e0cbdcd80798a9531a55a63b47d4b533d8a01a211feb570d37f5",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 5,
+          "reference_units": 35,
+          "rate": 0.14285714285714285
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 15.504459754000209,
+      "peak_rss_bytes": 686678016,
+      "strict_passed": false,
+      "raw_sha256": "1f09ecc5c60f7e5a1d3f025926072d7c66e62e4d0cdac0dfb9bb8f5ba866b326",
+      "segment_count": 4
+    },
+    {
+      "id": "fleurs-zh-001-minus42db-pause-after",
+      "arm": "q5_0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "6b0e2b4da500e0cbdcd80798a9531a55a63b47d4b533d8a01a211feb570d37f5",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 3,
+          "reference_units": 35,
+          "rate": 0.08571428571428572
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 30.549786038000093,
+      "peak_rss_bytes": 774217728,
+      "strict_passed": false,
+      "raw_sha256": "754ffee69560412ab5569a034a6a661bdd3af94008c816cc044348453229e208",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-001-minus42db-pause-before",
+      "arm": "q5_0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "634c55c5f1e981fd5b52265b2384bdf327f08a3aee55eecb0f61f6d9de0ed529",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 3,
+          "reference_units": 35,
+          "rate": 0.08571428571428572
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 30.23689460000014,
+      "peak_rss_bytes": 773316608,
+      "strict_passed": false,
+      "raw_sha256": "37c848b0cf5fb4529adcfda3fad0a9ebf038d264d56704fa559c3dd9577e6317",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-001-minus42db-pause-before",
+      "arm": "q4_0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "634c55c5f1e981fd5b52265b2384bdf327f08a3aee55eecb0f61f6d9de0ed529",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 3,
+          "reference_units": 35,
+          "rate": 0.08571428571428572
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 15.206690996999896,
+      "peak_rss_bytes": 677347328,
+      "strict_passed": false,
+      "raw_sha256": "754ffee69560412ab5569a034a6a661bdd3af94008c816cc044348453229e208",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-008",
+      "arm": "q4_0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "602f0fc4a334f4927b221b836f1735a09888f017956d02e1aaf97526a10cc964",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 31,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "score",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "streak",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 15.145634851000068,
+      "peak_rss_bytes": 677343232,
+      "strict_passed": true,
+      "raw_sha256": "d5ff9594ccdf10518af8227e29217c17386ca71981d96bc6d160dc580fd1d1f8",
+      "segment_count": 3
+    },
+    {
+      "id": "fleurs-zh-008",
+      "arm": "q5_0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "602f0fc4a334f4927b221b836f1735a09888f017956d02e1aaf97526a10cc964",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 31,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "score",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "streak",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 30.476505238000072,
+      "peak_rss_bytes": 771526656,
+      "strict_passed": true,
+      "raw_sha256": "d5ff9594ccdf10518af8227e29217c17386ca71981d96bc6d160dc580fd1d1f8",
+      "segment_count": 3
+    },
+    {
+      "id": "fleurs-zh-011",
+      "arm": "q5_0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "740b099bcbe2ef18d0605505bdf34494086b2422ce9677b4ab92bc056780aeff",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 14,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "term",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.3762826950001,
+      "peak_rss_bytes": 770686976,
+      "strict_passed": true,
+      "raw_sha256": "67ab43dbf1823c552bf9b0d32f6b336420cbc328d68398132bb40d349f8eaa38",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-011",
+      "arm": "q4_0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "740b099bcbe2ef18d0605505bdf34494086b2422ce9677b4ab92bc056780aeff",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 14,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "term",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 14.904510070000015,
+      "peak_rss_bytes": 685084672,
+      "strict_passed": true,
+      "raw_sha256": "67ab43dbf1823c552bf9b0d32f6b336420cbc328d68398132bb40d349f8eaa38",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-020",
+      "arm": "q4_0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "46a8db323b5e51dcbb06813f5ebb303d7688326b6cc51ba6e609296c75973f59",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 10,
+          "reference_units": 58,
+          "rate": 0.1724137931034483
+        },
+        "checks": [
+          {
+            "name": "year",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "stamp count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "name",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 15.50464256600003,
+      "peak_rss_bytes": 676950016,
+      "strict_passed": false,
+      "raw_sha256": "1ffb979d5981610eeaf91fd14a04bab9807fbfacf428ee15854a78ec9d5970c2",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-zh-020",
+      "arm": "q5_0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "46a8db323b5e51dcbb06813f5ebb303d7688326b6cc51ba6e609296c75973f59",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 9,
+          "reference_units": 58,
+          "rate": 0.15517241379310345
+        },
+        "checks": [
+          {
+            "name": "year",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "stamp count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "name",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 30.162076287000218,
+      "peak_rss_bytes": 773083136,
+      "strict_passed": false,
+      "raw_sha256": "4d9d85fc27981f8c88aebad6ba18d41013d91acebb0ed40b221801c82302cab1",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-022",
+      "arm": "q5_0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "7cda86aca73eac3283e3e12a90a550b3eb2c3ac33d6c202d7c0759eea384f7b4",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 36,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 30.06476017,
+      "peak_rss_bytes": 771100672,
+      "strict_passed": true,
+      "raw_sha256": "5e7165c3c0e3811c7603e9619a3a23502e2e1c38b9b12115bc2a3525c9c4d8d1",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-zh-022",
+      "arm": "q4_0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "7cda86aca73eac3283e3e12a90a550b3eb2c3ac33d6c202d7c0759eea384f7b4",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 36,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 15.27665531599996,
+      "peak_rss_bytes": 677027840,
+      "strict_passed": true,
+      "raw_sha256": "5e7165c3c0e3811c7603e9619a3a23502e2e1c38b9b12115bc2a3525c9c4d8d1",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-zh-034",
+      "arm": "q4_0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "eba0b68aa12dd62c40f78ea201be03e51f790c1811c8f6b5a646c17a1a9691ed",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 2,
+          "reference_units": 13,
+          "rate": 0.15384615384615385
+        },
+        "checks": [
+          {
+            "name": "name",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 14.939234472999942,
+      "peak_rss_bytes": 685088768,
+      "strict_passed": false,
+      "raw_sha256": "fb55078046a6772ddc6e6b7552f7b1f1f14330fcc8680cd1660fa339ac8a5494",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-034",
+      "arm": "q5_0",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "eba0b68aa12dd62c40f78ea201be03e51f790c1811c8f6b5a646c17a1a9691ed",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 2,
+          "reference_units": 13,
+          "rate": 0.15384615384615385
+        },
+        "checks": [
+          {
+            "name": "name",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 29.740249081,
+      "peak_rss_bytes": 770633728,
+      "strict_passed": false,
+      "raw_sha256": "684f04e8d68be7cb53e6251dc014e16a3fa5ca85010bbdaf4c85964ba5eb3589",
+      "segment_count": 1
+    },
+    {
+      "id": "noise-en",
+      "arm": "q5_0",
+      "language": "en",
+      "origin": "negative_control",
+      "audio_sha256": "af9a9dfee9e45c53834a5258369d5308d95f47ea7e423f0a44c8cb8b147b5d45",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 0,
+          "rate": 0.0
+        },
+        "checks": [],
+        "passed": true
+      },
+      "elapsed_seconds": 29.514630792999924,
+      "peak_rss_bytes": 770637824,
+      "strict_passed": false,
+      "raw_sha256": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8",
+      "segment_count": 1
+    },
+    {
+      "id": "noise-en",
+      "arm": "q4_0",
+      "language": "en",
+      "origin": "negative_control",
+      "audio_sha256": "af9a9dfee9e45c53834a5258369d5308d95f47ea7e423f0a44c8cb8b147b5d45",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 0,
+          "rate": 0.0
+        },
+        "checks": [],
+        "passed": true
+      },
+      "elapsed_seconds": 14.697381360999998,
+      "peak_rss_bytes": 672014336,
+      "strict_passed": false,
+      "raw_sha256": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8",
+      "segment_count": 1
+    },
+    {
+      "id": "noise-ja",
+      "arm": "q4_0",
+      "language": "ja",
+      "origin": "negative_control",
+      "audio_sha256": "af9a9dfee9e45c53834a5258369d5308d95f47ea7e423f0a44c8cb8b147b5d45",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 14,
+          "reference_units": 0,
+          "rate": null
+        },
+        "checks": [],
+        "passed": false
+      },
+      "elapsed_seconds": 14.960765218000006,
+      "peak_rss_bytes": 670097408,
+      "strict_passed": false,
+      "raw_sha256": "eec03ed7500924f0b1c5f3b83da02980d9802edd370c6bba5c65e6a182c45e81",
+      "segment_count": 1
+    },
+    {
+      "id": "noise-ja",
+      "arm": "q5_0",
+      "language": "ja",
+      "origin": "negative_control",
+      "audio_sha256": "af9a9dfee9e45c53834a5258369d5308d95f47ea7e423f0a44c8cb8b147b5d45",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 2,
+          "reference_units": 0,
+          "rate": null
+        },
+        "checks": [],
+        "passed": false
+      },
+      "elapsed_seconds": 29.23488178799994,
+      "peak_rss_bytes": 833638400,
+      "strict_passed": false,
+      "raw_sha256": "8f90d85ec13a0b1b12d81203f2f3262ca156028a94aeaf91ae52fcd5a9de4170",
+      "segment_count": 1
+    },
+    {
+      "id": "noise-zh",
+      "arm": "q5_0",
+      "language": "zh",
+      "origin": "negative_control",
+      "audio_sha256": "af9a9dfee9e45c53834a5258369d5308d95f47ea7e423f0a44c8cb8b147b5d45",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 0,
+          "rate": null
+        },
+        "checks": [],
+        "passed": false
+      },
+      "elapsed_seconds": 29.65785334799989,
+      "peak_rss_bytes": 833544192,
+      "strict_passed": false,
+      "raw_sha256": "f867f34178594f891eb70a4260f62b1d9289cfa60394f9fee1cbbe4a8b4bf436",
+      "segment_count": 1
+    },
+    {
+      "id": "noise-zh",
+      "arm": "q4_0",
+      "language": "zh",
+      "origin": "negative_control",
+      "audio_sha256": "af9a9dfee9e45c53834a5258369d5308d95f47ea7e423f0a44c8cb8b147b5d45",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 0,
+          "rate": null
+        },
+        "checks": [],
+        "passed": false
+      },
+      "elapsed_seconds": 15.054627091000157,
+      "peak_rss_bytes": 736382976,
+      "strict_passed": false,
+      "raw_sha256": "f867f34178594f891eb70a4260f62b1d9289cfa60394f9fee1cbbe4a8b4bf436",
+      "segment_count": 1
+    },
+    {
+      "id": "silence-en",
+      "arm": "q4_0",
+      "language": "en",
+      "origin": "negative_control",
+      "audio_sha256": "262d1f34f300560a4c82ba8127ddea9e1d72946f187fdbd3e8f70ee096077aec",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 2,
+          "reference_units": 0,
+          "rate": null
+        },
+        "checks": [],
+        "passed": false
+      },
+      "elapsed_seconds": 14.768086161999918,
+      "peak_rss_bytes": 669831168,
+      "strict_passed": false,
+      "raw_sha256": "8569efc4ed5a6273140c2b6ec0ab8d99f4398210808fbb7c0cbbae4fbcc21350",
+      "segment_count": 1
+    },
+    {
+      "id": "silence-en",
+      "arm": "q5_0",
+      "language": "en",
+      "origin": "negative_control",
+      "audio_sha256": "262d1f34f300560a4c82ba8127ddea9e1d72946f187fdbd3e8f70ee096077aec",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 2,
+          "reference_units": 0,
+          "rate": null
+        },
+        "checks": [],
+        "passed": false
+      },
+      "elapsed_seconds": 30.08718865700007,
+      "peak_rss_bytes": 767447040,
+      "strict_passed": false,
+      "raw_sha256": "8569efc4ed5a6273140c2b6ec0ab8d99f4398210808fbb7c0cbbae4fbcc21350",
+      "segment_count": 1
+    },
+    {
+      "id": "silence-ja",
+      "arm": "q5_0",
+      "language": "ja",
+      "origin": "negative_control",
+      "audio_sha256": "262d1f34f300560a4c82ba8127ddea9e1d72946f187fdbd3e8f70ee096077aec",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 14,
+          "reference_units": 0,
+          "rate": null
+        },
+        "checks": [],
+        "passed": false
+      },
+      "elapsed_seconds": 29.50901623300001,
+      "peak_rss_bytes": 765247488,
+      "strict_passed": false,
+      "raw_sha256": "0b60f62b46171b8625b7f25a66c4d8072d12e6b62786a283d8665a86d73791c2",
+      "segment_count": 1
+    },
+    {
+      "id": "silence-ja",
+      "arm": "q4_0",
+      "language": "ja",
+      "origin": "negative_control",
+      "audio_sha256": "262d1f34f300560a4c82ba8127ddea9e1d72946f187fdbd3e8f70ee096077aec",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 14,
+          "reference_units": 0,
+          "rate": null
+        },
+        "checks": [],
+        "passed": false
+      },
+      "elapsed_seconds": 14.859258609000108,
+      "peak_rss_bytes": 670093312,
+      "strict_passed": false,
+      "raw_sha256": "0b60f62b46171b8625b7f25a66c4d8072d12e6b62786a283d8665a86d73791c2",
+      "segment_count": 1
+    },
+    {
+      "id": "silence-zh",
+      "arm": "q4_0",
+      "language": "zh",
+      "origin": "negative_control",
+      "audio_sha256": "262d1f34f300560a4c82ba8127ddea9e1d72946f187fdbd3e8f70ee096077aec",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 20,
+          "reference_units": 0,
+          "rate": null
+        },
+        "checks": [],
+        "passed": false
+      },
+      "elapsed_seconds": 15.188133424999933,
+      "peak_rss_bytes": 674361344,
+      "strict_passed": false,
+      "raw_sha256": "f8aea53f45f5ee2d5be723939c20b25e7fc30b8cfca87933b4130a9a7933cac3",
+      "segment_count": 1
+    },
+    {
+      "id": "silence-zh",
+      "arm": "q5_0",
+      "language": "zh",
+      "origin": "negative_control",
+      "audio_sha256": "262d1f34f300560a4c82ba8127ddea9e1d72946f187fdbd3e8f70ee096077aec",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 20,
+          "reference_units": 0,
+          "rate": null
+        },
+        "checks": [],
+        "passed": false
+      },
+      "elapsed_seconds": 29.812942710000016,
+      "peak_rss_bytes": 770756608,
+      "strict_passed": false,
+      "raw_sha256": "f8aea53f45f5ee2d5be723939c20b25e7fc30b8cfca87933b4130a9a7933cac3",
+      "segment_count": 1
+    }
+  ]
+}
