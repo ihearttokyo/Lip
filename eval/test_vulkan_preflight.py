@@ -303,6 +303,7 @@ class PreflightTest(unittest.TestCase):
                 self.assertEqual(setup_commands.call_args_list[-1].kwargs['seconds'], 1200)
                 self.assertTrue(all(c.kwargs.get('retain', True) for c in setup_commands.call_args_list),
                                 'Public SDK version and setup output must be retained for failure diagnosis')
+                self.assertTrue(all(c.kwargs['env'].get('MALLOC_ARENA_MAX') == '2' for c in setup_commands.call_args_list))
             saved = json.loads((evidence / 'report.json').read_text())
             self.assertTrue(saved['sdk_setup_complete'])
             self.assertEqual(saved['status'], 'PARTIAL')

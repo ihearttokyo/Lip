@@ -848,7 +848,7 @@ def main():
                 report.data.update(stage='sdk-setup', pending_operation='sdkmanager-identity')
                 sdkmanager = Path(os.environ['ANDROID_HOME']) / 'cmdline-tools/latest/bin/sdkmanager'
                 report.data['sdkmanager_identity'] = file_identity(sdkmanager)
-                env = {**os.environ, 'JAVA_OPTS': '-Xmx512m -XX:MaxMetaspaceSize=256m -XX:CompressedClassSpaceSize=128m '
+                env = {**os.environ, 'MALLOC_ARENA_MAX': '2', 'JAVA_OPTS': '-Xmx512m -XX:MaxMetaspaceSize=256m -XX:CompressedClassSpaceSize=128m '
                                                '-XX:ReservedCodeCacheSize=128m -XX:ActiveProcessorCount=1'}
                 report.data['pending_operation'] = 'sdkmanager-version'
                 report.save()
