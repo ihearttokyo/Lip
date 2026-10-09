@@ -358,10 +358,16 @@ def tree_identity(source):
 
 def freeze_tools():
     tools = {}
-    for name, command in {'cmake': ['/usr/bin/cmake', '--version'], 'ninja': ['/usr/bin/ninja', '--version'],
-                          'cc': ['/usr/bin/gcc-13', '--version'], 'cxx': ['/usr/bin/g++-13', '--version'],
+    for name, command in {'cmake': ['cmake', '--version'], 'ninja': ['ninja', '--version'],
+                          'cc': ['gcc-13', '--version'], 'cxx': ['g++-13', '--version'],
                           'time': ['/usr/bin/time', '--version'], 'python': [sys.executable, '--version']}.items():
+        if name in ('cmake', 'ninja', 'cc', 'cxx'):
+            installed = shutil.which(command[0])
+            if installed is None:
+                raise FileNotFoundError('Required installed host tool: ' + command[0])
+            command[0] = installed
         executable = Path(command[0]).resolve(strict=True)
+        command[0] = str(executable)
         version = subprocess.check_output(command, timeout=10, stderr=subprocess.STDOUT).decode('utf-8')
         if len(version.encode()) > 4096: raise ValueError('Tool version diagnostic exceeds bound')
         tools[name] = dict(file_identity(executable, 128 * 1024 * 1024), version=version, argv=command)

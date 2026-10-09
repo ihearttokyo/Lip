@@ -35,6 +35,27 @@ def context():
 
 
 class InitialTimestampTest(unittest.TestCase):
+    def test_installed_build_tools_are_discovered_and_frozen_without_installing(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            names = ('cmake', 'ninja', 'gcc-13', 'g++-13')
+            installed = {}
+            for name in names:
+                path = root / name; path.write_bytes(b'fixture tool, never executed')
+                installed[name] = str(path)
+            with patch.object(ci.shutil, 'which', side_effect=installed.get) as lookup, \
+                 patch.object(ci.subprocess, 'check_output', return_value=b'fixture version\n'):
+                tools = ci.freeze_tools()
+            self.assertEqual({call.args[0] for call in lookup.call_args_list}, set(names))
+            for key, name in (('cmake', 'cmake'), ('ninja', 'ninja'), ('cc', 'gcc-13'), ('cxx', 'g++-13')):
+                self.assertEqual(tools[key]['argv'][0], installed[name])
+                self.assertEqual(tools[key]['sha256'], hashlib.sha256(Path(installed[name]).read_bytes()).hexdigest())
+        with patch.object(ci.shutil, 'which', return_value=None), \
+             patch.object(ci.subprocess, 'check_output') as execute:
+            with self.assertRaises(FileNotFoundError):
+                ci.freeze_tools()
+            execute.assert_not_called()
+
     def test_both_arms_match_returned_jni_greedy_best_of(self):
         vendor = (ROOT / 'third_party/whisper.cpp/src/whisper.cpp').read_text()
         greedy = vendor.split('switch (strategy) {', 1)[1].split('case WHISPER_SAMPLING_BEAM_SEARCH:', 1)[0]
