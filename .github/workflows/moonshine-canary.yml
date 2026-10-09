@@ -1,0 +1,43 @@
+name: Moonshine raw EN observation
+on:
+  push:
+    branches: ['codex/lip-moonshine-canary']
+permissions:
+  contents: read
+concurrency:
+  group: lip-moonshine-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  observe:
+    if: >-
+      github.repository == 'ihearttokyo/Lip' && github.event.repository.private == false &&
+      github.event_name == 'push' && github.ref == 'refs/heads/codex/lip-moonshine-canary' &&
+      contains(github.event.head_commit.message, '[moonshine-canary]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      # Publisher reliability escape hatch: RAW observation, not production performance.
+      MOONSHINE_ORT_SINGLE_THREAD: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          submodules: recursive
+          persist-credentials: false
+      - name: Exact case-sensitive opt-in and host guard
+        id: exact
+        run: |
+          git log -1 --format=%B | grep -F '[moonshine-canary]' >/dev/null
+          python3 -B eval/moonshine_ci.py --preflight
+      - name: Stdlib raw observation contract tests
+        run: python3 -B -m unittest discover -s eval -p 'test_moonshine_ci.py' -v
+      - name: RAW EN only (never native quality or Android qualification)
+        run: python3 -B eval/moonshine_ci.py
+      - name: Retain bounded public text and failed prefixes only
+        if: always() && steps.exact.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Lip-moonshine-raw-en-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/lip-moonshine-evidence/
+          if-no-files-found: warn
+          retention-days: 7

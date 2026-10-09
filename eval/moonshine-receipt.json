@@ -1,0 +1,792 @@
+{
+  "schema_version": 1,
+  "outcome": "current_raw_EN_configuration_rejected_not_promoted",
+  "evidence_class": "actual_public_hosted_CPU_observation_with_independently_recomputed_frozen_text_scores",
+  "scope": "Twelve public English read-speech/quiet/nonspeech diagnostics; not Android, microphone, spontaneous dictation, three-language, warm app or authenticated formatting evidence.",
+  "source_commit": "166433131de4718cc29c1de2fb185d122e5b8692",
+  "publisher_source_revision": "234f60faa0eb388b01cdf7e60aca232af37aefda",
+  "asset_revision": "0bf2f2e5aff22e6fbba4300b00a4e00bbc4f8aae",
+  "run_url": "https://github.com/ihearttokyo/Lip/actions/runs/37983363173",
+  "actual_run_conclusion": "failure_due_to_strict_scores",
+  "diagnostic_status": "complete_diagnostic",
+  "artifact_id": 11642556551,
+  "artifact_zip_bytes": 125946,
+  "artifact_zip_sha256": "61c33932eca4026c65c51837a73c748841fbb7aa802e0207e3a9f0c10264be7d",
+  "verified_text_files": 28,
+  "verified_text_bytes": 904554,
+  "artifact_files": [
+    {
+      "name": "acquisition.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "admission.json",
+      "bytes": 27620,
+      "sha256": "f28ed75a59afbfaaeedd469fb41ea8585dfd968bc39dc11b9d3fd02a1ba51fb2"
+    },
+    {
+      "name": "completion.json",
+      "bytes": 28915,
+      "sha256": "b4e20128f1efed42f048ca8ad393547527537ab261da131fd2ebd24e55feecb1"
+    },
+    {
+      "name": "fleurs-en-000-score.json",
+      "bytes": 17647,
+      "sha256": "6f86e4ce356da00feb840f14556a0d849d801a4c421b45d0184fcd0118eacec0"
+    },
+    {
+      "name": "fleurs-en-000.log",
+      "bytes": 38735,
+      "sha256": "6313f8a74b1fbfb22982975ab6c1f1c7d56554730de0bec7eaaa42cb297feb34"
+    },
+    {
+      "name": "fleurs-en-003-score.json",
+      "bytes": 16768,
+      "sha256": "abc333240f38594146959875b98dab3b7f0a785b3180ab0c012dc060e25d6993"
+    },
+    {
+      "name": "fleurs-en-003.log",
+      "bytes": 32195,
+      "sha256": "350f77645353a98646af31f1546d9d7ecd3a998085793da4a2830a28454c0a01"
+    },
+    {
+      "name": "fleurs-en-011-minus24db-pause-after-score.json",
+      "bytes": 24537,
+      "sha256": "ba73e5a6f6ecd242d1ba9c22ad146be4c24d2299d0f5fc5dde7da54baa19c8c3"
+    },
+    {
+      "name": "fleurs-en-011-minus24db-pause-after.log",
+      "bytes": 74593,
+      "sha256": "e4478f33264b955a724f8246427eecdd3e277657586e2c63b174ab669c2966bd"
+    },
+    {
+      "name": "fleurs-en-011-minus24db-pause-before-score.json",
+      "bytes": 24536,
+      "sha256": "d7fd3558a83c8a6a39d362ef3fe8f503ca5171c8531b9d8b914a0c2e71dc4974"
+    },
+    {
+      "name": "fleurs-en-011-minus24db-pause-before.log",
+      "bytes": 74493,
+      "sha256": "bf99bcff8a25c4b60a0926653ad2de13568771b8b764f5519fcf032e8b3b3722"
+    },
+    {
+      "name": "fleurs-en-011-minus42db-pause-after-score.json",
+      "bytes": 24536,
+      "sha256": "5e0cb9c5497c7b9d86e722d4f66ec9280ab540393570de24f366e596e63692e9"
+    },
+    {
+      "name": "fleurs-en-011-minus42db-pause-after.log",
+      "bytes": 74466,
+      "sha256": "527f7cd1bb02f50fac7c6caeb6482380c2ac91aa2fd8f5101a1099ffae52d508"
+    },
+    {
+      "name": "fleurs-en-011-minus42db-pause-before-score.json",
+      "bytes": 24537,
+      "sha256": "ced8d1e06a7b0970450fd6568bb14ed6134ed182378c6430b684ae6649091702"
+    },
+    {
+      "name": "fleurs-en-011-minus42db-pause-before.log",
+      "bytes": 74514,
+      "sha256": "9cc7fa90e6f958364498d09602c47c6d17c6c554c5f052303e684ff157fc39a8"
+    },
+    {
+      "name": "fleurs-en-011-score.json",
+      "bytes": 18222,
+      "sha256": "045f1c54ddeb40190aaa3945ba2bea301db47adbd729cc912396c2ab0b9c3ba5"
+    },
+    {
+      "name": "fleurs-en-011.log",
+      "bytes": 45147,
+      "sha256": "e24a3dbeb3274d864b49559ccdf98ddb1999413898f2f697601e9d7224b2f818"
+    },
+    {
+      "name": "fleurs-en-013-score.json",
+      "bytes": 18117,
+      "sha256": "a6991be0486821d362ed10f861b561dc18dac3044f556e5ac6db3fec78351009"
+    },
+    {
+      "name": "fleurs-en-013.log",
+      "bytes": 40957,
+      "sha256": "b2276ff817cbbf4932434fb87d89305a5d46d382e5aedc6967443c4863def80c"
+    },
+    {
+      "name": "fleurs-en-017-score.json",
+      "bytes": 18369,
+      "sha256": "ef4ca6d6d64e25efcc107d6128b445d2d8dff45b1841f7ac682d6e0c0ce430a0"
+    },
+    {
+      "name": "fleurs-en-017.log",
+      "bytes": 45652,
+      "sha256": "bd6cab28a2ff8e5e3de53e4de7de16e95ab21bb5ff1133028630e3e97658677a"
+    },
+    {
+      "name": "fleurs-en-021-score.json",
+      "bytes": 18549,
+      "sha256": "14a5b92e2fabf3aef7811f4585663aea27dec886fd0f711beea417517de9f9d2"
+    },
+    {
+      "name": "fleurs-en-021.log",
+      "bytes": 46440,
+      "sha256": "4bd2c41af02e9587befe6fc337386d156c217102cd861d44cb3ee220f1c753c9"
+    },
+    {
+      "name": "noise-en-score.json",
+      "bytes": 16836,
+      "sha256": "fc754c0c6a54842f40ef148d42d79fe4b4970d098ac1fb7e559172650fb8320e"
+    },
+    {
+      "name": "noise-en.log",
+      "bytes": 30172,
+      "sha256": "841ccd832f7f4b13fe331e21c3ab8c78cc061670c3656cdbe6994a643ce517bc"
+    },
+    {
+      "name": "observation-findings.md",
+      "bytes": 589,
+      "sha256": "359f10d4ee81f6309d7599beb6cfbb45f72ea30005bcc68bbc418adf65fd4dd1"
+    },
+    {
+      "name": "silence-en-score.json",
+      "bytes": 16831,
+      "sha256": "205b7b8a252af098f836fd53174340e9ef8538e09680deaf377bcdcfcc4b2571"
+    },
+    {
+      "name": "silence-en.log",
+      "bytes": 30581,
+      "sha256": "f7d0d662c6e195482e847374a4eefe77910cfb028b4d138bb01eb4e594d583c3"
+    }
+  ],
+  "runner_sha256": "6cef39378972ec0e770576f9c99cc600635fefd6c636c35377d08bb7d8e73f36",
+  "pins_sha256": "28763ee8333273adb6d0d226dd5097ffe0cd33fc8303a369dae744f2e61453f7",
+  "qualification": {
+    "quality_passed": false,
+    "native_completion_verified": false,
+    "three_language_parity": false,
+    "android_verified": false,
+    "promotion_allowed": false
+  },
+  "observed_process_threads": 1,
+  "continuous_thread_bound_verified": false,
+  "native_sample_count_verified": false,
+  "native_error_and_EOS_completeness_verified": false,
+  "native_controls": {
+    "environment": {
+      "MOONSHINE_ORT_SINGLE_THREAD": "1"
+    },
+    "source_sha256": {
+      "core/ort-utils/ort-utils.h": "ee77f361dfa3312ae8b74763bdec0e80161917262fb83e85a4b77fba3e9f5dc4",
+      "core/ort-utils/ort-utils.cpp": "919d3879378a1e9aa66c3420b09917f01b652b3faa7a36df1b18dbf6e6583906",
+      "core/ort-utils/ort-utils-ep.cpp": "e856dc24658a68c15ec4eb06eb84438daa56c02baa3d2ce7546f587e9c4b547f",
+      "core/moonshine-streaming-model.cpp": "a30c1e159ca806e055ff0086ab1da5b6b1c5a11f644d347fc8eb40078bf80f49"
+    },
+    "intra_op_threads": 1,
+    "inter_op_threads": 1,
+    "execution_mode": "ORT_SEQUENTIAL",
+    "cpu_affinity_count": 3,
+    "observed_process_thread_limit": 3,
+    "continuous_thread_bound_verified": false,
+    "scope": "RAW EN reliability observation only; publisher ThreadSanitizer escape hatch, not production performance proof"
+  },
+  "timing_scope": "Cold-per-clip, unpaced hosted CPU with single-thread publisher reliability setting; explicit 8000-frame updates precede Stop. Not phone/live/production latency proof.",
+  "observed_job_elapsed_seconds": 311.496402649,
+  "summaries": {
+    "original": {
+      "cases": 6,
+      "text_score_passes": 2,
+      "runner_gate_passes": 2,
+      "errors": 14,
+      "reference_units": 109,
+      "pooled_error_rate": 0.12844036697247707,
+      "stop_median_seconds": 1.317511019500003
+    },
+    "quiet": {
+      "cases": 4,
+      "text_score_passes": 0,
+      "runner_gate_passes": 0,
+      "errors": 96,
+      "reference_units": 96,
+      "pooled_error_rate": 1.0,
+      "stop_median_seconds": 0.7844122074999973
+    },
+    "nonspeech": {
+      "cases": 2,
+      "text_score_passes": 2,
+      "runner_gate_passes": 0,
+      "errors": 0,
+      "reference_units": 0,
+      "pooled_error_rate": null,
+      "stop_median_seconds": 0.5066756730000179
+    }
+  },
+  "interpretation": {
+    "fleurs-en-000": "Contraction alone preserves meaning; unchanged raw 2/15 failure remains.",
+    "fleurs-en-003": "Proper name and bhajan word differ; name anchor fails.",
+    "fleurs-en-017": "Spelled year can represent 1767, but wills replaces wheels; strict 5/17 and numeric year anchor fail.",
+    "fleurs-en-021": "Frozen count/uncertainty anchors pass, but replacing up to 30 with of the thirty does not establish upper-bound preservation.",
+    "quiet": "All four final raw outputs are empty after provisional Yeah. Original frame metadata plus zero-only alignment padding is verified; omission mechanism and native consumption/EOS remain unproved.",
+    "nonspeech": "Both final raw texts are blank but each retains one blank line, so both fail the frozen runner gate despite passing text-only scores. Provisional You/Yeah also appeared. No all-noise robustness claim.",
+    "rejection": "Reject this exact configured publisher wheel/model/plan for current adoption. No conclusion about every Moonshine version or configuration."
+  },
+  "attribution": {
+    "runtime_models": "Moonshine publisher MIT source/model catalog at pinned revision; no redistribution claim",
+    "audio": "Google FLEURS, Conneau et al. (2022), CC BY 4.0; see eval/README.md. Frozen nonspeech controls MIT."
+  },
+  "cases": [
+    {
+      "id": "fleurs-en-000",
+      "origin": "human_recording",
+      "group": "original",
+      "reference_raw": "When you call someone who is thousands of miles away, you are using a satellite.",
+      "raw": "When you call someone who is thousands of miles away, you're using a satellite.",
+      "final_line_texts": [
+        "When you call someone who is thousands of miles away, you're using a satellite."
+      ],
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 2,
+          "reference_units": 15,
+          "rate": 0.13333333333333333
+        },
+        "checks": [
+          {
+            "name": "satellite",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "runner_raw_gate_passed": false,
+      "provisional_nonempty_texts": null,
+      "input": {
+        "original_frames": 104640,
+        "padded_frames": 104960,
+        "zero_pad_frames": 320,
+        "last_nonzero_frame": 104639,
+        "source_wav_sha256": "048169439c0328b758349af74aeb54a82a7a476e309709eb791dced06db25d48",
+        "source_pcm_sha256": "c2e20eb18368277ab53cc1434dc46ed20264a1076ecb779adc9210367a0181c1",
+        "original_f32_sha256": "c2e20eb18368277ab53cc1434dc46ed20264a1076ecb779adc9210367a0181c1",
+        "padded_f32_sha256": "39e7df6f0f4263df8456538976321e19121aec67ffb6269958016513ddb090e6",
+        "native_sample_count_verified": false,
+        "protocol": "intact original + zero LCM2560; unpaced8000 chunks"
+      },
+      "stop_seconds": 1.0651307910000014,
+      "cold_worker_elapsed_seconds": 11.337145546999992,
+      "peak_rss_bytes": 864817152,
+      "native_completion_verified": false
+    },
+    {
+      "id": "fleurs-en-003",
+      "origin": "human_recording",
+      "group": "original",
+      "reference_raw": "Then, Lakkha Singh took the lead in singing the bhajans.",
+      "raw": "Then Laka Singh took the lead in singing the Pashams.",
+      "final_line_texts": [
+        "Then Laka Singh took the lead in singing the Pashams."
+      ],
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 2,
+          "reference_units": 10,
+          "rate": 0.2
+        },
+        "checks": [
+          {
+            "name": "name",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "runner_raw_gate_passed": false,
+      "provisional_nonempty_texts": null,
+      "input": {
+        "original_frames": 66240,
+        "padded_frames": 66560,
+        "zero_pad_frames": 320,
+        "last_nonzero_frame": 66239,
+        "source_wav_sha256": "7172cc6e8a7b006a8175c57df13bb69db0c6249dc09d7b015c98722d5af9734c",
+        "source_pcm_sha256": "7880d7c9f96d88714d8db323b51c421fe776775e224130ee00f75dd0a5cb6363",
+        "original_f32_sha256": "7880d7c9f96d88714d8db323b51c421fe776775e224130ee00f75dd0a5cb6363",
+        "padded_f32_sha256": "f370cd144e79d1c648fff356f7c854f6b73953e8548b7efe35b406097baa0818",
+        "native_sample_count_verified": false,
+        "protocol": "intact original + zero LCM2560; unpaced8000 chunks"
+      },
+      "stop_seconds": 0.8344768320000071,
+      "cold_worker_elapsed_seconds": 6.116228700999997,
+      "peak_rss_bytes": 828932096,
+      "native_completion_verified": false
+    },
+    {
+      "id": "fleurs-en-011",
+      "origin": "human_recording",
+      "group": "original",
+      "reference_raw": "Local authorities are warning residents in the vicinity of the plant to stay indoors, turn off air-conditioners and not to drink tap water.",
+      "raw": "Local authorities are warning residents in the vicinity of the plant to stay indoors, turn off air conditioners and not to drink tap water.",
+      "final_line_texts": [
+        "Local authorities are warning residents in the vicinity of the plant to stay indoors, turn off air conditioners and not to drink tap water."
+      ],
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 24,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "runner_raw_gate_passed": true,
+      "provisional_nonempty_texts": null,
+      "input": {
+        "original_frames": 130560,
+        "padded_frames": 130560,
+        "zero_pad_frames": 0,
+        "last_nonzero_frame": 130559,
+        "source_wav_sha256": "409c1b0f2e86fbc7996c1122e8ccbd0ff30bae145395b456e4ffa6b8c8279c12",
+        "source_pcm_sha256": "32caccc9eba10604eb41ca90b8485b41e6f7a20071d2a2c5c9e93517e9dd6a1a",
+        "original_f32_sha256": "32caccc9eba10604eb41ca90b8485b41e6f7a20071d2a2c5c9e93517e9dd6a1a",
+        "padded_f32_sha256": "32caccc9eba10604eb41ca90b8485b41e6f7a20071d2a2c5c9e93517e9dd6a1a",
+        "native_sample_count_verified": false,
+        "protocol": "intact original + zero LCM2560; unpaced8000 chunks"
+      },
+      "stop_seconds": 1.471741781999981,
+      "cold_worker_elapsed_seconds": 16.597660957000002,
+      "peak_rss_bytes": 873287680,
+      "native_completion_verified": false
+    },
+    {
+      "id": "fleurs-en-013",
+      "origin": "human_recording",
+      "group": "original",
+      "reference_raw": "Although three people were inside the house when the car impacted it, none of them were hurt.",
+      "raw": "Although three people were inside the house when the car impacted it, none of them were hurt.",
+      "final_line_texts": [
+        "Although three people were inside the house when the car impacted it, none of them were hurt."
+      ],
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 17,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "runner_raw_gate_passed": true,
+      "provisional_nonempty_texts": null,
+      "input": {
+        "original_frames": 120640,
+        "padded_frames": 122880,
+        "zero_pad_frames": 2240,
+        "last_nonzero_frame": 120639,
+        "source_wav_sha256": "431d013d01d25cbf8d42587f4a14df57d09dbe9cbc2af4ea91ba93f9bd290ec4",
+        "source_pcm_sha256": "06cc04ae48489b7b21000a2c3bfb6f21d687757791824dd16a5288998aaeed3f",
+        "original_f32_sha256": "06cc04ae48489b7b21000a2c3bfb6f21d687757791824dd16a5288998aaeed3f",
+        "padded_f32_sha256": "c032c4ec8aeaaef172e88de8507a030f0a94f57c000043768e1231b77f63b8ce",
+        "native_sample_count_verified": false,
+        "protocol": "intact original + zero LCM2560; unpaced8000 chunks"
+      },
+      "stop_seconds": 1.1818330130000163,
+      "cold_worker_elapsed_seconds": 12.991711124000005,
+      "peak_rss_bytes": 853135360,
+      "native_completion_verified": false
+    },
+    {
+      "id": "fleurs-en-017",
+      "origin": "human_recording",
+      "group": "original",
+      "reference_raw": "Eventually, wooden wheels were replaced by iron wheels. In 1767, the first full-iron rails were introduced.",
+      "raw": "Eventually, wooden wills were replaced by iron wills; in seventeen sixty seven, the first full iron rails were introduced.",
+      "final_line_texts": [
+        "Eventually, wooden wills were replaced by iron wills; in seventeen sixty seven, the first full iron rails were introduced."
+      ],
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 5,
+          "reference_units": 17,
+          "rate": 0.29411764705882354
+        },
+        "checks": [
+          {
+            "name": "year",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "runner_raw_gate_passed": false,
+      "provisional_nonempty_texts": null,
+      "input": {
+        "original_frames": 136320,
+        "padded_frames": 138240,
+        "zero_pad_frames": 1920,
+        "last_nonzero_frame": 136319,
+        "source_wav_sha256": "952145e2808bf8ea6354ec0ea656652a0eeff61438a466fa4f0f3568f89c23a3",
+        "source_pcm_sha256": "345d068a7afa6506b108e6d4edc937e333ac69a656cb1e8c3f4836b443a0f4fe",
+        "original_f32_sha256": "345d068a7afa6506b108e6d4edc937e333ac69a656cb1e8c3f4836b443a0f4fe",
+        "padded_f32_sha256": "5c65c2c1e07be0e9eb4e56c5c875c4831a9a7af02b37e315afa8b64ec034617c",
+        "native_sample_count_verified": false,
+        "protocol": "intact original + zero LCM2560; unpaced8000 chunks"
+      },
+      "stop_seconds": 1.4531890259999898,
+      "cold_worker_elapsed_seconds": 18.17568479099998,
+      "peak_rss_bytes": 905592832,
+      "native_completion_verified": false
+    },
+    {
+      "id": "fleurs-en-021",
+      "origin": "human_recording",
+      "group": "original",
+      "reference_raw": "Some reports put the official death toll at eight, and official reports confirm that up to 30 were injured; but final numbers are not yet known.",
+      "raw": "Some reports that the official death toll had eight, and official reports confirm that of the thirty were injured, but final numbers are not yet known.",
+      "final_line_texts": [
+        "Some reports that the official death toll had eight, and official reports confirm that of the thirty were injured, but final numbers are not yet known."
+      ],
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 5,
+          "reference_units": 26,
+          "rate": 0.19230769230769232
+        },
+        "checks": [
+          {
+            "name": "counts",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "injured",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "uncertainty",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "runner_raw_gate_passed": false,
+      "provisional_nonempty_texts": null,
+      "input": {
+        "original_frames": 130560,
+        "padded_frames": 130560,
+        "zero_pad_frames": 0,
+        "last_nonzero_frame": 130559,
+        "source_wav_sha256": "df7a78f49dc92468b8e79a2ffb98d78622ead12f70f567eca0ac472a81ba21b6",
+        "source_pcm_sha256": "32753b14aed3a7cc96eeb5ee3d511caedbdaeeab4e9483c84b0e4287b4d65e29",
+        "original_f32_sha256": "32753b14aed3a7cc96eeb5ee3d511caedbdaeeab4e9483c84b0e4287b4d65e29",
+        "padded_f32_sha256": "32753b14aed3a7cc96eeb5ee3d511caedbdaeeab4e9483c84b0e4287b4d65e29",
+        "native_sample_count_verified": false,
+        "protocol": "intact original + zero LCM2560; unpaced8000 chunks"
+      },
+      "stop_seconds": 1.4991872209999997,
+      "cold_worker_elapsed_seconds": 16.646429817000012,
+      "peak_rss_bytes": 876990464,
+      "native_completion_verified": false
+    },
+    {
+      "id": "fleurs-en-011-minus24db-pause-before",
+      "origin": "human_recording",
+      "group": "quiet",
+      "reference_raw": "Local authorities are warning residents in the vicinity of the plant to stay indoors, turn off air-conditioners and not to drink tap water.",
+      "raw": "",
+      "final_line_texts": [
+        ""
+      ],
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 24,
+          "reference_units": 24,
+          "rate": 1.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "runner_raw_gate_passed": false,
+      "provisional_nonempty_texts": [
+        "Yeah"
+      ],
+      "input": {
+        "original_frames": 458560,
+        "padded_frames": 460800,
+        "zero_pad_frames": 2240,
+        "last_nonzero_frame": 458559,
+        "source_wav_sha256": "3ccce5c4a5860dba16dbb75904a49ac36f5d426da8f2f0ab6af1577cbcd23bd6",
+        "source_pcm_sha256": "f7fb3498fa05585f89512bdf4ef61bdd56d21a019938332a7368a7466db687e2",
+        "original_f32_sha256": "8c42f3bcbcee1631dc2958e57d306f890ef70f05c1e335c9edc8af346e49331f",
+        "padded_f32_sha256": "79ae2a5d718b0c6152ca6a6cb2096986ef76acf20c4a4b5ae35d88209f02eeaf",
+        "native_sample_count_verified": false,
+        "protocol": "intact original + zero LCM2560; unpaced8000 chunks"
+      },
+      "stop_seconds": 0.794092016999997,
+      "cold_worker_elapsed_seconds": 37.19752380699998,
+      "peak_rss_bytes": 1060429824,
+      "native_completion_verified": false
+    },
+    {
+      "id": "fleurs-en-011-minus24db-pause-after",
+      "origin": "human_recording",
+      "group": "quiet",
+      "reference_raw": "Local authorities are warning residents in the vicinity of the plant to stay indoors, turn off air-conditioners and not to drink tap water.",
+      "raw": "",
+      "final_line_texts": [
+        ""
+      ],
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 24,
+          "reference_units": 24,
+          "rate": 1.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "runner_raw_gate_passed": false,
+      "provisional_nonempty_texts": [
+        "Yeah"
+      ],
+      "input": {
+        "original_frames": 458560,
+        "padded_frames": 460800,
+        "zero_pad_frames": 2240,
+        "last_nonzero_frame": 458559,
+        "source_wav_sha256": "a1753cfe60369b5075f9d6ecb1181ab5000eaedeaa119862b3d1453c4579e3bc",
+        "source_pcm_sha256": "8a874edeabeb8686138727e62d953a6ae712cc8ba0cce9cd7592d9a409f655dc",
+        "original_f32_sha256": "73e3029de8b18bdd4c1b753a106aa88ae729b7cdeab84d4dfc112d44eb90fdf5",
+        "padded_f32_sha256": "9530dcc6ea0b0a7479760a71e102af671c5193146ebfa415febb24860ecf3dfe",
+        "native_sample_count_verified": false,
+        "protocol": "intact original + zero LCM2560; unpaced8000 chunks"
+      },
+      "stop_seconds": 0.7874929249999809,
+      "cold_worker_elapsed_seconds": 37.10426544099997,
+      "peak_rss_bytes": 1064050688,
+      "native_completion_verified": false
+    },
+    {
+      "id": "fleurs-en-011-minus42db-pause-before",
+      "origin": "human_recording",
+      "group": "quiet",
+      "reference_raw": "Local authorities are warning residents in the vicinity of the plant to stay indoors, turn off air-conditioners and not to drink tap water.",
+      "raw": "",
+      "final_line_texts": [
+        ""
+      ],
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 24,
+          "reference_units": 24,
+          "rate": 1.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "runner_raw_gate_passed": false,
+      "provisional_nonempty_texts": [
+        "Yeah"
+      ],
+      "input": {
+        "original_frames": 458560,
+        "padded_frames": 460800,
+        "zero_pad_frames": 2240,
+        "last_nonzero_frame": 458559,
+        "source_wav_sha256": "eb9a358a7debbec967b67faa65cf3fd398f0545177589e5f94cabdc42dc7f9cc",
+        "source_pcm_sha256": "78880dc5e56f9fa449547df478b08e44170533da28a5f3e66d3954aadae4c3b3",
+        "original_f32_sha256": "79c02845af2879da31992232daa9afc97754a976458ac4e21e5fbe6f4afb85bb",
+        "padded_f32_sha256": "bac4368e35832a6db19c6cea0236f70fb2dd993d865946beb8548064740f7346",
+        "native_sample_count_verified": false,
+        "protocol": "intact original + zero LCM2560; unpaced8000 chunks"
+      },
+      "stop_seconds": 0.7788094670000305,
+      "cold_worker_elapsed_seconds": 36.91177677100001,
+      "peak_rss_bytes": 1062559744,
+      "native_completion_verified": false
+    },
+    {
+      "id": "fleurs-en-011-minus42db-pause-after",
+      "origin": "human_recording",
+      "group": "quiet",
+      "reference_raw": "Local authorities are warning residents in the vicinity of the plant to stay indoors, turn off air-conditioners and not to drink tap water.",
+      "raw": "",
+      "final_line_texts": [
+        ""
+      ],
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 24,
+          "reference_units": 24,
+          "rate": 1.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "runner_raw_gate_passed": false,
+      "provisional_nonempty_texts": [
+        "Yeah"
+      ],
+      "input": {
+        "original_frames": 458560,
+        "padded_frames": 460800,
+        "zero_pad_frames": 2240,
+        "last_nonzero_frame": 458559,
+        "source_wav_sha256": "1b45beb9f53a8789b91b2ea66081854dd787f85a66a76d100fa429063e9dbd48",
+        "source_pcm_sha256": "9d2a52adc9785f82c74a8bb1edded1acec8ad893021a13a9a408c41061a4c55a",
+        "original_f32_sha256": "2919999be1785d26b0ea2baa9fc6abbe6d9da861b4e82f7949ae4dd2958e953e",
+        "padded_f32_sha256": "5fa68300bfdf1b4f2e42634eeb474a723b18a2deb6831ec916be1444456d5f7d",
+        "native_sample_count_verified": false,
+        "protocol": "intact original + zero LCM2560; unpaced8000 chunks"
+      },
+      "stop_seconds": 0.7813314900000137,
+      "cold_worker_elapsed_seconds": 36.91617660700001,
+      "peak_rss_bytes": 1049985024,
+      "native_completion_verified": false
+    },
+    {
+      "id": "silence-en",
+      "origin": "negative_control",
+      "group": "nonspeech",
+      "reference_raw": "",
+      "raw": "",
+      "final_line_texts": [
+        ""
+      ],
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 0,
+          "rate": 0.0
+        },
+        "checks": [],
+        "passed": true
+      },
+      "runner_raw_gate_passed": false,
+      "provisional_nonempty_texts": [
+        "You"
+      ],
+      "input": {
+        "original_frames": 80000,
+        "padded_frames": 81920,
+        "zero_pad_frames": 1920,
+        "last_nonzero_frame": null,
+        "source_wav_sha256": "262d1f34f300560a4c82ba8127ddea9e1d72946f187fdbd3e8f70ee096077aec",
+        "source_pcm_sha256": "b9ce164d30e4101b009fe4be765a070593cfbdd48f897853de159a8c177fabe8",
+        "original_f32_sha256": "ac2878215ad33205d1732578c89f25ededaad1b676911c540825bcf4baa42d9b",
+        "padded_f32_sha256": "dae4d3dce1bb0a9414f61a65ee07622fa225ec01e6efe6df6e78f9ad5c58480d",
+        "native_sample_count_verified": false,
+        "protocol": "intact original + zero LCM2560; unpaced8000 chunks"
+      },
+      "stop_seconds": 0.5059931960000199,
+      "cold_worker_elapsed_seconds": 4.988400227,
+      "peak_rss_bytes": 850661376,
+      "native_completion_verified": false
+    },
+    {
+      "id": "noise-en",
+      "origin": "negative_control",
+      "group": "nonspeech",
+      "reference_raw": "",
+      "raw": "",
+      "final_line_texts": [
+        ""
+      ],
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 0,
+          "rate": 0.0
+        },
+        "checks": [],
+        "passed": true
+      },
+      "runner_raw_gate_passed": false,
+      "provisional_nonempty_texts": [
+        "Yeah"
+      ],
+      "input": {
+        "original_frames": 80000,
+        "padded_frames": 81920,
+        "zero_pad_frames": 1920,
+        "last_nonzero_frame": 79999,
+        "source_wav_sha256": "af9a9dfee9e45c53834a5258369d5308d95f47ea7e423f0a44c8cb8b147b5d45",
+        "source_pcm_sha256": "c9ef1df7a218d126f547b13bd2677fbaab47c58f4026b5813e50d499b55e22d5",
+        "original_f32_sha256": "1ee1a53c9832e21c42877de702e977475ec881d73deb28ded512fac32a627f2b",
+        "padded_f32_sha256": "a66c0ebb43b062fb00c281b483ecd4988dbf103d4d65fac9fbaff9a4d8fde8b7",
+        "native_sample_count_verified": false,
+        "protocol": "intact original + zero LCM2560; unpaced8000 chunks"
+      },
+      "stop_seconds": 0.5073581500000159,
+      "cold_worker_elapsed_seconds": 5.051794371000028,
+      "peak_rss_bytes": 849117184,
+      "native_completion_verified": false
+    }
+  ]
+}
