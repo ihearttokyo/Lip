@@ -295,9 +295,32 @@ def acquire(pin, scratch, report, deadline):
         raise
 
 
-def configure_command(cmake, ninja, vendor, build, ndk, hpp, spirv, package, glslc):
+def embedded_source(vendor, scratch, report):
+    ggml = vp.no_links(vendor / 'ggml').resolve()
+    if ']=]' in str(ggml):
+        raise vp.DiagnosticError('Original ggml path cannot be bracket-quoted')
+    source = vp.no_links(scratch / 'ggml-parent')
+    source.mkdir(mode=0o700)
+    # ggml forces standalone mode at the source root and then requires the absent ggml.pc.in.
+    text = ('cmake_minimum_required(VERSION 3.22)\n'
+            'project(lip_vulkan_build LANGUAGES C CXX ASM)\n'
+            'add_subdirectory([=[' + str(ggml) + ']=] ggml)\n')
+    data = text.encode()
+    path = source / 'CMakeLists.txt'
+    path.write_bytes(data)
+    identity = dict(bytes=len(data), sha256=hashlib.sha256(data).hexdigest())
+    readback = vp.file_identity(path)
+    if readback != identity or vp.retain_text(report.evidence, 'source-parent.txt', data) != data:
+        raise vp.DiagnosticError('Incomplete embedded source parent readback or retention')
+    report.data['source_parent'] = dict(path=str(source), ggml_source=str(ggml), text=text,
+                                      identity=identity, full_readback=readback)
+    report.save()
+    return source
+
+
+def configure_command(cmake, ninja, source, build, ndk, hpp, spirv, package, glslc):
     sysroot = ndk / 'toolchains/llvm/prebuilt/linux-x86_64/sysroot'
-    return [cmake, '-S', vendor / 'ggml', '-B', build, '-G', 'Ninja', '-DCMAKE_MAKE_PROGRAM=' + str(ninja),
+    return [cmake, '-S', source, '-B', build, '-G', 'Ninja', '-DCMAKE_MAKE_PROGRAM=' + str(ninja),
             '-DCMAKE_TOOLCHAIN_FILE=' + str(ndk / 'build/cmake/android.toolchain.cmake'),
             '-DANDROID_ABI=arm64-v8a', '-DANDROID_PLATFORM=android-33', '-DANDROID_STL=c++_shared',
             '-DCMAKE_BUILD_TYPE=Release', '-DBUILD_SHARED_LIBS=ON', '-DGGML_BACKEND_DL=OFF',
@@ -314,7 +337,7 @@ def qualify_objects(rows, shaders, build):
     build = vp.no_links(build).resolve()
     shaders = vp.no_links(shaders).resolve()
     vendor = shaders.parents[3]
-    generated_root = build / 'src/ggml-vulkan'
+    generated_root = build / 'ggml/src/ggml-vulkan'
     expected = {generated_root / (vp.no_links(p).name + '.cpp') for p in shaders.glob('*.comp')}
     result = []
     for row in rows:
@@ -407,7 +430,7 @@ def verify_output(vendor, build, toolchain, ninja, report, deadline):
         raise vp.DiagnosticError('Incomplete compile-command retention')
     rows = json.loads(data)
     report.data['objects'] = qualify_objects(rows, vendor / 'ggml/src/ggml-vulkan/vulkan-shaders', build)
-    header = build / 'src/ggml-vulkan/ggml-vulkan-shaders.hpp'
+    header = build / 'ggml/src/ggml-vulkan/ggml-vulkan-shaders.hpp'
     report.data['generated_header'] = vp.file_identity(header)
     report.data['generated_spirv'] = qualify_generated(header,
         [Path(row['source']) for row in report.data['objects'] if row['source'].endswith('.comp.cpp')],
@@ -455,6 +478,8 @@ def verify_output(vendor, build, toolchain, ninja, report, deadline):
 
 def build_backend(root, pins, scratch, report, deadline):
     require_capacity(scratch, report)
+    vendor = root / 'third_party/whisper.cpp'
+    source = embedded_source(vendor, scratch, report)
     ndk = Path(os.environ['ANDROID_HOME']) / 'ndk' / pins['ndk']
     toolchain = ndk / 'toolchains/llvm/prebuilt/linux-x86_64'
     core = toolchain / 'sysroot/usr/include/vulkan/vulkan_core.h'
@@ -479,7 +504,6 @@ def build_backend(root, pins, scratch, report, deadline):
     for name in ('gcc', 'gxx'):
         if checked(report, [tools[name], '-dumpmachine'], scratch, name + '-target', deadline).strip() != 'x86_64-linux-gnu':
             raise vp.DiagnosticError('Original ExternalProject requires native Linux host compiler')
-    vendor = root / 'third_party/whisper.cpp'
     shaders = vendor / 'ggml/src/ggml-vulkan/vulkan-shaders'
     generator_source = (shaders / 'vulkan-shaders-gen.cpp').read_text()
     if 'std::max(1u, std::min(16u, std::thread::hardware_concurrency()))' not in generator_source:
@@ -518,7 +542,7 @@ def build_backend(root, pins, scratch, report, deadline):
                                        active_glslc_maximum=1, wrapper=vp.file_identity(wrapper), text=wrapper.read_text())
     build = scratch / 'android-build'
     environment = {**os.environ, 'CMAKE_BUILD_PARALLEL_LEVEL': '2', 'MALLOC_ARENA_MAX': '2'}
-    checked(report, configure_command(cmake, ninja, vendor, build, ndk, hpp, spirv, packages[0].parent, wrapper),
+    checked(report, configure_command(cmake, ninja, source, build, ndk, hpp, spirv, packages[0].parent, wrapper),
             scratch, 'android-configure', deadline, env=environment)
     require_capacity(scratch, report)
     checked(report, [cmake, '--build', build, '--target', 'ggml', '--parallel', '2'],

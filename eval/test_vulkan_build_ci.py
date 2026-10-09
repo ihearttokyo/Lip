@@ -212,14 +212,74 @@ class BuildTest(unittest.TestCase):
         self.assertIn('-XX:ActiveProcessorCount=1', vb.JAVA_OPTS)
         self.assertEqual(vb.SECONDS, 2700)
 
-    def test_configure_uses_original_standalone_backend_not_header_only(self):
+    def test_configure_uses_owned_embedded_source_parent_not_header_only(self):
         argv = list(map(str, vb.configure_command(*[Path('/' + p) for p in
-                                                  ('cmake', 'ninja', 'vendor', 'build', 'ndk', 'hpp', 'spirv', 'package', 'locked-glslc')])))
-        for expected in ('/vendor/ggml', '-DGGML_VULKAN=ON', '-DBUILD_SHARED_LIBS=ON',
+                                                  ('cmake', 'ninja', 'source-parent', 'build', 'ndk', 'hpp', 'spirv', 'package', 'locked-glslc')])))
+        self.assertEqual(argv[argv.index('-S') + 1], '/source-parent')
+        for expected in ('-DGGML_VULKAN=ON', '-DBUILD_SHARED_LIBS=ON',
                          '-DANDROID_ABI=arm64-v8a', '-DANDROID_PLATFORM=android-33', '-DGGML_CCACHE=OFF',
                          '-DCMAKE_SHARED_LINKER_FLAGS=-Wl,--no-undefined', '-DVulkan_GLSLC_EXECUTABLE=/locked-glslc'):
             self.assertIn(expected, argv)
-        self.assertFalse(any('GGML_VULKAN_SHADERS_GEN_TOOLCHAIN' in a or 'COOPMAT' in a for a in argv))
+        self.assertFalse(any('GGML_VULKAN_SHADERS_GEN_TOOLCHAIN' in a or 'COOPMAT' in a or
+                             'GGML_STANDALONE' in a for a in argv))
+
+    def test_embedded_parent_retains_exact_original_source_text_and_full_readback(self):
+        root = self.folder()
+        vendor, scratch = root / 'pristine vendor', root / 'scratch'
+        (vendor / 'ggml').mkdir(parents=True)
+        original = vendor / 'ggml/CMakeLists.txt'
+        original.write_bytes(b'original vendor CMake')
+        scratch.mkdir()
+        report = vp.Report(self.folder(), {})
+        source = vb.embedded_source(vendor, scratch, report)
+        text = ('cmake_minimum_required(VERSION 3.22)\n'
+                'project(lip_vulkan_build LANGUAGES C CXX ASM)\n'
+                'add_subdirectory([=[' + str(vendor / 'ggml') + ']=] ggml)\n')
+        self.assertEqual(source, scratch / 'ggml-parent')
+        self.assertEqual((source / 'CMakeLists.txt').read_text(), text)
+        self.assertEqual((report.evidence / 'source-parent.txt').read_bytes(), text.encode())
+        record = report.data['source_parent']
+        self.assertEqual(record['text'], text)
+        self.assertEqual(record['path'], str(source))
+        self.assertEqual(record['ggml_source'], str(vendor / 'ggml'))
+        self.assertEqual(record['identity'], vp.file_identity(source / 'CMakeLists.txt'))
+        self.assertEqual(record['full_readback'], record['identity'])
+        self.assertEqual(json.loads((report.evidence / 'report.json').read_text())['source_parent'], record)
+        self.assertEqual(list((vendor / 'ggml').iterdir()), [original])
+        self.assertEqual(original.read_bytes(), b'original vendor CMake')
+
+    def test_embedded_parent_refuses_stale_linked_roots_and_incomplete_evidence(self):
+        for case in ('stale', 'parent-link', 'scratch-link', 'vendor-link', 'delimiter', 'readback', 'retention'):
+            root = self.folder()
+            vendor, scratch = root / 'vendor', root / 'scratch'
+            (vendor / 'ggml').mkdir(parents=True)
+            scratch.mkdir()
+            source = scratch / 'ggml-parent'
+            if case == 'stale':
+                source.mkdir()
+                (source / 'CMakeLists.txt').write_text('preserve stale source')
+            elif case == 'parent-link':
+                source.symlink_to(vendor / 'ggml', target_is_directory=True)
+            elif case in ('scratch-link', 'vendor-link'):
+                path = scratch if case == 'scratch-link' else vendor
+                saved = root / 'saved'
+                path.rename(saved)
+                path.symlink_to(saved, target_is_directory=True)
+            elif case == 'delimiter':
+                vendor = root / 'unsafe]=]source'
+                (vendor / 'ggml').mkdir(parents=True)
+            report = vp.Report(self.folder(), {})
+            from contextlib import ExitStack
+            with ExitStack() as mocks:
+                if case == 'readback':
+                    mocks.enter_context(patch.object(vp, 'file_identity', return_value=dict(bytes=0, sha256='0' * 64)))
+                if case == 'retention':
+                    mocks.enter_context(patch.object(vp, 'retain_text', return_value=b''))
+                with self.subTest(case=case), self.assertRaises((OSError, ValueError)):
+                    vb.embedded_source(vendor, scratch, report)
+            self.assertNotIn('source_parent', report.data)
+            if case == 'stale':
+                self.assertEqual((source / 'CMakeLists.txt').read_text(), 'preserve stale source')
 
     def test_archive_full_readback_mismatch_holds_before_unpack(self):
         root = self.folder()
@@ -342,8 +402,8 @@ class BuildTest(unittest.TestCase):
         shaders = vendor / 'ggml/src/ggml-vulkan/vulkan-shaders'
         shaders.mkdir(parents=True)
         rows = []
-        for name, source in [('a.comp.cpp', build / 'src/ggml-vulkan/a.comp.cpp'),
-                             ('b.comp.cpp', build / 'src/ggml-vulkan/b.comp.cpp'),
+        for name, source in [('a.comp.cpp', build / 'ggml/src/ggml-vulkan/a.comp.cpp'),
+                             ('b.comp.cpp', build / 'ggml/src/ggml-vulkan/b.comp.cpp'),
                              ('ggml-vulkan.cpp', vendor / 'ggml/src/ggml-vulkan/ggml-vulkan.cpp'),
                              ('ggml.c', vendor / 'ggml/src/ggml.c')]:
             source.parent.mkdir(parents=True, exist_ok=True)
@@ -355,16 +415,17 @@ class BuildTest(unittest.TestCase):
                 shader_name = name[0]
                 (shaders / (shader_name + '.comp')).write_text('shader')
                 source.write_text('const uint64_t ' + shader_name + '_len = 20;\nconst unsigned char ' + shader_name + '_data[20] = {0};\n')
-        header = build / 'src/ggml-vulkan/ggml-vulkan-shaders.hpp'
+        header = build / 'ggml/src/ggml-vulkan/ggml-vulkan-shaders.hpp'
         header.write_text('extern const unsigned char a_data[];\nextern const unsigned char b_data[];\n')
-        spv = build / 'src/ggml-vulkan/vulkan-shaders.spv'
+        spv = build / 'ggml/src/ggml-vulkan/vulkan-shaders.spv'
         spv.mkdir()
         for name in ('a', 'b'):
             (spv / (name + '.spv')).write_bytes(b'\x03\x02\x23\x07' + bytes(16))
         (build / 'compile_commands.json').write_text(json.dumps(rows))
         self.elf(build / 'Release/vulkan-shaders-gen', 62, 3)
         for name in ('ggml', 'ggml-base', 'ggml-vulkan'):
-            self.elf(build / 'src' / ('lib' + name + '.so'), kind=3)
+            self.elf(build / ('ggml/src/ggml-vulkan' if name == 'ggml-vulkan' else 'ggml/src') /
+                     ('lib' + name + '.so'), kind=3)
         self.elf(toolchain / 'sysroot/usr/lib/aarch64-linux-android/33/libvulkan.so', kind=3)
         report = vp.Report(self.folder(), {})
         return vendor, build, toolchain, report, rows, shaders
@@ -390,11 +451,13 @@ class BuildTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             vb.qualify_objects(rows, shaders, build)
 
-    def test_actual_cmake_shaped_absolute_sources_relative_objects_are_valid(self):
+    def test_embedded_cmake_shaped_absolute_sources_relative_objects_are_valid(self):
         _, build, _, _, rows, shaders = self.output_fixture()
         for row in rows:
             source = Path(row['file'])
-            obj = self.elf(build / 'src/ggml-vulkan/CMakeFiles/ggml-vulkan.dir' / (source.name + '.o'))
+            object_root = ('ggml/src/CMakeFiles/ggml-base.dir' if source.name == 'ggml.c' else
+                           'ggml/src/ggml-vulkan/CMakeFiles/ggml-vulkan.dir')
+            obj = self.elf(build / object_root / (source.name + '.o'))
             row['command'] = ('/ndk/clang++ --target=aarch64-none-linux-android33 --sysroot=/ndk/sysroot '
                               '-DGGML_SHARED -DGGML_VULKAN -I' + str(shaders.parent) +
                               ' -isystem /ndk/include -O3 -DNDEBUG -std=c++17 -fPIC -MD -MT ' +
@@ -403,6 +466,26 @@ class BuildTest(unittest.TestCase):
         objects = vb.qualify_objects(rows, shaders, build)
         self.assertEqual({r['source'] for r in objects}, {r['file'] for r in rows})
         self.assertEqual({r['object']['elf_machine'] for r in objects}, {183})
+
+    def test_generated_sources_require_exact_embedded_root_not_standalone_or_other_build(self):
+        for case in ('standalone', 'nested', 'other-build', 'mismatch', 'directory-escape'):
+            _, build, _, _, rows, shaders = self.output_fixture()
+            source = Path(rows[0]['file'])
+            if case == 'directory-escape':
+                rows[0]['directory'] = str(build.parent)
+            else:
+                roots = dict(standalone=build / 'src/ggml-vulkan',
+                             nested=build / 'ggml/ggml/src/ggml-vulkan',
+                             **{'other-build': build.parent / 'other-build/ggml/src/ggml-vulkan',
+                                'mismatch': build / 'ggml/src/ggml-vulkan/foreign'})
+                replacement = roots[case] / source.name
+                replacement.parent.mkdir(parents=True)
+                replacement.write_bytes(source.read_bytes())
+                rows[0]['file'] = str(replacement)
+                if case != 'mismatch':
+                    rows[0]['command'] = rows[0]['command'].replace(str(source), str(replacement))
+            with self.subTest(case=case), self.assertRaises(ValueError):
+                vb.qualify_objects(rows, shaders, build)
 
     def test_all_actual_shader_basenames_from_foreign_sources_are_rejected(self):
         root = self.folder()
@@ -477,7 +560,7 @@ class BuildTest(unittest.TestCase):
         self.assertEqual(len(report.data['libraries']), 3)
         self.assertEqual(report.data['dynamic_closure']['libvulkan.so']['identity']['elf_machine'], 183)
         self.assertFalse(report.data['android_or_gpu_acceptance'])
-        (build / 'src/ggml-vulkan/vulkan-shaders.spv/b.spv').unlink()
+        (build / 'ggml/src/ggml-vulkan/vulkan-shaders.spv/b.spv').unlink()
         report = vp.Report(self.folder(), {})
         with patch.object(vb, 'checked', side_effect=self.fixture_inspection), self.assertRaises(ValueError):
             vb.verify_output(vendor, build, toolchain, '/ninja', report, 100)
@@ -606,10 +689,36 @@ class BuildTest(unittest.TestCase):
         with patch.dict(vb.os.environ, {'ANDROID_HOME': str(sdk)}, clear=True), \
                 patch.object(vb, 'require_capacity'), patch.object(vp, 'CORE_SHA', vp.file_identity(core)['sha256']), \
                 patch.object(vp, 'elf_identity', return_value={'elf_machine': 62}), \
+                patch.object(vb, 'checked', side_effect=commands) as native, \
+                patch.object(vb, 'run_command', side_effect=feature) as shader, \
+                patch.object(vb, 'acquire', side_effect=[hpp, spirv]) as acquisition, \
+                patch.object(vb, 'embedded_source', side_effect=vp.DiagnosticError('Invalid embedded parent')):
+            with self.assertRaisesRegex(vp.DiagnosticError, 'Invalid embedded parent'):
+                vb.build_backend(root, PINS, scratch, report, 100)
+            native.assert_not_called()
+            shader.assert_not_called()
+            acquisition.assert_not_called()
+        with patch.dict(vb.os.environ, {'ANDROID_HOME': str(sdk)}, clear=True), \
+                patch.object(vb, 'require_capacity'), patch.object(vp, 'CORE_SHA', vp.file_identity(core)['sha256']), \
+                patch.object(vp, 'elf_identity', return_value={'elf_machine': 62}), \
                 patch.object(vb, 'checked', side_effect=commands) as call, \
                 patch.object(vb, 'run_command', side_effect=feature), \
                 patch.object(vb, 'acquire', side_effect=[hpp, spirv]), patch.object(vb, 'verify_output') as verify:
             vb.build_backend(root, PINS, scratch, report, 100)
+        configure = next(c for c in call.call_args_list if c.args[3] == 'android-configure')
+        argv = list(map(str, configure.args[1]))
+        source = scratch / 'ggml-parent'
+        self.assertEqual(argv[argv.index('-S') + 1], str(source))
+        self.assertEqual(argv[argv.index('-B') + 1], str(scratch / 'android-build'))
+        self.assertEqual((source / 'CMakeLists.txt').read_text(),
+                         'cmake_minimum_required(VERSION 3.22)\n'
+                         'project(lip_vulkan_build LANGUAGES C CXX ASM)\n'
+                         'add_subdirectory([=[' + str(vendor / 'ggml') + ']=] ggml)\n')
+        self.assertEqual(report.data['source_parent']['full_readback'], vp.file_identity(source / 'CMakeLists.txt'))
+        self.assertEqual(set(report.data['connected_source']),
+                         {'ggml/src/ggml-vulkan/vulkan-shaders/vulkan-shaders-gen.cpp'})
+        self.assertEqual(report.data['connected_source']['ggml/src/ggml-vulkan/vulkan-shaders/vulkan-shaders-gen.cpp'],
+                         vp.file_identity(shaders / 'vulkan-shaders-gen.cpp'))
         build = next(c for c in call.call_args_list if c.args[3] == 'android-build')
         self.assertEqual(list(map(str, build.args[1]))[-4:], ['--target', 'ggml', '--parallel', '2'])
         self.assertEqual(build.kwargs['env']['CMAKE_BUILD_PARALLEL_LEVEL'], '2')
@@ -682,7 +791,7 @@ class BuildTest(unittest.TestCase):
 
     def test_generated_variants_reject_duplicate_arrays_bad_lengths_and_malformed_spirv(self):
         _, build, _, _, rows, _ = self.output_fixture()
-        header = build / 'src/ggml-vulkan/ggml-vulkan-shaders.hpp'
+        header = build / 'ggml/src/ggml-vulkan/ggml-vulkan-shaders.hpp'
         spv = header.parent / 'vulkan-shaders.spv'
         sources = [Path(r['file']) for r in rows if r['file'].endswith('.comp.cpp')]
         self.assertEqual(set(vb.qualify_generated(header, sources, spv)), {'a', 'b'})
