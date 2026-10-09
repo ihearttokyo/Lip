@@ -82,8 +82,10 @@ def run_logged(command, env, log, timeout=900, byte_limit=1024 * 1024):
         if code:
             raise subprocess.CalledProcessError(code, command)
     finally:
-        stop_owned_group(child)
-        child.stdout.close()
+        try:
+            stop_owned_group(child)
+        finally:
+            child.stdout.close()
 
 
 def verify_admission(original, admitted):
