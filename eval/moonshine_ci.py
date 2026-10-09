@@ -507,7 +507,9 @@ def main():
             current_case = case
             results.append(run_native(case, work, evidence, env))
             if not raw_passed(results[-1]):
-                report.update(rejected_case=case['id'], remaining_cases_held=True); break
+                report.setdefault('rejected_case', case['id'])
+                if results[-1]['status'] != 'ok':
+                    report.update(remaining_cases_held=True); break
     except Exception as error:
         if current_case is not None and not any(r['id'] == current_case['id'] for r in results):
             path = evidence / (current_case['id'] + '-score.json')

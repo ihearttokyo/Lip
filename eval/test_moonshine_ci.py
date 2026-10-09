@@ -576,4 +576,43 @@ class Contract(unittest.TestCase):
                 self.assertEqual(json.loads((evidence / (case['id'] + '-score.json')).read_bytes()), result)
 
 
+    def test_main_observes_after_quality_rejection_but_holds_native_faults(self):
+        pins = json.loads((ROOT / 'eval/moonshine-pins.json').read_bytes())
+        cases = m.select_cases(json.loads((ROOT / 'eval/corpus.json').read_bytes()),
+                               {'cases': json.loads((ROOT / 'eval/initial-ts-pins.json').read_bytes())['quiet_cases']},
+                               json.loads((ROOT / 'eval/controls.json').read_bytes()))
+        for fault in (None, 'engine_error', 'timeout', 'cleanup_timeout', 'invalid_input_or_output'):
+            with self.subTest(fault=fault), tempfile.TemporaryDirectory() as temp:
+                attempted = []
+                def acquire(command, env, log, **bounds):
+                    (Path(log.name).parent / 'admission.json').write_bytes(b'{}\n')
+                def native(case, work, evidence, env):
+                    attempted.append(case['id'])
+                    raw = case['reference_raw']
+                    if len(attempted) == 1: raw = raw.replace('you are', "you're")
+                    result = dict(m.QUALIFICATION, id=case['id'], status=fault if fault and len(attempted) == 2 else 'ok',
+                                  origin=case['origin'], raw=raw, lines=[] if raw == '' else [{'text': raw, 'line_id': 1}],
+                                  score=m.score_case(case, raw))
+                    m.retain(evidence / (case['id'] + '-score.json'), ts.encode(result))
+                    return result
+                with patch.object(m, 'preflight', return_value=(ROOT, pins, Path(temp))), \
+                     patch.dict(m.os.environ, m.NATIVE_ENV), \
+                     patch.object(m.sys, 'argv', ['moonshine_ci.py']), \
+                     patch.object(m, 'admit_inputs', return_value=(cases, [])), \
+                     patch.object(m, 'run_logged', acquire), patch.object(m, 'run_native', native):
+                    self.assertEqual(m.main(), 1)
+                evidence = Path(temp) / 'lip-moonshine-evidence'
+                report = json.loads((evidence / 'completion.json').read_bytes())
+                self.assertEqual(attempted, [c['id'] for c in cases[:2 if fault else 12]])
+                self.assertFalse(report['strict_scores_passed'])
+                self.assertEqual(report['status'], 'incomplete_diagnostic' if fault else 'complete_diagnostic')
+                self.assertEqual(report.get('remaining_cases_held', False), bool(fault))
+                self.assertEqual(report['rejected_case'], cases[0]['id'])
+                rejected = json.loads((evidence / (cases[0]['id'] + '-score.json')).read_bytes())
+                self.assertEqual(rejected['score']['raw']['errors'], 2)
+                self.assertEqual(rejected['score']['raw']['reference_units'], 15)
+                self.assertFalse(rejected['score']['passed'])
+                for key in m.QUALIFICATION: self.assertIs(report[key], False)
+
+
 if __name__ == '__main__': unittest.main()
