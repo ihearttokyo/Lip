@@ -853,12 +853,12 @@ def main():
                 report.data['pending_operation'] = 'sdkmanager-version'
                 report.save()
                 record_probe(report, run_command([sdkmanager, '--version'], scratch, evidence, 'sdkmanager-version',
-                                                 deadline, seconds=10, retain=False, env=env))
+                                                 deadline, seconds=10, env=env))
                 report.data['pending_operation'] = 'sdk-setup'
                 report.save()
                 result = run_command([sdkmanager, 'ndk;' + pins['ndk'], 'cmake;' + pins['cmake']],
                                      scratch, evidence, 'sdk-setup', deadline,
-                                     seconds=1200, ceiling=1200, retain=False, env=env, file_size_bytes=2 * 1024**3)
+                                     seconds=1200, ceiling=1200, env=env, file_size_bytes=2 * 1024**3)
                 record_probe(report, result)
                 report.data['sdk_setup_complete'] = True
                 report.data['sdk_setup_finished_monotonic'] = time.monotonic()

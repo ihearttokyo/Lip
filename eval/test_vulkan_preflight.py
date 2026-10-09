@@ -301,6 +301,8 @@ class PreflightTest(unittest.TestCase):
                 self.assertEqual(vp.main(), 0)
                 self.assertEqual(setup_commands.call_args_list[-1].kwargs['file_size_bytes'], 2 * 1024**3)
                 self.assertEqual(setup_commands.call_args_list[-1].kwargs['seconds'], 1200)
+                self.assertTrue(all(c.kwargs.get('retain', True) for c in setup_commands.call_args_list),
+                                'Public SDK version and setup output must be retained for failure diagnosis')
             saved = json.loads((evidence / 'report.json').read_text())
             self.assertTrue(saved['sdk_setup_complete'])
             self.assertEqual(saved['status'], 'PARTIAL')
