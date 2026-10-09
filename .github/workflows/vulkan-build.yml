@@ -1,0 +1,52 @@
+name: Android Vulkan full cross-build (no GPU execution)
+on:
+  push:
+    branches: [codex/lip-vulkan-build]
+permissions:
+  contents: read
+concurrency:
+  group: lip-vulkan-build
+  cancel-in-progress: false
+jobs:
+  build:
+    if: >-
+      github.repository == 'ihearttokyo/Lip' && github.event.repository.private == false &&
+      github.repository_owner == 'ihearttokyo' && github.ref == 'refs/heads/codex/lip-vulkan-build' &&
+      github.workflow_ref == 'ihearttokyo/Lip/.github/workflows/vulkan-build.yml@refs/heads/codex/lip-vulkan-build' &&
+      github.event_name == 'push' && contains(github.event.head_commit.message, '[vulkan-build-canary]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Admit exact case-sensitive checked-out push and pristine source
+        id: admit
+        env:
+          VULKAN_RUNNER_TEMP: ${{ runner.temp }}
+        run: python3 -B eval/vulkan_build_ci.py admit
+      - name: Install only pinned NDK and CMake within fixed allocator bounds
+        timeout-minutes: 21
+        env:
+          VULKAN_RUNNER_TEMP: ${{ runner.temp }}
+          VULKAN_EVIDENCE: ${{ steps.admit.outputs.evidence }}
+          VULKAN_SCRATCH: ${{ steps.admit.outputs.scratch }}
+        run: python3 -B eval/vulkan_build_ci.py install
+      - name: Full original Vulkan backend ARM64 API33 cross-build
+        timeout-minutes: 46
+        env:
+          VULKAN_RUNNER_TEMP: ${{ runner.temp }}
+          VULKAN_EVIDENCE: ${{ steps.admit.outputs.evidence }}
+          VULKAN_SCRATCH: ${{ steps.admit.outputs.scratch }}
+        run: python3 -B eval/vulkan_build_ci.py build
+      - name: Retain bounded text evidence including failures; never binaries
+        if: always() && steps.admit.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Lip-vulkan-build-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ steps.admit.outputs.evidence }}/*.json
+            ${{ steps.admit.outputs.evidence }}/*.txt
+          if-no-files-found: error
+          retention-days: 7
