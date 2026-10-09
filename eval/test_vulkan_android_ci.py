@@ -301,6 +301,50 @@ class AndroidTest(unittest.TestCase):
         self.assertNotIn('workflow_dispatch', workflow)
         self.assertNotIn('vulkan_build_ci.py build', workflow)
 
+    def test_admission_entrypoint_retains_only_bounded_controlled_failure(self):
+        import ast
+        from contextlib import redirect_stderr
+        from types import SimpleNamespace
+        tree = ast.parse((ROOT / 'eval/vulkan_android_ci.py').read_text())
+        entry = compile(ast.Module(body=[tree.body[-1]], type_ignores=[]), '<actual entrypoint>', 'exec')
+        for error in (vp.DiagnosticError('Required host\nidentity'), vp.DiagnosticError('x' * 1024),
+                      RuntimeError('private unexpected error')):
+            def denied(*_args): raise error
+            untouched = SimpleNamespace(setrlimit=lambda *_: self.fail('Resources changed before admission'))
+            output = io.StringIO()
+            with redirect_stderr(output), self.assertRaises(SystemExit) as exited:
+                exec(entry, dict(__name__='__main__', require_host=denied, os=ci.os, platform=ci.platform,
+                                 resource=untouched, sys=ci.sys, vp=vp))
+            self.assertEqual(exited.exception.code, 1)
+            line = output.getvalue()
+            expected = 'Android benchmark preparation held: ' + type(error).__name__
+            if isinstance(error, vp.DiagnosticError): expected += ': ' + ' '.join(str(error).split())[:512]
+            self.assertEqual(line, expected + '\n')
+            self.assertNotIn('private unexpected error', line)
+
+    def test_parent_soft_limit_permits_qualified_native_child_limit(self):
+        import ast
+        from contextlib import redirect_stderr
+        tree = ast.parse((ROOT / 'eval/vulkan_android_ci.py').read_text())
+        entry = compile(ast.Module(body=[tree.body[-1]], type_ignores=[]), '<actual entrypoint>', 'exec')
+        limits, calls = {}, []
+        def setrlimit(key, pair):
+            if key in limits and pair[1] > limits[key][1]:
+                raise ValueError('Cannot raise inherited hard limit')
+            limits[key] = pair
+            calls.append((key, pair))
+        def child_launch():
+            vb.limits(1)
+            return 0
+        output = io.StringIO()
+        with patch.object(ci.resource, 'setrlimit', side_effect=setrlimit), redirect_stderr(output):
+            with self.assertRaises(SystemExit) as exited:
+                exec(entry, dict(__name__='__main__', require_host=lambda *_: None, os=ci.os,
+                     platform=ci.platform, resource=ci.resource, sys=ci.sys, vp=vp, vb=vb, main=child_launch))
+        self.assertEqual(exited.exception.code, 0, output.getvalue())
+        self.assertEqual(calls[0], (ci.resource.RLIMIT_AS, (2 * 1024**3, vb.AS_LIMIT)))
+        self.assertEqual(calls[1], (ci.resource.RLIMIT_AS, (vb.AS_LIMIT, vb.AS_LIMIT)))
+
     def test_full_pcm_exact_float_equivalence_and_source_hash(self):
         data = wav()
         values = struct.pack('<5f', -1, -1 / 32768, 0, 1 / 32768, 32767 / 32768)

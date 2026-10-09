@@ -722,7 +722,9 @@ def main(mode=None):
 if __name__ == '__main__':
     try:
         require_host(os.environ, platform.system(), platform.machine(), os.geteuid())
-        resource.setrlimit(resource.RLIMIT_AS, (2*1024**3, 2*1024**3))
+        # Keep Python bounded while allowing the qualified native child limit.
+        resource.setrlimit(resource.RLIMIT_AS, (2*1024**3, vb.AS_LIMIT))
         sys.exit(main())
     except (Exception, KeyboardInterrupt) as error:
-        print('Android benchmark preparation held: ' + type(error).__name__, file=sys.stderr); sys.exit(1)
+        reason = ': ' + ' '.join(str(error).split())[:512] if isinstance(error, vp.DiagnosticError) else ''
+        print('Android benchmark preparation held: ' + type(error).__name__ + reason, file=sys.stderr); sys.exit(1)
