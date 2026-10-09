@@ -56,6 +56,10 @@ android {
 
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
 
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    if (name.endsWith("UnitTestKotlin")) source("src/androidTest/java/dev/lip/PlatformSpeechProbe.kt")
+}
+
 val bundleNotices = tasks.register<Copy>("bundleNotices") {
     from(rootProject.file("NOTICE.md"), rootProject.file("docs/assets/apache-2.0.txt"),
         rootProject.file("docs/assets/whisper-mit.txt").also { check(it.isFile) { "Native MIT notice is missing" } })
