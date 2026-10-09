@@ -1,5 +1,6 @@
 """Stdlib fixtures only; never execute native code, network or an inference process."""
 from array import array
+import ast
 from copy import deepcopy
 import hashlib
 import json
@@ -55,6 +56,27 @@ class Contract(unittest.TestCase):
         for target in ('subprocess.Popen', 'urllib.request.urlopen', 'ctypes.CDLL', 'os.killpg'):
             guard = patch(target, side_effect=AssertionError('Real process/network/native prohibited in fixtures'))
             guard.start(); self.addCleanup(guard.stop)
+
+    def test_actual_publisher_metadata_expressions_accept_utf8_strings(self):
+        from types import SimpleNamespace
+        tree = ast.parse((ROOT / 'eval/moonshine_ci.py').read_text())
+        expressions = [node for node in ast.walk(tree) if isinstance(node, ast.Call) and
+                       isinstance(node.func, ast.Name) and node.func.id == 'strict_json' and
+                       any(isinstance(inner, ast.Call) and isinstance(inner.func, ast.Attribute) and
+                           inner.func.attr in ('moonshine_get_stt_catalog_string', 'moonshine_get_stt_dependencies_string')
+                           for inner in ast.walk(node))]
+        self.assertEqual(len(expressions), 2)
+        for payload in ('{"metadata":"日本語"}', '{"metadata":1,"metadata":2}', '{"metadata":NaN}'):
+            api = SimpleNamespace(moonshine_get_stt_catalog_string=lambda: payload,
+                                  moonshine_get_stt_dependencies_string=lambda *args: payload)
+            for expression in expressions:
+                with self.subTest(expression=ast.unparse(expression), payload=payload):
+                    def parse():
+                        return eval(compile(ast.Expression(expression), '<owned publisher metadata expression>', 'eval'),
+                                    {'__builtins__': {}, 'strict_json': m.strict_json, 'api': api})
+                    if payload == '{"metadata":"日本語"}': self.assertEqual(parse(), {'metadata': '日本語'})
+                    else:
+                        with self.assertRaises(ValueError): parse()
 
     def test_raw_positive_cannot_qualify_native_quality(self):
         results = [{'id': str(i), 'status': 'ok', 'origin': 'human_recording', 'raw': 'raw',

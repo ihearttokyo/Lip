@@ -450,11 +450,11 @@ def worker(mode, args):
         if name.startswith('moonshine_voice') and not Path(module.__file__).resolve().is_relative_to(work / 'wheel'):
             raise ValueError('Publisher import escaped owned wheel')
     verify_mapping(work, expected_lib); observe_threads(record, 'after_import')
-    catalog = strict_json(api.moonshine_get_stt_catalog_string()); en = next(lang for lang in catalog['languages'] if lang['code'] == 'en')
+    catalog = strict_json(api.moonshine_get_stt_catalog_string().encode('utf-8')); en = next(lang for lang in catalog['languages'] if lang['code'] == 'en')
     catalog_root = 'https://download.moonshine.ai/model/medium-streaming-en/quantized_26_08_21'
     if not any(v['model_arch'] == 5 and v['download_url'] == catalog_root for v in en['models']):
         raise ValueError('Native catalog mismatch')
-    dependencies = strict_json(api.moonshine_get_stt_dependencies_string('en', {'model_arch': '5', 'word_timestamps': 'false'}))
+    dependencies = strict_json(api.moonshine_get_stt_dependencies_string('en', {'model_arch': '5', 'word_timestamps': 'false'}).encode('utf-8'))
     files = [f for group in dependencies['groups'] for f in group['files']]
     if (len(dependencies['groups']) != 1 or dependencies['groups'][0]['base_url'] != catalog_root or
             len(files) != 8 or {f['name']: f['size'] for f in files} != {p['name']: p['bytes'] for p in pins['models']}):
