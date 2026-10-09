@@ -13,6 +13,7 @@ import android.content.ClipboardManager
 import android.content.Intent
 import android.graphics.PixelFormat
 import android.graphics.Color
+import android.graphics.Rect
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -22,6 +23,7 @@ import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
+import android.view.WindowInsets
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -186,8 +188,8 @@ class LipAccessibilityService : AccessibilityService() {
             setOnClickListener { dictation.cancel() }
         }
         content.addView(dismiss, LinearLayout.LayoutParams(dp(48), dp(48)))
-        val center = column().apply { gravity = Gravity.CENTER }
-        waveform = WaveformView(this).also { center.addView(it, LinearLayout.LayoutParams(dp(76), dp(28))) }
+        val center = column().apply { gravity = Gravity.CENTER; minimumHeight = dp(56) }
+        waveform = WaveformView(this).also { center.addView(it, LinearLayout.LayoutParams(-1, dp(28))) }
         caption = label("Tap to speak", 10f).also { center.addView(it) }
         center.contentDescription = "Start dictation"
         center.isClickable = true
@@ -206,9 +208,11 @@ class LipAccessibilityService : AccessibilityService() {
             }
         }
         mic = center
-        content.addView(center, LinearLayout.LayoutParams(dp(100), dp(56)))
+        content.addView(center, LinearLayout.LayoutParams(0, -2, 1f))
         confirm = label("Lip", 16f).apply {
             gravity = Gravity.CENTER
+            minimumWidth = dp(48)
+            minimumHeight = dp(48)
             setOnClickListener {
                 if (dictation.phase == Phase.LISTENING) dictation.stop()
                 else if (dictation.phase == Phase.READY) {
@@ -219,32 +223,35 @@ class LipAccessibilityService : AccessibilityService() {
                 }
                 else startActivity(Intent(this@LipAccessibilityService, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             }
-        }.also { content.addView(it, LinearLayout.LayoutParams(dp(48), dp(48))) }
+        }.also { content.addView(it, LinearLayout.LayoutParams(-2, -2)) }
         container.addView(content)
         reviewText = label("", 15f).apply { setPadding(dp(14), dp(10), dp(14), dp(10)) }
         reviewScroll = ScrollView(this).apply {
             isFocusable = false
             background = surface(Palette.cream, dp(14).toFloat())
             addView(reviewText)
-        }.also { container.addView(it, LinearLayout.LayoutParams(dp(210), dp(160)).apply {
-            gravity = Gravity.CENTER_HORIZONTAL; bottomMargin = dp(6)
+        }.also { container.addView(it, LinearLayout.LayoutParams(-1, dp(160)).apply {
+            marginStart = dp(5); marginEnd = dp(5); bottomMargin = dp(6)
         }) }
         reviewActions = column().apply {
             val choices = LinearLayout(this@LipAccessibilityService)
             rawChoice = action("Raw") { dictation.useRaw() }.apply { contentDescription = "Raw transcript" }
             cleanedChoice = action("Cleaned") { dictation.useCleaned() }.apply { contentDescription = "Cleaned transcript" }
-            choices.addView(rawChoice, LinearLayout.LayoutParams(0, dp(48), 1f))
-            choices.addView(cleanedChoice, LinearLayout.LayoutParams(0, dp(48), 1f).apply { marginStart = dp(8) })
+            choices.addView(rawChoice, LinearLayout.LayoutParams(-2, -2, 1f))
+            choices.addView(cleanedChoice, LinearLayout.LayoutParams(-2, -2, 1f).apply { marginStart = dp(8) })
             addSpaced(choices, 4)
-            addView(action("Copy") { copy(this@LipAccessibilityService, dictation.text) }, LinearLayout.LayoutParams(-1, dp(48)))
-        }.also { container.addView(it, LinearLayout.LayoutParams(dp(220), -2)) }
+            addView(action("Copy") { copy(this@LipAccessibilityService, dictation.text) }, LinearLayout.LayoutParams(-1, -2))
+        }.also { container.addView(it, LinearLayout.LayoutParams(-1, -2)) }
         reviewFeedback = label("", 12f).apply {
             setPadding(dp(12), dp(6), dp(12), dp(10))
-            maxLines = 5
             accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
-        }.also { container.addView(it, LinearLayout.LayoutParams(dp(220), -2)) }
+        }
+        ScrollView(this).apply {
+            isFocusable = false
+            addView(reviewFeedback)
+        }.also { container.addView(it, LinearLayout.LayoutParams(-1, -2)) }
         params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
+            minOf(dp(280), bubbleBounds().width() - dp(24)).coerceAtLeast(1), WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT,
@@ -252,6 +259,12 @@ class LipAccessibilityService : AccessibilityService() {
             gravity = Gravity.END or Gravity.CENTER_VERTICAL
             x = dictation.store.settings.getInt("bubbleX", dp(12))
             y = dictation.store.settings.getInt("bubbleY", dp(70))
+        }
+        container.addOnLayoutChangeListener { view, _, _, _, _, _, _, _, _ ->
+            val layout = params ?: return@addOnLayoutChangeListener
+            val oldX = layout.x; val oldY = layout.y
+            constrainBubble(layout, view)
+            if (view.isAttachedToWindow && (layout.x != oldX || layout.y != oldY)) manager.updateViewLayout(view, layout)
         }
         installDrag(center, container)
         try { manager.addView(container, params); bubble = container }
@@ -270,8 +283,9 @@ class LipAccessibilityService : AccessibilityService() {
                 MotionEvent.ACTION_MOVE -> {
                     if (abs(event.rawX - downX) + abs(event.rawY - downY) > dp(10)) dragging = true
                     if (dragging) {
-                        layout.x = (startX - (event.rawX - downX).toInt()).coerceIn(0, resources.displayMetrics.widthPixels - dp(210))
-                        layout.y = (startY + (event.rawY - downY).toInt()).coerceIn(-resources.displayMetrics.heightPixels / 3, resources.displayMetrics.heightPixels / 3)
+                        layout.x = startX - (event.rawX - downX).toInt()
+                        layout.y = startY + (event.rawY - downY).toInt()
+                        constrainBubble(layout, content)
                         getSystemService(WindowManager::class.java).updateViewLayout(content, layout)
                     }
                     true
@@ -285,6 +299,19 @@ class LipAccessibilityService : AccessibilityService() {
                 else -> false
             }
         }
+    }
+
+    private fun bubbleBounds(): Rect {
+        val metrics = getSystemService(WindowManager::class.java).currentWindowMetrics
+        val insets = metrics.windowInsets.getInsetsIgnoringVisibility(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
+        return Rect(metrics.bounds).apply { inset(insets.left, insets.top, insets.right, insets.bottom) }
+    }
+
+    private fun constrainBubble(layout: WindowManager.LayoutParams, content: View) {
+        val screen = bubbleBounds()
+        layout.x = layout.x.coerceIn(0, (screen.width() - content.width).coerceAtLeast(0))
+        val maxY = minOf(screen.height() / 3, ((screen.height() - content.height) / 2).coerceAtLeast(0))
+        layout.y = layout.y.coerceIn(-maxY, maxY)
     }
 
     private fun commit(original: EditorSnapshot, text: String, done: (Boolean) -> Unit) {
