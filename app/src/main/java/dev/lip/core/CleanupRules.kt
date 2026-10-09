@@ -1,5 +1,6 @@
 package dev.lip.core
 
+import dev.lip.auth.AuthException
 import java.text.Normalizer
 import java.util.Locale
 
@@ -7,6 +8,53 @@ data class OutputAssessment(val acceptableForAuto: Boolean, val reasons: List<St
 
 /** Conservative local formatting and observable output checks, not semantic equivalence. */
 object CleanupRules {
+    internal fun cleanupStatus(style: String, assessment: OutputAssessment?, consent: Boolean, failure: Throwable?): String = when {
+        style == "verbatim" -> "Ready · on-device transcript"
+        consent && assessment?.acceptableForAuto == true -> "Ready · cleaned with ChatGPT"
+        consent && assessment != null -> "Review required · ${assessment.reasons.joinToString("; ")}"
+        else -> "Local formatting only · raw kept; nothing auto-inserted. " +
+            if (!consent) "ChatGPT cleanup is off. Enable it in Settings and consent to text cleanup." else cleanupFailure(failure)
+    }
+
+    internal fun cleanupFailure(failure: Throwable?): String {
+        val reason = (failure as? AuthException)?.message
+        return if (reason != null && (reason in safeCleanupFailures || httpFailure.matches(reason))) reason
+            else "ChatGPT cleanup failed. Try again later."
+    }
+
+    // Only fixed client/protocol messages are safe; exception and provider bodies stay private.
+    private val safeCleanupFailures = setOf(
+        "Continue with ChatGPT to enable cleanup.",
+        "Enable ChatGPT plan use by continuing with ChatGPT again.",
+        "Continue with ChatGPT again to renew cleanup.",
+        "ChatGPT session ended. Continue with ChatGPT again.",
+        "ChatGPT plan cleanup is not authorized.",
+        "ChatGPT returned incomplete credentials.",
+        "Saved ChatGPT credentials could not be read. Existing data has been preserved.",
+        "ChatGPT account changed. The previous cleanup was discarded.",
+        "ChatGPT connection failed. Existing credentials were preserved.",
+        "ChatGPT model choices could not be loaded. Try again.",
+        "ChatGPT usage limit reached. Manage usage in ChatGPT settings.",
+        "No ChatGPT cleanup models are available. Try again later.",
+        "Choose Polished, Light, or Verbatim cleanup.",
+        "Cleanup input exceeded its safe size limit.",
+        "ChatGPT response exceeded its safe size limit.",
+        "ChatGPT cleanup was interrupted. Your original text is preserved.",
+        "ChatGPT did not return a cleanup stream.",
+        "Invalid cleanup response.",
+        "ChatGPT did not complete cleanup.",
+        "ChatGPT declined cleanup. Your original text is preserved.",
+        "ChatGPT cleanup text did not match its completed response.",
+        "ChatGPT returned no cleaned text.",
+        "ChatGPT did not finish cleanup. Your original text is preserved.",
+        "ChatGPT cleanup timed out. Your original text is preserved.",
+        "Cleanup response exceeded the safe size limit.",
+        "Cleanup was interrupted. Your original text is preserved.",
+        "Encrypted storage exceeds its size limit.",
+        "Encrypted storage could not be saved. Previous data has been preserved.",
+    )
+    private val httpFailure = Regex("ChatGPT request failed \\(HTTP [1-5][0-9]{2}\\)\\. Existing credentials were preserved\\.")
+
     private val literals = Regex("```[\\s\\S]*?(?:```|\\z)|`[^`\\r\\n]+`|\"(?:\\\\.|[^\"\\\\])*(?:\"|\\z)|“[^”]*”|「[^」]*」|『[^』]*』|(?<![\\p{L}\\p{N}])'[^'\\r\\n]*'(?![\\p{L}\\p{N}])|(?:https?://|www\\.)[^\\s<>\"'「」『』“”]+", RegexOption.IGNORE_CASE)
     private val codeLines = Regex("(?m)^(?:(?:\\t| {4})[^\\r\\n]*|[^\\r\\n]*[{}=][^\\r\\n]*)$")
     private val identifiers = Regex("[A-Za-z_$][A-Za-z0-9_$]*")

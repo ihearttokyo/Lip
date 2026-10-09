@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Handler
 import android.os.Looper
+import dev.lip.auth.AuthException
 import dev.lip.auth.ChatGptClient
 import dev.lip.core.CaptureSession
 import dev.lip.core.CleanupRules
@@ -209,12 +210,13 @@ class Dictation private constructor(private val context: Context) {
             val words = dictionary
             previewOperation = id
             Work.io.execute {
-                val cleaned = runCatching { if (id == operation) clean(stable, style, language, words, id, live = true) else null }.getOrNull()
+                val outcome = runCatching { if (id == operation) clean(stable, style, language, words, id, live = true) else null }
+                val cleaned = outcome.getOrNull()
                 main.post {
                     if (previewOperation == id) previewOperation = null
                     if (id != operation) { schedulePreview(operation); return@post }
-                    if (phase != Phase.LISTENING) return@post
-                    if (cleaned == null) { liveFailed = true; message = "Listening · live cleanup unavailable; raw preview kept"; changed(); return@post }
+                    if (phase != Phase.LISTENING || !store.cloudConsent || !store.liveCleanup) return@post
+                    if (cleaned == null) { liveFailed = true; message = "Listening locally · ${CleanupRules.cleanupFailure(outcome.exceptionOrNull())} Raw preview kept."; changed(); return@post }
                     if (revision == current.revision && store.cloudConsent && store.liveCleanup) {
                         liveClean = cleaned.value; liveRevision = revision
                         message = if (cleaned.assessment.acceptableForAuto) "Listening · ChatGPT preview" else "Listening · preview needs review: ${cleaned.assessment.reasons.first()}"
@@ -228,10 +230,13 @@ class Dictation private constructor(private val context: Context) {
     private data class Cleaned(val value: String, val assessment: OutputAssessment)
     private fun clean(value: String, style: String, language: String, words: List<String>, id: Long, live: Boolean = false): Cleaned? {
         fun permitted() = id == operation && store.cloudConsent && (!live || store.liveCleanup && phase == Phase.LISTENING)
-        if (!permitted() || chatGpt.session()?.canUsePlan != true) return null
+        if (!permitted()) return null
+        val session = chatGpt.session() ?: throw AuthException("Continue with ChatGPT to enable cleanup.")
+        if (!session.canUsePlan) throw AuthException("Enable ChatGPT plan use by continuing with ChatGPT again.")
         if (!permitted()) return null
         val models = chatGpt.listModels()
-        val model = (models.firstOrNull { it.slug == store.model } ?: models.firstOrNull())?.slug ?: error("No available model")
+        val model = (models.firstOrNull { it.slug == store.model } ?: models.firstOrNull())?.slug
+            ?: throw AuthException("No ChatGPT cleanup models are available. Try again later.")
         if (!permitted()) return null
         val cleaned = chatGpt.clean(value, model, style, words)
         require(cleaned.isNotBlank() && cleaned.length <= 65_536)
@@ -247,7 +252,8 @@ class Dictation private constructor(private val context: Context) {
         Work.io.execute {
             if (id != operation) return@execute
             val local = CleanupRules.local(value, style, language)
-            val cleaned = if (style == "verbatim") null else runCatching { clean(value, style, language, words, id) }.getOrNull()
+            val outcome = runCatching { if (style == "verbatim") null else clean(value, style, language, words, id) }
+            val cleaned = outcome.getOrNull()
             main.post {
                 if (id != operation) return@post
                 val polished = style != "verbatim" && cleaned != null && store.cloudConsent
@@ -255,12 +261,7 @@ class Dictation private constructor(private val context: Context) {
                 output.complete(value, if (style == "verbatim") null else completed)
                 text = completed
                 val safeForAuto = style == "verbatim" || polished && cleaned!!.assessment.acceptableForAuto
-                cleanedStatus = when {
-                    style == "verbatim" -> "Ready · on-device transcript"
-                    polished && safeForAuto -> "Ready · cleaned with ChatGPT"
-                    polished -> "Review required · ${cleaned!!.assessment.reasons.joinToString("; ")}"
-                    else -> "Local formatting only · raw kept. Connect ChatGPT for semantic cleanup; nothing auto-inserted."
-                }
+                cleanedStatus = CleanupRules.cleanupStatus(style, cleaned?.assessment, store.cloudConsent, outcome.exceptionOrNull())
                 state(Phase.READY, cleanedStatus)
                 val entry = Transcript(raw = value, clean = completed, language = language, usedChatGpt = polished)
                 saveHistory(entry, id)
