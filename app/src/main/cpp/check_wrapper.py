@@ -46,20 +46,29 @@ assert 'NewByteArray' in native and 'GetByteArrayRegion' in native
 assert '([BJJF)V' in native and 'Charsets.UTF_8.newDecoder().decode(ByteBuffer.wrap(utf8)).toString()' in kotlin
 assert 'pcm.size in 1..MAX_SAMPLES' in kotlin and 'MAX_SAMPLES = 16_000 * 30' in kotlin
 assert 'MAX_PROMPT_CHARACTERS = 1_024' in kotlin
-transcribe = kotlin[kotlin.index('fun transcribe('):kotlin.index('/** Abort the active inference.')]
+transcribe = kotlin[kotlin.index('private fun transcribeWindow('):kotlin.index('/** Abort the active inference.')]
 guarded_call = ('val segments = if (ExactZeroPcm.matches(pcm)) emptyArray<Segment>() else '
-                'nativeTranscribe(handle, pcm, language.toByteArray(Charsets.UTF_8), dictionaryPrompt.toByteArray(Charsets.UTF_8))')
+                'native?.transcribe(handle, pcm, language.toByteArray(Charsets.UTF_8), dictionaryPrompt.toByteArray(Charsets.UTF_8)) '
+                '?: nativeTranscribe(handle, pcm, language.toByteArray(Charsets.UTF_8), dictionaryPrompt.toByteArray(Charsets.UTF_8))')
 assert guarded_call in ' '.join(transcribe.split()), 'Exact-zero PCM must bypass only nativeTranscribe'
 assert 'fun matches(pcm: FloatArray): Boolean = pcm.all { it == 0f }' in kotlin
 guards = ('require(pcm.size in 1..MAX_SAMPLES)', 'require(language in setOf("en", "ja", "zh"))',
           "require(dictionaryPrompt.length <= MAX_PROMPT_CHARACTERS && '\\u0000' !in dictionaryPrompt)",
-          'check(!closed)', 'nativeAbort(handle, false)', 'cancellation\n',
+          'check(!closed)', 'else if (borrower !== capture) throw CancellationException', 'setAbort(false)', 'cancellation\n',
           'val segments = if', 'if (closed || cancellation != revision)', 'segments.toList()')
 positions = [transcribe.index(guard) for guard in guards]
 assert positions == sorted(positions), 'Exact-zero guard must preserve validation and lifecycle ordering'
 assert transcribe.count('nativeTranscribe(') == 1 and 'return' not in transcribe
 assert re.search(r'synchronized\(state\) \{\s*if \(closed \|\| cancellation != revision\) '
                  r'throw CancellationException\("Speech inference canceled"\)\s*\}\s*segments.toList\(\)', transcribe)
+assert 'private fun setAbort(abort: Boolean) { native?.abort(handle, abort) ?: nativeAbort(handle, abort) }' in kotlin
+assert 'if (native == null) System.loadLibrary("lip_whisper")' in kotlin
+assert 'finally { synchronized(state) { decoding = false } }' in transcribe
+capture = (root / 'app/src/main/java/dev/lip/speech/LocalCapture.kt').read_text()
+assert capture.index('private val engineLease = engine.borrow()') < capture.index('fun start()')
+assert 'engineLease.transcribe(window.samples, nativeLanguage, dictionaryPrompt)' in capture
+assert capture.count('engineLease.cancel()') == 2 and 'engine.cancel()' not in capture
+assert capture.index('engineLease.cancel()') < capture.index('if (active) { source?.close()')
 assert 'std::isfinite(sample)' in native
 for option in ('BUILD_SHARED_LIBS', 'WHISPER_BUILD_TESTS', 'WHISPER_BUILD_EXAMPLES',
                'WHISPER_BUILD_SERVER', 'GGML_NATIVE', 'GGML_OPENMP', 'WHISPER_CURL'):

@@ -11,7 +11,7 @@ import java.util.concurrent.Executors
 /** Owns capture/PCM only; the caller owns the exclusively borrowed engine and its worker-side close. */
 internal class LocalCapture(
     private val context: Context,
-    private val engine: WhisperEngine,
+    engine: WhisperEngine,
     private val language: String,
     private val dictionaryPrompt: String,
     private val onStableSegment: (String) -> Unit,
@@ -38,6 +38,8 @@ internal class LocalCapture(
         require(nativeLanguage in setOf("en", "ja", "zh")) { "Unsupported local speech language" }
         require(dictionaryPrompt.length <= WhisperEngine.MAX_PROMPT_CHARACTERS && '\u0000' !in dictionaryPrompt) { "Invalid speech dictionary prompt" }
     }
+
+    private val engineLease = engine.borrow()
 
     fun start() {
         check(Looper.myLooper() == Looper.getMainLooper())
@@ -75,7 +77,8 @@ internal class LocalCapture(
             admission.cancel() // Also invalidates callbacks already queued on the main executor.
             (!ended).also { ended = true }
         }
-        if (active) { source?.close(); pcm.cancel(); engine.cancel(); worker.shutdown() }
+        engineLease.cancel() // Retire ownership even after onEnd, before another capture borrows the warm engine.
+        if (active) { source?.close(); pcm.cancel(); worker.shutdown() }
     }
 
     private fun read(microphone: PcmSource, epoch: Long) {
@@ -126,7 +129,7 @@ internal class LocalCapture(
     private fun decode(epoch: Long, window: PcmWindow.Window?, final: Boolean) {
         try {
             if (synchronized(state) { ended || !admission.isCurrent(epoch) }) return
-            val segments = nativeSpeech { if (window == null) emptyList() else engine.transcribe(window.samples, nativeLanguage, dictionaryPrompt) }
+            val segments = nativeSpeech { if (window == null) emptyList() else engineLease.transcribe(window.samples, nativeLanguage, dictionaryPrompt) }
             val update = synchronized(state) {
                 if (ended || !admission.isCurrent(epoch)) return
                 val accepted = nativeSpeech { admission.admit(epoch, window, segments, final,
@@ -151,7 +154,7 @@ internal class LocalCapture(
             ended = true
             admission.abort() // Preserve already-queued accepted words; explicit Cancel still fences everything.
         }
-        source?.close(); pcm.cancel(); engine.cancel()
+        engineLease.cancel(); source?.close(); pcm.cancel()
         // Keep the borrowed engine exclusive until already-submitted decode work has returned.
         try {
             nativeSpeech { worker.execute { dispatch(epoch) { onError(message) } } }
