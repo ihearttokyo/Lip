@@ -4,6 +4,7 @@
     <instrumentation android:name="dev.lip.AudioInjectionRunner" android:targetPackage="dev.lip.android" android:functionalTest="true" />
     <instrumentation android:name="dev.lip.LocalAsrRunner" android:targetPackage="dev.lip.android" android:functionalTest="true" />
     <instrumentation android:name="dev.lip.LipAuthRunner" android:targetPackage="dev.lip.android" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.LipCloudCleanupRunner" android:targetPackage="dev.lip.android" android:functionalTest="true" />
     <instrumentation android:name="dev.lip.MicTailRunner" android:targetPackage="dev.lip.android" android:functionalTest="true" />
     <instrumentation android:name="dev.lip.LocalFlowRunner" android:targetPackage="dev.lip.android" android:functionalTest="true" />
     <instrumentation android:name="dev.lip.PcmToneRunner" android:targetPackage="dev.lip.android" android:functionalTest="true" />

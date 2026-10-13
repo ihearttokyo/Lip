@@ -88,3 +88,28 @@ Independent encrypted history records use verified atomic writes; migration
 keeps the aggregate until every copy verifies. Page/search decrypt one record
 at a time, render 20 rows and preserve full raw/clean text. There is no aggregate
 4 MiB limit; linear file scanning remains a measured-performance follow-up.
+
+## Model-free cloud cleanup check
+
+The test-only `LipCloudCleanupRunner` uses the production ChatGPT client with
+three fixed public English, Japanese and Mandarin text samples. It needs an
+existing eligible guest login and Lip's normal text-cleanup consent. The login
+bridge alone does not enable that consent. The runner never signs in, changes
+settings, reads history or dictionary, inserts text, records audio, or loads a
+speech model. Normal token refresh may occur through the production client.
+
+On a parent-verified isolated emulator, with a matching app/test APK pair:
+
+```sh
+adb -s emulator-5558 shell am instrument -w -r -e isolated_emulator true \
+  dev.lip.android.test/dev.lip.LipCloudCleanupRunner
+```
+
+The bounded `lip_cloud_cleanup` report includes the selected account-visible
+model, completed public-text outputs, per-request elapsed time, production
+output-safety checks and sentence-ending punctuation. Revoked consent discards
+an in-flight result and stops further calls; it cannot recall a request already
+started. Partial public results survive a later failure. Unit tests use a real
+loopback HTTP server with synthetic credentials and responses, not OpenAI.
+Neither those fixtures nor a successful live probe prove speech recognition,
+physical-phone latency, formatting quality beyond these samples, or parity.

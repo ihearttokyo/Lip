@@ -1,5 +1,6 @@
 package dev.lip.auth
 
+import dev.lip.uiprotocol.CloudCleanupProbe
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -125,6 +126,156 @@ class ChatGptHttpTest {
             assertEquals(1, fixture.requests.size)
             assertEquals(previous, fixture.saved)
         }
+    }
+
+    @Test fun publicCleanupProbeUsesCompletedStreamsVisibleModelAndProductionSafetyRules() {
+        Fixture(record()).use { fixture ->
+            val previous = fixture.saved
+            fixture.reply(200, """{"models":[{"slug":"b","display_name":"Second","visibility":"list"},{"slug":"hidden","display_name":"Hidden","visibility":"hide"},{"slug":"a","display_name":"First","visibility":"list"}]}""")
+            val outputs = probeOutputs()
+            outputs.forEach { fixture.reply(200, delta(it) + completed(it), "text/event-stream") }
+            val report = CloudCleanupProbe.run(fixture.client, "hidden") { true }
+            assertEquals("completed", report.getString("status"))
+            assertTrue(report.getBoolean("passed"))
+            assertEquals("b", report.getString("model"))
+            val rows = report.getJSONArray("rows")
+            assertEquals(3, rows.length())
+            val inputs = listOf("please send the report to Mika tomorrow keep 1000 JPY unchanged",
+                "明日 美香に レポートを送ってください 1000 JPYは変えないでください",
+                "明天请把报告发给美香 保留1000 JPY 不要改动")
+            assertEquals(4, fixture.requests.size)
+            assertEquals("/v1/models", fixture.requests.first().path)
+            for (index in inputs.indices) {
+                val row = rows.getJSONObject(index)
+                assertEquals(listOf("en-US", "ja-JP", "zh-CN")[index], row.getString("language"))
+                assertEquals(inputs[index], row.getString("raw"))
+                assertEquals(outputs[index], row.getString("cleaned"))
+                assertTrue(row.getBoolean("safe")); assertTrue(row.getBoolean("punctuated"))
+                assertTrue(row.getLong("elapsed_ms") >= 0)
+                val request = fixture.requests[index + 1]
+                assertEquals("POST", request.method); assertEquals("/v1/responses", request.path)
+                val body = JSONObject(request.body)
+                assertEquals("b", body.getString("model"))
+                assertFalse(body.getBoolean("store")); assertTrue(body.getBoolean("stream"))
+                assertEquals(cleanupPrompt(), body.getString("instructions"))
+                val input = JSONObject(body.getJSONArray("input").getJSONObject(0).getString("content"))
+                assertEquals(inputs[index], input.getString("transcript"))
+                assertEquals("light", input.getString("style")); assertEquals(0, input.getJSONArray("dictionary").length())
+            }
+            assertEquals(previous, fixture.saved)
+        }
+    }
+
+    @Test fun publicProbeRequiresExistingConsentSessionAndPlanWithoutNetworkOrCredentialChanges() {
+        for (expected in listOf("consent_required", "sign_in_required", "plan_permission_required")) {
+          Fixture(record().put("scope", if (expected == "plan_permission_required") "openid" else "chatgpt.tokens.use.direct")).use { fixture ->
+            if (expected == "sign_in_required") fixture.saved = null
+            val previous = fixture.saved
+            val report = CloudCleanupProbe.run(fixture.client, "") { expected != "consent_required" }
+            assertEquals(expected, report.getString("status")); assertFalse(report.getBoolean("passed"))
+            assertEquals(0, fixture.requests.size); assertEquals(previous, fixture.saved)
+            assertEquals(0, report.getJSONArray("rows").length())
+          }
+        }
+    }
+
+    @Test fun publicProbeUsesAnExistingVisiblePreferenceWithoutChangingCredentials() {
+        Fixture(record()).use { fixture ->
+            val previous = fixture.saved
+            queueProbe(fixture, probeOutputs())
+            val report = CloudCleanupProbe.run(fixture.client, "a") { true }
+            assertTrue(report.getBoolean("passed")); assertEquals("a", report.getString("model"))
+            assertEquals(4, fixture.requests.size)
+            fixture.requests.drop(1).forEach { assertEquals("a", JSONObject(it.body).getString("model")) }
+            assertEquals(previous, fixture.saved)
+        }
+    }
+
+    @Test fun publicProbeStopsOnRevocationAndDiscardsOnlyTheInFlightResult() {
+        for ((requests, retained) in listOf(1 to 0, 2 to 0, 3 to 1)) Fixture(record()).use { fixture ->
+            queueProbe(fixture, probeOutputs())
+            val report = CloudCleanupProbe.run(fixture.client, "") { fixture.requests.size < requests }
+            assertEquals("cancelled", report.getString("status")); assertFalse(report.getBoolean("passed"))
+            assertEquals(requests, fixture.requests.size); assertEquals(retained, report.getJSONArray("rows").length())
+        }
+    }
+
+    @Test fun publicProbePreservesEarlierPublicRowsAndSanitizesLaterHttpFailureWithoutRetry() {
+        Fixture(record()).use { fixture ->
+            queueProbe(fixture, probeOutputs().take(1))
+            fixture.reply(503, """{"detail":"private-fixture-error-body"}""")
+            val report = CloudCleanupProbe.run(fixture.client, "") { true }
+            assertEquals("cleanup_failed", report.getString("status")); assertFalse(report.getBoolean("passed"))
+            assertEquals(3, fixture.requests.size); assertEquals(1, report.getJSONArray("rows").length())
+            assertFalse(report.toString().contains("private-fixture-error-body"))
+            assertTrue(report.getString("error").contains("HTTP 503"))
+        }
+    }
+
+    @Test fun publicProbeRefusesEmptyHiddenOrInvalidCatalogsWithoutSubmittingText() {
+        for (models in listOf("[]", """[{"slug":"hidden","display_name":"Hidden","visibility":"hide"}]""",
+            """[{"slug":"bad model","display_name":"Bad","visibility":"list"}]""")) {
+            Fixture(record()).use { fixture ->
+                fixture.reply(200, "{\"models\":$models}")
+                val report = CloudCleanupProbe.run(fixture.client, "") { true }
+                assertEquals("models_unavailable", report.getString("status")); assertFalse(report.getBoolean("passed"))
+                assertEquals(1, fixture.requests.size); assertEquals(0, report.getJSONArray("rows").length())
+            }
+        }
+    }
+
+    @Test fun publicProbeRejectsPartialStreamsAndOversizedCompletedOutputsWithoutRetryOrTruncation() {
+        for ((body, oversized) in listOf(delta(probeOutputs().first()) to false,
+            (delta("x".repeat(1_025)) + completed("x".repeat(1_025))) to true)) {
+            Fixture(record()).use { fixture ->
+                queueProbe(fixture, emptyList())
+                fixture.reply(200, body, "text/event-stream")
+                val report = CloudCleanupProbe.run(fixture.client, "") { true }
+                assertEquals("cleanup_failed", report.getString("status")); assertFalse(report.getBoolean("passed"))
+                assertEquals(2, fixture.requests.size); assertEquals(0, report.getJSONArray("rows").length())
+                assertFalse(report.toString().contains("x".repeat(1_025)))
+                if (oversized) assertEquals("Public cleanup probe output exceeded 1024 characters.", report.getString("error"))
+            }
+        }
+    }
+
+    @Test fun publicProbeSanitizesCredentialAndCatalogFailuresAndPreservesStoredRecords() {
+        for (corrupt in listOf(true, false)) Fixture(record()).use { fixture ->
+            if (corrupt) fixture.saved = "not-a-valid-fixture-record"
+            else fixture.reply(503, """{"detail":"private-fixture-catalog-error"}""")
+            val previous = fixture.saved
+            val report = CloudCleanupProbe.run(fixture.client, "") { true }
+            assertEquals(if (corrupt) "session_failed" else "catalog_failed", report.getString("status"))
+            assertFalse(report.getBoolean("passed")); assertEquals(previous, fixture.saved)
+            assertEquals(if (corrupt) 0 else 1, fixture.requests.size)
+            assertEquals(0, report.getJSONArray("rows").length())
+            assertFalse(report.toString().contains("private-fixture-catalog-error"))
+            assertFalse(report.toString().contains("not-a-valid-fixture-record"))
+        }
+    }
+
+    @Test fun publicProbeDoesNotCallUnsafeOrUnpunctuatedOutputsPassingFormatting() {
+        for ((first, safe, punctuated) in listOf(
+            Triple("Please send the report to Mika tomorrow. Keep 1001 JPY unchanged.", false, true),
+            Triple("please send the report to Mika tomorrow keep 1000 JPY unchanged", true, false),
+        )) Fixture(record()).use { fixture ->
+            queueProbe(fixture, listOf(first) + probeOutputs().drop(1))
+            val report = CloudCleanupProbe.run(fixture.client, "") { true }
+            assertEquals("completed", report.getString("status")); assertFalse(report.getBoolean("passed"))
+            assertEquals(4, fixture.requests.size); assertEquals(3, report.getJSONArray("rows").length())
+            val row = report.getJSONArray("rows").getJSONObject(0)
+            assertEquals(first, row.getString("cleaned"))
+            assertEquals(safe, row.getBoolean("safe")); assertEquals(punctuated, row.getBoolean("punctuated"))
+        }
+    }
+
+    private fun probeOutputs() = listOf("Please send the report to Mika tomorrow. Keep 1000 JPY unchanged.",
+        "明日、美香にレポートを送ってください。1000 JPYは変えないでください。",
+        "明天请把报告发给美香，保留1000 JPY，不要改动。")
+
+    private fun queueProbe(fixture: Fixture, outputs: List<String>) {
+        fixture.reply(200, """{"models":[{"slug":"b","display_name":"Second","visibility":"list"},{"slug":"hidden","display_name":"Hidden","visibility":"hide"},{"slug":"a","display_name":"First","visibility":"list"}]}""")
+        outputs.forEach { fixture.reply(200, delta(it) + completed(it), "text/event-stream") }
     }
 
     private fun assertTokensCleared(fixture: Fixture) {
