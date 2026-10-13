@@ -1,5 +1,6 @@
 package dev.lip.auth
 
+import dev.lip.uiprotocol.CloudCleanupProbe
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -123,6 +124,46 @@ class ChatGptHttpTest {
             fixture.reply(200, complete, "text/event-stream")
             rejects { fixture.client.clean(text, "fixture-model", "light", emptyList()) }
             assertEquals(1, fixture.requests.size)
+            assertEquals(previous, fixture.saved)
+        }
+    }
+
+    @Test fun publicCleanupProbeUsesCompletedStreamsVisibleModelAndProductionSafetyRules() {
+        Fixture(record()).use { fixture ->
+            val previous = fixture.saved
+            fixture.reply(200, """{"models":[{"slug":"b","display_name":"Second","visibility":"list"},{"slug":"hidden","display_name":"Hidden","visibility":"hide"},{"slug":"a","display_name":"First","visibility":"list"}]}""")
+            val outputs = listOf("Please send the report to Mika tomorrow. Keep 1000 JPY unchanged.",
+                "明日、美香にレポートを送ってください。1000 JPYは変えないでください。",
+                "明天请把报告发给美香，保留1000 JPY，不要改动。")
+            outputs.forEach { fixture.reply(200, delta(it) + completed(it), "text/event-stream") }
+            val report = CloudCleanupProbe.run(fixture.client, "hidden") { true }
+            assertEquals("completed", report.getString("status"))
+            assertTrue(report.getBoolean("passed"))
+            assertEquals("b", report.getString("model"))
+            val rows = report.getJSONArray("rows")
+            assertEquals(3, rows.length())
+            val inputs = listOf("please send the report to Mika tomorrow keep 1000 JPY unchanged",
+                "明日 美香に レポートを送ってください 1000 JPYは変えないでください",
+                "明天请把报告发给美香 保留1000 JPY 不要改动")
+            assertEquals(4, fixture.requests.size)
+            assertEquals("/v1/models", fixture.requests.first().path)
+            for (index in inputs.indices) {
+                val row = rows.getJSONObject(index)
+                assertEquals(listOf("en-US", "ja-JP", "zh-CN")[index], row.getString("language"))
+                assertEquals(inputs[index], row.getString("raw"))
+                assertEquals(outputs[index], row.getString("cleaned"))
+                assertTrue(row.getBoolean("safe")); assertTrue(row.getBoolean("punctuated"))
+                assertTrue(row.getLong("elapsed_ms") >= 0)
+                val request = fixture.requests[index + 1]
+                assertEquals("POST", request.method); assertEquals("/v1/responses", request.path)
+                val body = JSONObject(request.body)
+                assertEquals("b", body.getString("model"))
+                assertFalse(body.getBoolean("store")); assertTrue(body.getBoolean("stream"))
+                assertEquals(cleanupPrompt(), body.getString("instructions"))
+                val input = JSONObject(body.getJSONArray("input").getJSONObject(0).getString("content"))
+                assertEquals(inputs[index], input.getString("transcript"))
+                assertEquals("light", input.getString("style")); assertEquals(0, input.getJSONArray("dictionary").length())
+            }
             assertEquals(previous, fixture.saved)
         }
     }
