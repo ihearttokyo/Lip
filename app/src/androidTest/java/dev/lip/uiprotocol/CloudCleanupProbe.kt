@@ -36,7 +36,7 @@ object CloudCleanupProbe {
                 // Binder reports are bounded; never truncate an oversized output into a passing candidate.
                 if (cleaned.length > 1_024) return stop("cleanup_failed")
                     .put("stage", stage).put("error", "Public cleanup probe output exceeded 1024 characters.")
-                val assessment = CleanupRules.assess(raw, cleaned, "light", emptyList())
+                val assessment = CleanupRules.assess(raw, cleaned, "light", language)
                 val punctuated = cleaned.trimEnd().endsWith(if (language == "en-US") "." else "。")
                 passed = passed && assessment.acceptableForAuto && punctuated
                 rows.put(JSONObject().put("language", language).put("raw", raw).put("cleaned", cleaned)
