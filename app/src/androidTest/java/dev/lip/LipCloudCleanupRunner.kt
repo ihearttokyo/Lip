@@ -19,14 +19,18 @@ class LipCloudCleanupRunner : Instrumentation() {
     }
 
     override fun onStart() {
-        val report = if (!isolated || targetContext.packageName != "dev.lip.android" ||
-            Build.HARDWARE !in listOf("ranchu", "goldfish") || !Build.PRODUCT.contains("sdk")) {
-            JSONObject().put("passed", false).put("status", "isolated_emulator_required")
-        } else {
-            val store = AppStore(targetContext)
-            CloudCleanupProbe.run(ChatGptClient(targetContext), store.model) {
-                store.cloudConsent && !Thread.currentThread().isInterrupted
+        val report = try {
+            if (!isolated || targetContext.packageName != "dev.lip.android" ||
+                Build.HARDWARE !in listOf("ranchu", "goldfish") || !Build.PRODUCT.contains("sdk")) {
+                JSONObject().put("passed", false).put("status", "isolated_emulator_required")
+            } else {
+                val store = AppStore(targetContext)
+                CloudCleanupProbe.run(ChatGptClient(targetContext), store.model) {
+                    store.cloudConsent && !Thread.currentThread().isInterrupted
+                }
             }
+        } catch (_: Exception) {
+            JSONObject().put("passed", false).put("status", "setup_failed")
         }
         finish(if (report.optBoolean("passed")) Activity.RESULT_OK else Activity.RESULT_CANCELED,
             Bundle().apply { putString("lip_cloud_cleanup", report.toString()) })
