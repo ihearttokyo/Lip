@@ -56,17 +56,27 @@ guards = ('require(pcm.size in 1..MAX_SAMPLES)', 'require(language in setOf("en"
           "require(dictionaryPrompt.length <= MAX_PROMPT_CHARACTERS && '\\u0000' !in dictionaryPrompt)",
           'check(!closed)', 'else if (borrower !== capture) throw CancellationException', 'setAbort(false)', 'cancellation\n',
           'val segments = if', 'if (closed || cancellation != revision)', 'segments.toList()')
-positions = [transcribe.index(guard) for guard in guards]
+assert all(guard in transcribe for guard in guards), 'Validation or inference lifecycle guard is missing'
+positions = [transcribe.index(guard) for guard in guards[:-1]] + [transcribe.rindex(guards[-1])]
 assert positions == sorted(positions), 'Exact-zero guard must preserve validation and lifecycle ordering'
-assert transcribe.count('nativeTranscribe(') == 1 and 'return' not in transcribe
+reuse = ('if (reuseIdentical && capture != null && completed?.lease === capture && completed.startSample == startSample && '
+         'completed.language == language && completed.prompt == dictionaryPrompt && completed.pcm.contentEquals(pcm)) '
+         'return completed.segments.toList()')
+assert reuse in ' '.join(transcribe.split()), 'Reuse requires complete input identity and capture ownership'
+assert transcribe.index('else if (borrower !== capture)') < transcribe.index('if (reuseIdentical') < transcribe.index('setAbort(false)')
+assert transcribe.count('return ') == 1 and transcribe.count('nativeTranscribe(') == 1
+assert 'try {\n            val retainedPcm = if (capture != null) pcm.copyOf() else null' in transcribe
 assert re.search(r'synchronized\(state\) \{\s*if \(closed \|\| cancellation != revision\) '
-                 r'throw CancellationException\("Speech inference canceled"\)\s*\}\s*segments.toList\(\)', transcribe)
+                 r'throw CancellationException\("Speech inference canceled"\)\s*'
+                 r'if \(capture != null\) completedCapture = CompletedCapture\(capture, retainedPcm!!, startSample, language, dictionaryPrompt, segments.toList\(\)\)\s*'
+                 r'\}\s*segments.toList\(\)', transcribe)
 assert 'private fun setAbort(abort: Boolean) { native?.abort(handle, abort) ?: nativeAbort(handle, abort) }' in kotlin
 assert 'if (native == null) System.loadLibrary("lip_whisper")' in kotlin
 assert 'finally { synchronized(state) { decoding = false } }' in transcribe
 capture = (root / 'app/src/main/java/dev/lip/speech/LocalCapture.kt').read_text()
 assert capture.index('private val engineLease = engine.borrow()') < capture.index('fun start()')
-assert 'engineLease.transcribe(window.samples, nativeLanguage, dictionaryPrompt)' in capture
+assert 'engineLease.transcribe(window.samples, nativeLanguage, dictionaryPrompt, startSample = window.startSample, reuseIdentical = final)' in ' '.join(capture.split())
+assert 'val final = finishing && inputEnded' in capture
 assert capture.count('engineLease.cancel()') == 2 and 'engine.cancel()' not in capture
 assert capture.index('engineLease.cancel()') < capture.index('if (active) { source?.close()')
 assert 'std::isfinite(sample)' in native

@@ -91,6 +91,19 @@ at a time, render 20 rows and preserve full raw/clean text. There is no aggregat
 
 ## Model-free cloud cleanup check
 
+Production cleanup reuses the current account generation's previously offered
+model choices in memory. The model picker still refreshes the catalog; a new
+account generation or model rejection requires fresh choices. Empty catalogs
+remain recoverable. Consent, plan permission, operation cancellation and completed
+SSE checks still govern every cleanup; failed requests preserve raw text.
+
+After Finish and pipe EOF, the local engine may reuse its last completed decode
+only for the same active capture lease, sample range, copied PCM, language and
+dictionary prompt. Changed input takes the normal decode path. Cancellation,
+failure and close discard the retained result. This retains at most one extra
+30-second PCM snapshot (1,920,000 bytes); phone latency and memory remain runtime
+qualification gates. Final timestamp validation and delivery fences are unchanged.
+
 The test-only `LipCloudCleanupRunner` uses the production ChatGPT client with
 three fixed public English, Japanese and Mandarin text samples. It needs an
 existing eligible guest login and Lip's normal text-cleanup consent. The login

@@ -12,6 +12,66 @@ import org.junit.Assert.fail
 import org.junit.Test
 
 class WhisperEngineTest {
+    @Test fun identicalFinalInputReusesCompletedDecodeButAnyInputIdentityChangeDecodesAgain() {
+        val native = NativeFixture()
+        WhisperEngine("test-model", native).use { engine ->
+            val capture = engine.borrow()
+            val audio = floatArrayOf(0.25f, 0.5f)
+            capture.transcribe(audio, "en", "terms", startSample = 16)
+            val before = native.events.toList()
+            assertEquals("hello", capture.transcribe(audio.copyOf(), "en", "terms", startSample = 16, reuseIdentical = true).single().text)
+            assertEquals("Same EOF audio must not decode or reset native abort twice", before, native.events.toList())
+            audio[0] = 0.3f
+            capture.transcribe(audio, "en", "terms", startSample = 16, reuseIdentical = true)
+            assertTrue("Retained PCM must not alias caller mutations", native.events.size > before.size)
+            for (changed in listOf(
+                { capture.transcribe(audio + 0.1f, "en", "terms", 16, true) },
+                { capture.transcribe(audio + 0.1f, "ja", "terms", 16, true) },
+                { capture.transcribe(audio + 0.1f, "ja", "other", 16, true) },
+                { capture.transcribe(audio + 0.1f, "ja", "other", 17, true) }
+            )) {
+                val count = native.events.size
+                changed()
+                assertTrue("Changed samples, language, prompt or range must decode", native.events.size > count)
+            }
+            val count = native.events.size
+            capture.transcribe(floatArrayOf(0.4f, 0.5f, 0.1f), "ja", "other", 17, true)
+            assertTrue("Same-sized changed PCM must decode", native.events.size > count)
+            capture.cancel()
+        }
+    }
+
+    @Test fun completedDecodeCannotBeReusedAfterLeaseRetirementOrInAnotherCapture() {
+        val native = NativeFixture()
+        WhisperEngine("test-model", native).use { engine ->
+            val first = engine.borrow()
+            first.transcribe(floatArrayOf(0.25f), "en")
+            first.cancel()
+            val before = native.events.toList()
+            assertTrue(runCatching { first.transcribe(floatArrayOf(0.25f), "en", reuseIdentical = true) }.exceptionOrNull() is CancellationException)
+            assertEquals(before, native.events.toList())
+            val next = engine.borrow()
+            next.transcribe(floatArrayOf(0.25f), "en", reuseIdentical = true)
+            assertTrue(native.events.size > before.size)
+            next.cancel()
+        }
+    }
+
+    @Test fun failedDecodeCannotLeaveAReusableResultAndClosedEngineRejectsReuse() {
+        var failNext = false
+        val native = NativeFixture { if (failNext) { failNext = false; error("fixture failure") } }
+        val engine = WhisperEngine("test-model", native)
+        val capture = engine.borrow()
+        capture.transcribe(floatArrayOf(0.25f), "en")
+        failNext = true
+        assertTrue(runCatching { capture.transcribe(floatArrayOf(0.25f), "en") }.isFailure)
+        val before = native.events.size
+        capture.transcribe(floatArrayOf(0.25f), "en", reuseIdentical = true)
+        assertTrue("Failed work must invalidate the previous reusable result", native.events.size > before)
+        engine.close()
+        assertTrue(runCatching { capture.transcribe(floatArrayOf(0.25f), "en", reuseIdentical = true) }.isFailure)
+    }
+
     @Test fun canceledDelayedCaptureCannotResetAbortOrStartNonzeroInference() {
         val native = NativeFixture()
         WhisperEngine("test-model", native).use { engine ->

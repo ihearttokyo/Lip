@@ -129,7 +129,8 @@ internal class LocalCapture(
     private fun decode(epoch: Long, window: PcmWindow.Window?, final: Boolean) {
         try {
             if (synchronized(state) { ended || !admission.isCurrent(epoch) }) return
-            val segments = nativeSpeech { if (window == null) emptyList() else engineLease.transcribe(window.samples, nativeLanguage, dictionaryPrompt) }
+            val segments = nativeSpeech { if (window == null) emptyList() else engineLease.transcribe(window.samples, nativeLanguage, dictionaryPrompt,
+                startSample = window.startSample, reuseIdentical = final) }
             val update = synchronized(state) {
                 if (ended || !admission.isCurrent(epoch)) return
                 val accepted = nativeSpeech { admission.admit(epoch, window, segments, final,
