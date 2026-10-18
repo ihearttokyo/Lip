@@ -26,6 +26,7 @@ class ChatGptClient internal constructor(
     private val writeRecord: (String) -> Unit,
     private val openConnection: (URL) -> HttpURLConnection,
 ) {
+    private var offeredModels: Pair<Long, List<Model>>? = null
     constructor(context: Context) : this(SecureStore(context))
     private constructor(store: SecureStore) : this(
         { store.read("chatgpt.json") }, { store.write("chatgpt.json", it) },
@@ -117,18 +118,37 @@ class ChatGptClient internal constructor(
             val result = (0 until models.length()).map { models.getJSONObject(it) }
                 .filter { it.optString("visibility") == "list" }
                 .map { Model(it.getString("slug"), it.getString("display_name")) }
-            checkGeneration(epoch)
+            synchronized(credentialsLock) {
+                checkGeneration(epoch)
+                offeredModels = if (result.isEmpty()) null else epoch to result
+            }
             return result
         } catch (e: AuthException) { throw e }
         catch (_: Exception) { throw AuthException("ChatGPT model choices could not be loaded. Try again.") }
     }
 
-    fun clean(text: String, model: String, style: String, dictionary: List<String>): String {
+    fun cleanSelected(text: String, preferredModel: String, style: String, dictionary: List<String>, permitted: () -> Boolean): String? {
+        if (!permitted()) return null
+        val (_, epoch) = access()
+        val models = synchronized(credentialsLock) { offeredModels?.takeIf { it.first == epoch }?.second } ?: listModels()
+        checkGeneration(epoch)
+        val model = (models.firstOrNull { it.slug == preferredModel } ?: models.firstOrNull())?.slug
+            ?: throw AuthException("No ChatGPT cleanup models are available. Try again later.")
+        if (!permitted()) return null
+        return clean(text, model, style, dictionary, epoch).takeIf { permitted() }
+    }
+
+    fun clean(text: String, model: String, style: String, dictionary: List<String>): String =
+        clean(text, model, style, dictionary, null)
+
+    private fun clean(text: String, model: String, style: String, dictionary: List<String>, expectedGeneration: Long?): String {
         if (text.isBlank() || style == "verbatim") return text
         if (style !in listOf("polished", "light")) throw AuthException("Choose Polished, Light, or Verbatim cleanup.")
         if (text.length > 32_768 || model.isBlank() || model.length > 200 || dictionary.size > 200 ||
             dictionary.any { it.length > 200 }) throw AuthException("Cleanup input exceeded its safe size limit.")
         val (token, epoch) = access()
+        if (expectedGeneration != null && expectedGeneration != epoch)
+            throw AuthException("ChatGPT account changed. The previous cleanup was discarded.")
         val input = JSONObject().put("transcript", text).put("style", style.take(80))
             .put("dictionary", JSONArray(dictionary))
         val body = JSONObject().put("model", model).put("store", false).put("stream", true)
@@ -143,6 +163,11 @@ class ChatGptClient internal constructor(
             val cleaned = connection.inputStream.bufferedReader(Charsets.UTF_8).use { ResponseStream.read(it) }
             checkGeneration(epoch)
             return cleaned
+        } catch (e: HttpFailure) {
+            if (e.status in listOf(400, 403, 404)) synchronized(credentialsLock) {
+                if (offeredModels?.first == epoch) offeredModels = null
+            }
+            throw e
         } catch (e: AuthException) { throw e }
         catch (_: Exception) { throw AuthException("ChatGPT cleanup was interrupted. Your original text is preserved.") }
         finally { connection.disconnect() }

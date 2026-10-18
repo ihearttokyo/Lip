@@ -19,6 +19,124 @@ import kotlin.concurrent.thread
 
 /** Real loopback HTTP; every credential and response is a synthetic fixture. */
 class ChatGptHttpTest {
+    @Test fun offeredAccountModelAvoidsCatalogDependencyDuringRepeatedCleanup() {
+        Fixture(record()).use { fixture ->
+            fixture.reply(200, """{"models":[{"slug":"chosen","display_name":"Chosen","visibility":"list"}]}""")
+            fixture.client.listModels()
+            repeat(2) {
+                fixture.reply(200, delta("Hello.") + completed("Hello."), "text/event-stream")
+                assertEquals("Hello.", fixture.client.cleanSelected("hello", "chosen", "light", emptyList()) { true })
+            }
+            assertEquals(listOf("/v1/models", "/v1/responses", "/v1/responses"), fixture.requests.map { it.path })
+            fixture.requests.drop(1).forEach { assertEquals("chosen", JSONObject(it.body).getString("model")) }
+        }
+    }
+
+    @Test fun emptyCatalogDoesNotPreventRecoveryWhenModelsBecomeAvailable() {
+        Fixture(record()).use { fixture ->
+            fixture.reply(200, """{"models":[]}""")
+            assertTrue(fixture.client.listModels().isEmpty())
+            fixture.reply(200, """{"models":[{"slug":"new","display_name":"New","visibility":"list"}]}""")
+            fixture.reply(200, delta("Hello.") + completed("Hello."), "text/event-stream")
+            assertEquals("Hello.", fixture.client.cleanSelected("hello", "", "light", emptyList()) { true })
+        }
+    }
+
+    @Test fun oldAccountDenialCannotInvalidateNewlyOfferedAccountChoices() {
+        Fixture(record()).use { fixture ->
+            fixture.reply(200, """{"models":[{"slug":"old","display_name":"Old","visibility":"list"}]}""")
+            fixture.client.listModels()
+            fixture.onResponsesConnection = {
+                fixture.onResponsesConnection = null
+                fixture.reply(200, "")
+                fixture.client.signOut()
+                fixture.saved = record().put("subject", "new-fixture-account").toString()
+                fixture.reply(200, """{"models":[{"slug":"new","display_name":"New","visibility":"list"}]}""")
+                fixture.client.listModels()
+                fixture.reply(403, """{"error":{"code":"model_not_found"}}""")
+            }
+            rejects { fixture.client.cleanSelected("hello", "old", "light", emptyList()) { true } }
+            fixture.reply(200, delta("Hello.") + completed("Hello."), "text/event-stream")
+            assertEquals("Hello.", fixture.client.cleanSelected("hello", "new", "light", emptyList()) { true })
+            assertEquals(2, fixture.requests.count { it.path == "/v1/models" })
+        }
+    }
+
+    @Test fun selectedCleanupChecksConsentBeforeLookupAndDiscardsRevokedOutput() {
+        Fixture(record()).use { fixture ->
+            assertNull(fixture.client.cleanSelected("hello", "", "light", emptyList()) { false })
+            assertTrue(fixture.requests.isEmpty())
+            fixture.reply(200, """{"models":[{"slug":"chosen","display_name":"Chosen","visibility":"list"}]}""")
+            fixture.reply(200, delta("Hello.") + completed("Hello."), "text/event-stream")
+            assertNull(fixture.client.cleanSelected("hello", "", "light", emptyList()) {
+                fixture.requests.none { it.path == "/v1/responses" }
+            })
+            assertEquals(2, fixture.requests.size)
+        }
+    }
+
+    @Test fun newAccountGenerationCannotReusePreviousOfferedModels() {
+        Fixture(record()).use { fixture ->
+            fixture.reply(200, """{"models":[{"slug":"old","display_name":"Old","visibility":"list"}]}""")
+            fixture.client.listModels()
+            fixture.reply(200, "")
+            assertTrue(fixture.client.signOut())
+            fixture.saved = record().put("subject", "next-fixture-account").toString()
+            fixture.reply(200, """{"models":[{"slug":"new","display_name":"New","visibility":"list"}]}""")
+            fixture.reply(200, delta("Hello.") + completed("Hello."), "text/event-stream")
+            assertEquals("Hello.", fixture.client.cleanSelected("hello", "old", "light", emptyList()) { true })
+            assertEquals("new", JSONObject(fixture.requests.last().body).getString("model"))
+            assertEquals(2, fixture.requests.count { it.path == "/v1/models" })
+        }
+    }
+
+    @Test fun accountChangeBetweenSelectionAndSubmissionCannotUseTheNewAccountsToken() {
+        Fixture(record()).use { fixture ->
+            fixture.reply(200, """{"models":[{"slug":"old","display_name":"Old","visibility":"list"}]}""")
+            fixture.client.listModels()
+            var checks = 0
+            rejects {
+                fixture.client.cleanSelected("hello", "old", "light", emptyList()) {
+                    if (++checks == 2) {
+                        fixture.reply(200, "")
+                        fixture.client.signOut()
+                        fixture.saved = record().put("subject", "new-fixture-account").toString()
+                    }
+                    true
+                }
+            }
+            assertEquals(listOf("/v1/models", "/api/accounts/oauth/revoke"), fixture.requests.map { it.path })
+        }
+    }
+
+    @Test fun offeredModelsCannotBypassPlanPermissionOrAcceptPartialCleanup() {
+        Fixture(record()).use { fixture ->
+            fixture.reply(200, """{"models":[{"slug":"chosen","display_name":"Chosen","visibility":"list"}]}""")
+            fixture.client.listModels()
+            fixture.saved = record().put("scope", "openid").toString()
+            rejects { fixture.client.cleanSelected("hello", "chosen", "light", emptyList()) { true } }
+            assertEquals(1, fixture.requests.size)
+            fixture.saved = record().toString()
+            fixture.reply(200, delta("Partial"), "text/event-stream")
+            rejects { fixture.client.cleanSelected("hello", "chosen", "light", emptyList()) { true } }
+            assertEquals(2, fixture.requests.size)
+        }
+    }
+
+    @Test fun modelRejectionInvalidatesChoicesWithoutRetryingTheRejectedRequest() {
+        Fixture(record()).use { fixture ->
+            fixture.reply(200, """{"models":[{"slug":"old","display_name":"Old","visibility":"list"}]}""")
+            fixture.client.listModels()
+            fixture.reply(404, """{"error":{"code":"model_not_found"}}""")
+            rejects { fixture.client.cleanSelected("hello", "old", "light", emptyList()) { true } }
+            assertEquals(2, fixture.requests.size)
+            fixture.reply(200, """{"models":[{"slug":"new","display_name":"New","visibility":"list"}]}""")
+            fixture.reply(200, delta("Hello.") + completed("Hello."), "text/event-stream")
+            assertEquals("Hello.", fixture.client.cleanSelected("hello", "old", "light", emptyList()) { true })
+            assertEquals("new", JSONObject(fixture.requests.last().body).getString("model"))
+        }
+    }
+
     @Test fun refreshRotatesCredentialsBeforeLoadingOrderedVisibleModels() {
         Fixture(record(expired = true)).use { fixture ->
             fixture.reply(200, JSONObject().put("access_token", "fixture-rotated-access")
@@ -309,6 +427,7 @@ class ChatGptHttpTest {
 
     private class Fixture(initial: JSONObject) : AutoCloseable {
         @Volatile var saved: String? = initial.toString()
+        var onResponsesConnection: (() -> Unit)? = null
         val requests = CopyOnWriteArrayList<Request>()
         val replies = ConcurrentLinkedQueue<Reply>()
         private val server = ServerSocket(0, 8, InetAddress.getByName("127.0.0.1"))
@@ -317,6 +436,7 @@ class ChatGptHttpTest {
             assertTrue(official.toString() in setOf("https://auth.openai.com/api/accounts/oauth/token",
                 "https://auth.openai.com/api/accounts/oauth/revoke", "https://auth.openai.com/.well-known/jwks.json",
                 "https://api.openai.com/v1/models", "https://api.openai.com/v1/responses"))
+            if (official.path == "/v1/responses") onResponsesConnection?.invoke()
             URL("http://127.0.0.1:${server.localPort}${official.path}").openConnection() as HttpURLConnection
         })
         private val worker = thread(isDaemon = true, name = "lip-http-fixture") {

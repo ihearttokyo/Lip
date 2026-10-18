@@ -20,6 +20,9 @@ class WhisperEngine internal constructor(modelPath: String, private val native: 
     private var cancellation = 0L
     private var decoding = false
     private var borrower: CaptureLease? = null
+    private class CompletedCapture(val lease: CaptureLease, val pcm: FloatArray, val startSample: Long,
+        val language: String, val prompt: String, val segments: List<Segment>)
+    private var completedCapture: CompletedCapture? = null
     private var handle: Long
 
     init {
@@ -45,7 +48,8 @@ class WhisperEngine internal constructor(modelPath: String, private val native: 
     }
 
     internal class CaptureLease internal constructor(private val engine: WhisperEngine) {
-        fun transcribe(pcm: FloatArray, language: String, prompt: String = "") = engine.transcribeWindow(pcm, language, prompt, this)
+        fun transcribe(pcm: FloatArray, language: String, prompt: String = "", startSample: Long = 0, reuseIdentical: Boolean = false) =
+            engine.transcribeWindow(pcm, language, prompt, this, startSample, reuseIdentical)
         fun cancel() = synchronized(engine.state) {
             if (engine.borrower === this) engine.cancel()
         }
@@ -61,24 +65,32 @@ class WhisperEngine internal constructor(modelPath: String, private val native: 
     fun transcribe(pcm: FloatArray, language: String, dictionaryPrompt: String = ""): List<Segment> =
         transcribeWindow(pcm, language, dictionaryPrompt, null)
 
-    private fun transcribeWindow(pcm: FloatArray, language: String, dictionaryPrompt: String, capture: CaptureLease?): List<Segment> = synchronized(inference) {
+    private fun transcribeWindow(pcm: FloatArray, language: String, dictionaryPrompt: String, capture: CaptureLease?, startSample: Long = 0, reuseIdentical: Boolean = false): List<Segment> = synchronized(inference) {
         require(pcm.size in 1..MAX_SAMPLES) { "Use 16 kHz mono PCM windows of at most 30 seconds" }
+        require(startSample >= 0) { "Invalid speech sample range" }
         require(language in setOf("en", "ja", "zh")) { "Unsupported speech language" }
         require(dictionaryPrompt.length <= MAX_PROMPT_CHARACTERS && '\u0000' !in dictionaryPrompt) { "Speech dictionary prompt is too long or invalid" }
         val revision = synchronized(state) {
             check(!closed) { "Speech engine is closed" }
             if (capture == null) check(borrower == null) { "Speech engine is exclusively borrowed" }
             else if (borrower !== capture) throw CancellationException("Speech capture canceled")
+            val completed = completedCapture
+            if (reuseIdentical && capture != null && completed?.lease === capture && completed.startSample == startSample &&
+                completed.language == language && completed.prompt == dictionaryPrompt && completed.pcm.contentEquals(pcm))
+                return completed.segments.toList()
+            completedCapture = null
             setAbort(false)
             decoding = true
             cancellation
         }
         try {
+            val retainedPcm = if (capture != null) pcm.copyOf() else null
             val segments = if (ExactZeroPcm.matches(pcm)) emptyArray<Segment>() else
                 native?.transcribe(handle, pcm, language.toByteArray(Charsets.UTF_8), dictionaryPrompt.toByteArray(Charsets.UTF_8))
                     ?: nativeTranscribe(handle, pcm, language.toByteArray(Charsets.UTF_8), dictionaryPrompt.toByteArray(Charsets.UTF_8))
             synchronized(state) {
                 if (closed || cancellation != revision) throw CancellationException("Speech inference canceled")
+                if (capture != null) completedCapture = CompletedCapture(capture, retainedPcm!!, startSample, language, dictionaryPrompt, segments.toList())
             }
             segments.toList()
         } finally { synchronized(state) { decoding = false } }
@@ -86,7 +98,7 @@ class WhisperEngine internal constructor(modelPath: String, private val native: 
 
     /** Abort the active inference. A later transcribe starts a fresh, independent window. */
     fun cancel() = synchronized(state) {
-        if (!closed) { borrower = null; cancellation++; setAbort(true) }
+        if (!closed) { borrower = null; completedCapture = null; cancellation++; setAbort(true) }
     }
 
     /** Terminal and idempotent. Waits for cooperative native cancellation before releasing memory. */
@@ -95,6 +107,7 @@ class WhisperEngine internal constructor(modelPath: String, private val native: 
             if (closed) return
             closed = true
             borrower = null
+            completedCapture = null
             cancellation++
             setAbort(true)
         }

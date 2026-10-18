@@ -76,10 +76,14 @@ class NativeBuildGuardTest(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn(message, result.stderr)
 
-    def check_activation(self, cmake):
+    def check_activation(self, cmake, engine=None, capture=None):
         original = Path.read_text
 
         def read(path, *args, **kwargs):
+            if engine is not None and path == ROOT / 'app/src/main/java/dev/lip/speech/WhisperEngine.kt':
+                return engine
+            if capture is not None and path == ROOT / 'app/src/main/java/dev/lip/speech/LocalCapture.kt':
+                return capture
             return cmake if path == CMAKE else original(path, *args, **kwargs)
 
         with patch.object(Path, "read_text", read), patch.object(sys, "argv", [str(CHECKER)]), \
@@ -97,6 +101,23 @@ class NativeBuildGuardTest(unittest.TestCase):
                 result = self.guard_result()
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertEqual(result.stdout.count("patch scope/hashes"), 2)
+
+    def test_reuse_must_keep_identity_ownership_and_native_lifecycle_guards(self):
+        source = (ROOT / 'app/src/main/java/dev/lip/speech/WhisperEngine.kt').read_text()
+        for required in ('completed?.lease === capture', 'completed.startSample == startSample',
+                         'completed.language == language', 'completed.prompt == dictionaryPrompt',
+                         'completed.pcm.contentEquals(pcm)', 'pcm.copyOf()',
+                         'else if (borrower !== capture)', 'if (closed || cancellation != revision)'):
+            with self.subTest(required=required):
+                self.assertIn(required, source)
+                with self.assertRaises(AssertionError):
+                    self.check_activation(self.cmake, engine=source.replace(required, 'true'))
+
+    def test_reuse_is_requested_only_for_eof_final_input(self):
+        source = (ROOT / 'app/src/main/java/dev/lip/speech/LocalCapture.kt').read_text()
+        self.assertIn('reuseIdentical = final', source)
+        with self.assertRaises(AssertionError):
+            self.check_activation(self.cmake, capture=source.replace('reuseIdentical = final', 'reuseIdentical = true'))
 
     def test_later_short_target_override_rejected(self):
         self.rows["arm64-v8a"][0]["arguments"] += ["-target", TARGETS["x86_64"]]

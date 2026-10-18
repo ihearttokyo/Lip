@@ -4,6 +4,7 @@ import copy
 import io
 import json
 from pathlib import Path
+from types import SimpleNamespace
 import tempfile
 import sys
 import unittest
@@ -295,6 +296,7 @@ class Qwen17CiTest(unittest.TestCase):
 
                 with patch.dict(ci.os.environ, host, clear=True), patch.object(ci.sys, "platform", "linux"), \
                         patch.object(ci.os, "geteuid", return_value=1001), patch.object(ci, "load_json", side_effect=load), \
+                        patch.object(ci.shutil, "disk_usage", return_value=SimpleNamespace(free=8 * 1024 ** 3)), \
                         patch.object(ci.resource, "setrlimit"), patch.object(ci.os, "sched_getaffinity", return_value={0, 1, 2, 3}, create=True), \
                         patch.object(ci, "run_logged", side_effect=build) as builds, patch.object(ci, "download") as downloads, \
                         patch.object(ci, "fetch"), patch.object(ci.subprocess, "check_output", return_value=pins["runtime_revision"]), \

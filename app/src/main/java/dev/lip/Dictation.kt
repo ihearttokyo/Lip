@@ -234,11 +234,7 @@ class Dictation private constructor(private val context: Context) {
         val session = chatGpt.session() ?: throw AuthException("Continue with ChatGPT to enable cleanup.")
         if (!session.canUsePlan) throw AuthException("Enable ChatGPT plan use by continuing with ChatGPT again.")
         if (!permitted()) return null
-        val models = chatGpt.listModels()
-        val model = (models.firstOrNull { it.slug == store.model } ?: models.firstOrNull())?.slug
-            ?: throw AuthException("No ChatGPT cleanup models are available. Try again later.")
-        if (!permitted()) return null
-        val cleaned = chatGpt.clean(value, model, style, words)
+        val cleaned = chatGpt.cleanSelected(value, store.model, style, words, ::permitted) ?: return null
         require(cleaned.isNotBlank() && cleaned.length <= 65_536)
         return Cleaned(cleaned, CleanupRules.assess(value, cleaned, style, language))
     }
