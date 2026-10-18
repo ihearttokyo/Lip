@@ -7,7 +7,8 @@ refuse() { printf 'REFUSED: %s\n' "$*" >&2; exit 1; }
 [[ "${GITHUB_REPOSITORY:-}" == ihearttokyo/Lip ]] || refuse 'Only ihearttokyo/Lip is authorized.'
 [[ "${RUNNER_ENVIRONMENT:-}" == github-hosted ]] || refuse 'Only the parent-approved hosted runner is authorized.'
 [[ "${GITHUB_SERVER_URL:-}" == https://github.com && "${RUNNER_ARCH:-}" == X64 ]] || refuse 'GitHub.com x64 runner is required.'
-[[ $# == 0 ]] || refuse 'This single frozen trial takes no arguments.'
+mode="${1:-cancel_active}"
+[[ $# -le 1 && "$mode" =~ ^(cancel_active|final_reuse)$ ]] || refuse 'Only cancel_active or final_reuse is allowed.'
 [[ "${GITHUB_RUN_ID:-}" =~ ^[0-9]+$ && "${GITHUB_RUN_ATTEMPT:-}" =~ ^[0-9]+$ ]] || refuse 'Missing run identity.'
 grep -qx 'ID=ubuntu' /etc/os-release && grep -qx 'VERSION_ID="24.04"' /etc/os-release || refuse 'Ubuntu 24.04 is required.'
 [[ -r /dev/kvm && -w /dev/kvm ]] || refuse 'Readable/writable KVM is required; no permission changes or fallback.'
@@ -37,7 +38,7 @@ pcm_sha=e42fdeed81feac1d9d660e888ceb0351e785760f24ec7b8e9d8420cfe96a800f
 model_leaf=ggml-large-v3-turbo-q5_0.bin
 model_sha=394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2
 [[ -f "$app" && -f "$test_apk" && "$(stat -c %s "$pcm")" == 241280 ]] || refuse 'Matched APK outputs or fixed PCM are missing.'
-printf '%s  %s\n' "$pcm_sha" "$pcm" '68e93d689ca935116ae4a21aaf2b0c1878f3d0c14921b75bb3d6d4b2041d8791' app/src/androidTest/java/dev/lip/LocalAsrRunner.kt | sha256sum --check
+printf '%s  %s\n' "$pcm_sha" "$pcm" '8bb9eed9a7e4dd05dd63b9134c219555c968da6954ddd33f72e6d87672569af8' app/src/androidTest/java/dev/lip/LocalAsrRunner.kt | sha256sum --check
 
 out="$RUNNER_TEMP/lip-cancel-diagnostic"
 [[ ! -e "$out" && ! -L "$out" ]] || refuse 'Diagnostic output must be fresh.'
@@ -166,10 +167,10 @@ guest shell run-as dev.lip.android sha256sum no_backup/asr-fixtures/fleurs-en-01
 printf '%s  %s\n' "$pcm_sha" no_backup/asr-fixtures/fleurs-en-013.pcm "$model_sha" "no_backup/asr-fixtures/$model_leaf" >"$out/expected-guest-input-sha256.txt"
 diff -u "$out/expected-guest-input-sha256.txt" "$out/guest-input-sha256.txt"
 
-printf 'mode=cancel_active\nmodel=%s\nmodelSha256=%s\npcm=fleurs-en-013.pcm\npcmSha256=%s\nlanguage=en\nprompt=\ncomponent=dev.lip.android.test/dev.lip.LocalAsrRunner\n' "$model_leaf" "$model_sha" "$pcm_sha" >"$out/instrumentation-inputs.txt"
+printf 'mode=%s\nmodel=%s\nmodelSha256=%s\npcm=fleurs-en-013.pcm\npcmSha256=%s\nlanguage=en\nprompt=\ncomponent=dev.lip.android.test/dev.lip.LocalAsrRunner\n' "$mode" "$model_leaf" "$model_sha" "$pcm_sha" >"$out/instrumentation-inputs.txt"
 set +e
 # This hard ceiling ends only this owned host client; the guest stops through its console.
-timeout --foreground --signal=KILL 450s "$adb" -s "$serial" shell am instrument -w -r -e mode cancel_active \
+timeout --foreground --signal=KILL 450s "$adb" -s "$serial" shell am instrument -w -r -e mode "$mode" \
     -e model "$model_leaf" -e modelSha256 "$model_sha" -e pcm fleurs-en-013.pcm -e pcmSha256 "$pcm_sha" \
     -e language en -e prompt "''" dev.lip.android.test/dev.lip.LocalAsrRunner >"$out/instrumentation.stdout.txt" 2>"$out/instrumentation.stderr.txt"
 instrumentation_status=$?

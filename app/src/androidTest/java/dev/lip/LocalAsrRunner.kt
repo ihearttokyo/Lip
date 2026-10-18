@@ -39,8 +39,8 @@ class LocalAsrRunner : Instrumentation() {
         var finishAllowed = true
         try {
             val mode = args.getString("mode") ?: "default"
-            require(mode in setOf("default", "cancel_active"))
-            if (mode == "cancel_active") {
+            require(mode in setOf("default", "cancel_active", "final_reuse"))
+            if (mode != "default") {
                 val allowed = setOf("model", "modelSha256", "pcm", "pcmSha256", "language", "prompt", "mode")
                 require(args.keySet().all { it in allowed })
             }
@@ -99,6 +99,11 @@ class LocalAsrRunner : Instrumentation() {
             val loadMs = SystemClock.elapsedRealtime() - opened
             val output = JSONObject().put("modelLoadMs", loadMs).put("samples", samples.size)
             engine.use {
+                if (mode == "final_reuse") {
+                    cancelOutput = output
+                    output.put("mode", mode).put("passed", false)
+                        .put("finalReuse", finalReuse(engine, samples)).put("passed", true)
+                } else {
                 // Repeat on one resident context: distinguish warm inference from model loading.
                 val runs = JSONArray()
                 repeat(2) {
@@ -140,6 +145,7 @@ class LocalAsrRunner : Instrumentation() {
                 engine.cancel()
                 check(engine.transcribe(floatArrayOf(0f, -0f), "en").isEmpty()) { "Cancel poisoned a fresh zero window" }
                 output.put("freshZeroAfterCancelPassed", true)
+                }
             }
             engine.close() // Terminal close is idempotent.
             for (pcm in listOf(samples, floatArrayOf(0f, -0f))) {
@@ -173,6 +179,35 @@ class LocalAsrRunner : Instrumentation() {
             return // Never let instrumentation finish kill an unjoined owned native call.
         }
         finish(resultCode, report)
+    }
+
+    private fun finalReuse(engine: WhisperEngine, samples: FloatArray): JSONObject {
+        require(samples.any { it != 0f }) { "final_reuse requires nonzero original PCM" }
+        val language = args.getString("language") ?: "en"
+        val prompt = args.getString("prompt") ?: ""
+        val lease = engine.borrow()
+        try {
+            val started = SystemClock.elapsedRealtimeNanos()
+            val first = lease.transcribe(samples, language, prompt)
+            val decoded = SystemClock.elapsedRealtimeNanos()
+            check(first.isNotEmpty()) { "No native segments to identify a real reuse" }
+            check(first.any { it.text.isNotBlank() })
+            check(first.all { it.startMs >= 0 && it.endMs >= it.startMs && it.noSpeechProbability.isFinite() })
+            val reused = lease.transcribe(samples.copyOf(), language, prompt, reuseIdentical = true)
+            val finished = SystemClock.elapsedRealtimeNanos()
+            // JNI creates new Segment objects; identity proves the native decode was not repeated.
+            check(reused.size == first.size && reused.indices.all { reused[it] === first[it] })
+            check(lease.transcribe(FloatArray(samples.size), language, prompt, reuseIdentical = true).isEmpty()) {
+                "Changed PCM returned old speech"
+            }
+            lease.cancel()
+            check(runCatching { lease.transcribe(samples, language, prompt, reuseIdentical = true) }
+                .exceptionOrNull()?.javaClass == CancellationException::class.java) { "Retired lease returned speech" }
+            return JSONObject().put("decodeNs", decoded - started).put("reuseNs", finished - decoded)
+                .put("segments", first.size).put("sameSegmentInstances", true)
+                .put("changedPcmRejectedOldSpeech", true).put("retiredLeaseRejected", true)
+                .put("raw", first.joinToString("") { it.text }).put("externallyScored", false)
+        } finally { lease.cancel() }
     }
 
     private data class NativeTask(val tid: Int, val comm: String, val startTicks: Long, val cpuTicks: Long) {

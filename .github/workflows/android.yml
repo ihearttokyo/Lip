@@ -98,7 +98,8 @@ jobs:
     needs: verify
     if: >-
       github.repository == 'ihearttokyo/Lip' && github.event.repository.private == false &&
-      github.event_name == 'push' && contains(github.event.head_commit.message, '[android-cancel]')
+      github.event_name == 'push' &&
+      (contains(github.event.head_commit.message, '[android-cancel]') || contains(github.event.head_commit.message, '[android-final-reuse]'))
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
@@ -131,7 +132,7 @@ jobs:
           # Same UID, existing device group for this process only; no permission edits.
           sudo -n -u "$(id -un)" -g kvm \
             --preserve-env=ANDROID_HOME,GITHUB_ACTIONS,GITHUB_WORKSPACE,GITHUB_SHA,GITHUB_REPOSITORY,GITHUB_RUN_ID,GITHUB_RUN_ATTEMPT,GITHUB_SERVER_URL,RUNNER_OS,RUNNER_ENVIRONMENT,RUNNER_ARCH,RUNNER_TEMP,ImageOS,ImageVersion,JAVA_HOME \
-            /usr/bin/bash eval/android/run_cancel_ci.sh
+            /usr/bin/bash eval/android/run_cancel_ci.sh "${{ contains(github.event.head_commit.message, '[android-final-reuse]') && 'final_reuse' || 'cancel_active' }}"
       - name: Retain public cancellation diagnostic text
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

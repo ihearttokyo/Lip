@@ -126,3 +126,17 @@ started. Partial public results survive a later failure. Unit tests use a real
 loopback HTTP server with synthetic credentials and responses, not OpenAI.
 Neither those fixtures nor a successful live probe prove speech recognition,
 physical-phone latency, formatting quality beyond these samples, or parity.
+
+## Hosted final-window JNI probe
+
+The existing isolated hosted collector accepts only `cancel_active` (its unchanged
+default) or `final_reuse`. A public push with `[android-final-reuse]` selects the
+latter; ordinary pushes and pull requests do not start a guest. Both modes keep
+the pinned SDK, model, public PCM, two-CPU guest and teardown/timeout guards.
+
+`final_reuse` decodes the nonzero public fixture with the packaged JNI engine,
+then requests the identical final window from the same lease. Segment object
+identity proves the second request did not decode again; separate timings are
+reported. Changed zero PCM must not return old speech, and cancellation must
+retire the lease. This is a file-fed Android check, not microphone, real-user
+latency, language-quality, ChatGPT login, or functional-parity acceptance.
