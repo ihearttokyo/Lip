@@ -1,6 +1,6 @@
 # Notices
 
-Lip source and original website SVG/CSS artwork are copyright 2026 Jared Bland and licensed under the MIT License in `LICENSE`. The retained AI-generated design reference is labeled concept art, not a product screenshot. No Wispr code, assets, logos, or testimonials are distributed.
+Lip source and original website SVG/CSS artwork are copyright 2026 ihearttokyo and licensed under the MIT License in `LICENSE`. The retained AI-generated design reference is labeled concept art, not a product screenshot. No Wispr code, assets, logos, or testimonials are distributed.
 
 ## Runtime components and development tools
 
