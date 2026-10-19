@@ -113,4 +113,4 @@ The retained design input below is AI-generated concept art, **not an Android sc
 
 ## License and attribution
 
-Lip source and original web artwork are [MIT licensed](LICENSE), copyright 2026 Jared Bland. Dependency and tool notices are in [NOTICE.md](NOTICE.md). Lip is not affiliated with or endorsed by Wispr, Google, or OpenAI. It contains no copied Wispr assets, code, logos, or testimonials.
+Lip source and original web artwork are [MIT licensed](LICENSE), copyright 2026 ihearttokyo. Dependency and tool notices are in [NOTICE.md](NOTICE.md). Lip is not affiliated with or endorsed by Wispr, Google, or OpenAI. It contains no copied Wispr assets, code, logos, or testimonials.
