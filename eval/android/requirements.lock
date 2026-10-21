@@ -1,0 +1,6 @@
+# Validation-only tools; no Android APK/runtime dependency changes.
+grpcio==1.84.0
+grpcio-tools==1.84.0
+protobuf==7.36.2
+PyJWT==2.15.1
+# cryptography==50.0.1 is inherited from the bundled Python runtime.

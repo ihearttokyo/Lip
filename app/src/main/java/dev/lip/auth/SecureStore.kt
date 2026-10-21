@@ -54,6 +54,14 @@ class SecureStore(context: Context) {
         catch (_: Exception) { throw AuthException("Encrypted data could not be completely removed. Try again.") }
     }
 
+    fun names(prefix: String): List<String> = synchronized(lock) {
+        require(prefix.matches(Regex("[A-Za-z0-9_-]+")) && prefix.length <= 80) { "Invalid storage prefix" }
+        if (!directory.exists()) return@synchronized emptyList()
+        val files = directory.list() ?: throw AuthException("Encrypted storage could not be listed.")
+        files.map { it.removeSuffix(".bak").removeSuffix(".new") }
+            .filter { it.startsWith(prefix) }.distinct()
+    }
+
     private fun file(name: String): AtomicFile {
         require(name.matches(Regex("[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)*")) && name.length <= 80) { "Invalid storage name" }
         return AtomicFile(File(directory, name))

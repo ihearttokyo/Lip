@@ -9,8 +9,6 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
-import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.Gravity
@@ -31,8 +29,11 @@ class MainActivity : Activity() {
     private var status: TextView? = null
     private var preview: TextView? = null
     private var record: Button? = null
+    private var rawChoice: Button? = null
+    private var cleanedChoice: Button? = null
     private var waveform: WaveformView? = null
     private var signingIn = false
+    private var cancelModelSetup: (() -> Unit)? = null
     private var inAppRecording = false
     private var testEditor: EditText? = null
     private var scratch = ""
@@ -46,7 +47,7 @@ class MainActivity : Activity() {
     private var accountButton: Button? = null
     private val observer: () -> Unit = {
         status?.text = dictation.message
-        preview?.text = if (dictation.text.isNotEmpty()) dictation.text else dictation.raw
+        preview?.text = dictation.preview
         record?.text = when (dictation.phase) {
             Phase.LISTENING -> "Finish dictation"
             Phase.TRANSCRIBING -> "Transcribing…"
@@ -55,6 +56,13 @@ class MainActivity : Activity() {
             else -> "Try dictation"
         }
         waveform?.level = dictation.level
+        listOf(rawChoice to true, cleanedChoice to false).forEach { (button, raw) ->
+            button?.apply {
+                isEnabled = if (raw) dictation.canUseRaw else dictation.canUseCleaned
+                isSelected = dictation.outputIsRaw == raw
+                background = surface(if (isSelected) Palette.lavender else Color.WHITE, dp(14).toFloat(), Color.rgb(218, 215, 208))
+            }
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -78,15 +86,20 @@ class MainActivity : Activity() {
     override fun onResume() { super.onResume(); loadAccount(); dictation.observe(observer) }
     override fun onPause() {
         dictation.unobserve(observer)
-        if (inAppRecording && dictation.phase == Phase.LISTENING) dictation.cancel()
+        if (inAppRecording && LipAccessibilityService.instance == null && dictation.phase == Phase.LISTENING) dictation.protectCapture()
         inAppRecording = false
         super.onPause()
+    }
+    override fun onDestroy() {
+        cancelModelSetup?.invoke(); cancelModelSetup = null
+        super.onDestroy()
     }
 
     private fun render() {
         saveScratch()
         accountTitle = null; accountDetail = null; accountButton = null
         status = null; preview = null; record = null; waveform = null; testEditor = null
+        rawChoice = null; cleanedChoice = null
         val root = column().apply { setBackgroundColor(Palette.cream) }
         root.setOnApplyWindowInsetsListener { view, insets ->
             val bars = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
@@ -197,8 +210,13 @@ class MainActivity : Activity() {
             background = surface(Color.WHITE, dp(16).toFloat())
         }.also { page.addSpaced(it) }
         page.addSpaced(action("Copy completed text") { copy(dictation.text.ifEmpty { dictation.raw }) })
-        page.addSpaced(action("Use raw transcript") { dictation.useRaw() })
-        page.addSpaced(label("Speech quality and language availability depend on your phone's offline model. ChatGPT-plan cleanup is a preview, not unlimited API access.", 12f), 0)
+        val choices = LinearLayout(this)
+        rawChoice = action("Raw") { dictation.useRaw() }.apply { contentDescription = "Raw transcript" }
+        cleanedChoice = action("Cleaned") { dictation.useCleaned() }.apply { contentDescription = "Cleaned transcript" }
+        choices.addView(rawChoice, LinearLayout.LayoutParams(0, dp(48), 1f))
+        choices.addView(cleanedChoice, LinearLayout.LayoutParams(0, dp(48), 1f).apply { marginStart = dp(8) })
+        page.addSpaced(choices)
+        page.addSpaced(label("Lip's downloaded multilingual model runs locally. Recognition can make mistakes. ChatGPT-plan cleanup is a preview, not unlimited API access.", 12f), 0)
     }
 
     private fun updateAccountCard() {
@@ -219,16 +237,19 @@ class MainActivity : Activity() {
                 val editor = testEditor ?: return
                 val original = EditorSnapshot(0, packageName, 0, "test", editor.text.toString(), editor.selectionStart, editor.selectionEnd)
                 inAppRecording = true
-                dictation.start { result, done ->
+                val valid = {
                     val current = original.copy(text = editor.text.toString(), start = editor.selectionStart, end = editor.selectionEnd)
-                    if (!editor.isAttachedToWindow || !EditorGuard.canInsert(original, current)) done(false)
+                    editor.isAttachedToWindow && editor.hasWindowFocus() && editor.isFocused && EditorGuard.canInsert(original, current)
+                }
+                dictation.start(insert = { result, done ->
+                    if (!valid()) done(false)
                     else {
                         val start = minOf(original.start, original.end)
                         editor.text.replace(start, maxOf(original.start, original.end), result)
                         editor.setSelection(start + result.length)
                         done(true)
                     }
-                }
+                }, stillValid = valid)
             }
         }
     }
@@ -236,9 +257,9 @@ class MainActivity : Activity() {
     private fun connect() {
         if (signingIn) { dictation.chatGpt.cancelSignIn(); signingIn = false; render(); return }
         AlertDialog.Builder(this).setTitle("Use your ChatGPT plan")
-            .setMessage("Lip sends the dictated transcript and your saved dictionary to OpenAI for text cleanup. Audio and surrounding editor text stay on-device. Eligible plan access and consent are required; OpenAI's account policies apply. Local encrypted history is enabled and can be disabled in Settings.")
+            .setMessage("Lip sends the dictated transcript and your saved dictionary to OpenAI for text cleanup. Stable transcript segments may be sent while you speak for live cleanup. Cancel cannot recall requests already sent. Audio and surrounding editor text stay on-device. Eligible plan access and consent are required; OpenAI's account policies apply. Local encrypted history is enabled and can be disabled in Settings.")
             .setNegativeButton("Cancel", null).setPositiveButton("Continue with ChatGPT") { _, _ ->
-                store.cloudConsent = true
+                store.cloudConsent = true; store.liveCleanup = true
                 signingIn = true; render()
                 Work.io.execute {
                     var message: String
@@ -265,26 +286,47 @@ class MainActivity : Activity() {
 
     private fun history() {
         title("Your words,\nkept here.", "Encrypted local history. Never synced to a Lip server.")
+        val historyPage = page
         val search = EditText(this).apply { hint = "Search transcripts"; isSingleLine = true; setTextColor(Palette.ink) }
         page.addSpaced(search)
         val list = column()
         page.addSpaced(list)
-        val draw: (String) -> Unit = { query ->
+        var request = 0
+        var after: String? = null
+        val previous = mutableListOf<String?>()
+        var pendingSearch: Runnable? = null
+        lateinit var draw: (String) -> Unit
+        draw = { query ->
+            val ticket = ++request
+            val cursor = after
+            list.removeAllViews()
+            list.addSpaced(label("Loading encrypted history…", 14f))
             Work.io.execute {
-                val entries = runCatching { store.history() }
+                val result = runCatching { store.historyPage(query, cursor) }
                 runOnUiThread {
-                    if (!isFinishing && tab == "History") {
+                    if (!isFinishing && tab == "History" && page === historyPage && request == ticket) {
                         list.removeAllViews()
-                        if (entries.isFailure) list.addSpaced(label("History cannot be read. Existing encrypted data has not been overwritten.", 14f))
+                        if (result.isFailure) {
+                            list.addSpaced(label("History cannot be read. Existing encrypted data has been preserved.", 14f))
+                            list.addSpaced(action("Retry") { draw(query) })
+                        }
                         else {
-                            val matches = entries.getOrThrow().filter { it.clean.contains(query, true) || it.raw.contains(query, true) }
-                            if (matches.isEmpty()) list.addSpaced(label(if (query.isEmpty()) "No dictations yet. Your next transcript will appear here." else "No matching transcripts.", 15f))
-                            matches.forEach { entry ->
+                            val slice = result.getOrThrow()
+                            if (slice.entries.isEmpty()) list.addSpaced(label(
+                                if (query.isEmpty() && previous.isEmpty()) "No dictations yet. Your next transcript will appear here."
+                                else "No matching transcripts on this page.", 15f))
+                            else list.addSpaced(label("Page ${previous.size + 1} · ${slice.entries.size} transcripts", 12f))
+                            slice.entries.forEach { entry ->
                                 val item = column(16).apply { background = surface(Color.WHITE, dp(18).toFloat()) }
                                 item.addSpaced(label(DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(entry.time)), 12f), 8)
-                                item.addSpaced(label(entry.clean, 16f).apply { setTextIsSelectable(true) })
+                                val end = entry.clean.offsetByCodePoints(0, minOf(600, entry.clean.codePointCount(0, entry.clean.length)))
+                                val excerpt = entry.clean.substring(0, end) + if (end < entry.clean.length) "…" else ""
+                                item.addSpaced(label(excerpt, 16f).apply { maxLines = 8; setTextIsSelectable(true) })
                                 item.addSpaced(label("${entry.language} · ${if (entry.usedChatGpt) "ChatGPT cleanup" else "On-device transcript"}", 12f))
                                 item.addSpaced(action("Copy") { copy(entry.clean) }, 6)
+                                item.addSpaced(action("View full text") {
+                                    AlertDialog.Builder(this).setTitle("Dictated text").setMessage(entry.clean).setPositiveButton("Close", null).show()
+                                }, 6)
                                 item.addSpaced(action("View raw transcript") {
                                     AlertDialog.Builder(this).setTitle("Raw transcript").setMessage(entry.raw).setPositiveButton("Close", null).show()
                                 }, 6)
@@ -296,6 +338,17 @@ class MainActivity : Activity() {
                                 }, 0)
                                 list.addSpaced(item)
                             }
+                            val navigation = LinearLayout(this)
+                            if (previous.isNotEmpty()) navigation.addView(action("Previous page") {
+                                after = previous.removeAt(previous.lastIndex)
+                                draw(query)
+                            }, LinearLayout.LayoutParams(0, dp(48), 1f))
+                            slice.nextCursor?.let { next -> navigation.addView(action("Next page") {
+                                previous.add(after)
+                                after = next
+                                draw(query)
+                            }, LinearLayout.LayoutParams(0, dp(48), 1f)) }
+                            if (navigation.childCount > 0) list.addSpaced(navigation)
                         }
                     }
                 }
@@ -303,7 +356,14 @@ class MainActivity : Activity() {
         }
         search.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { draw(s?.toString().orEmpty()) }
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                request++
+                after = null
+                previous.clear()
+                pendingSearch?.let { search.removeCallbacks(it) }
+                val query = s?.toString().orEmpty()
+                pendingSearch = Runnable { if (page === historyPage) draw(query) }.also { search.postDelayed(it, 200) }
+            }
             override fun afterTextChanged(s: Editable?) = Unit
         })
         draw("")
@@ -311,7 +371,7 @@ class MainActivity : Activity() {
 
     private fun dictionary() {
         title("Spell it\nyour way.", "Names, technical terms and phrases you want preserved.")
-        page.addSpaced(label("One entry per line. These terms accompany your transcript when ChatGPT cleanup is enabled; they do not train the on-device speech model.", 14f))
+        page.addSpaced(label("One entry per line. Lip supplies these terms as speech-recognition hints and ChatGPT cleanup context. Hints can help names; they do not train the local model or guarantee spelling.", 14f))
         val words = EditText(this).apply {
             hint = "Pianoforte\ngetUser\n東京\n你好"
             minLines = 7
@@ -356,11 +416,21 @@ class MainActivity : Activity() {
             if (enabled) { cleanupToggle.isChecked = false; store.cloudConsent = false; connect() }
             else store.cloudConsent = false
         }
+        lateinit var liveToggle: Switch
+        liveToggle = toggle("Live ChatGPT preview", store.liveCleanup) { enabled ->
+            if (!enabled) store.liveCleanup = false
+            else {
+                liveToggle.isChecked = false
+                AlertDialog.Builder(this).setTitle("Clean while you speak?")
+                    .setMessage("When ChatGPT cleanup is enabled, stable transcript segments and dictionary terms go to OpenAI before you finish. Cancel cannot recall requests already sent. Audio stays local. Preview requests use your plan allowance.")
+                    .setNegativeButton("Cancel", null).setPositiveButton("Enable") { _, _ -> store.liveCleanup = true; render() }.show()
+            }
+        }
         toggle("Insert automatically", store.autoInsert) { store.autoInsert = it }
         page.addSpaced(label("Turn off to review in the floating bubble before insertion. Changed focus or cursor always blocks automatic insertion.", 13f))
         toggle("Floating bubble", store.bubbleEnabled) { store.bubbleEnabled = it; LipAccessibilityService.refresh() }
         toggle("Keep encrypted transcript history", store.historyEnabled) { store.historyEnabled = it }
-        page.addSpaced(label("Turning history off prevents new saves; existing entries remain until you delete them. History has a 4 MiB encrypted-file limit; a full file preserves old entries and reports a failed new save. Tokens and transcripts are excluded from Android backup.", 13f))
+        page.addSpaced(label("Turning history off prevents new saves; existing entries remain until you delete them. History uses independent encrypted records and paged search. Storage errors preserve readable entries and the current transcript. Tokens and transcripts are excluded from Android backup.", 13f))
         page.addSpaced(action("Select ChatGPT model") {
             toast("Loading account-visible models…")
             Work.io.execute {
@@ -427,23 +497,51 @@ class MainActivity : Activity() {
 
     private fun modelDialog() {
         AlertDialog.Builder(this).setTitle("Offline speech model")
-            .setMessage("Lip requires on-device recognition for ${store.language}. Your phone's speech provider supplies the model; downloads may use the network. Lip never switches to cloud speech.")
-            .setNegativeButton("Speech settings") { _, _ -> startActivity(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS)) }
-            .setPositiveButton("Request model download") { _, _ ->
-                try {
-                    if (!SpeechRecognizer.isOnDeviceRecognitionAvailable(this)) { toast("No on-device recognizer installed"); return@setPositiveButton }
-                    val recognizer = SpeechRecognizer.createOnDeviceSpeechRecognizer(this)
-                    recognizer.triggerModelDownload(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).putExtra(RecognizerIntent.EXTRA_LANGUAGE, store.language))
-                    android.os.Handler(mainLooper).postDelayed({ recognizer.destroy() }, 2_000)
-                    toast("Offline model requested; check your speech provider's download status")
-                } catch (_: Exception) { toast("Provider cannot download here. Open offline speech settings.") }
+            .setMessage("Lip's multilingual Whisper model runs locally for English, Japanese and Mandarin. Download: 574 MB; keep at least 650 MB free. Wi-Fi is recommended. Audio never leaves this device. Recognition can still make mistakes; review important text.")
+            .setNegativeButton("Not now", null)
+            .setPositiveButton("Install / verify") { _, _ ->
+                // Each setup dialog owns its cancellation; a delayed Cancel cannot affect a later attempt.
+                val installer = dev.lip.speech.ModelFile(java.io.File(noBackupFilesDir, "speech"))
+                val canceled = java.util.concurrent.atomic.AtomicBoolean(false)
+                fun cancelSetup() {
+                    canceled.set(true)
+                    Thread { runCatching { installer.cancel() } }.start()
+                }
+                val progress = label("Verifying the local speech model…", 14f).apply { setPadding(dp(20), dp(16), dp(20), dp(16)) }
+                var finished = false
+                val dialog = AlertDialog.Builder(this).setTitle("Local speech setup").setView(progress)
+                    .setNegativeButton("Cancel") { _, _ -> cancelSetup() }
+                    .setOnCancelListener { if (!finished) cancelSetup() }.create()
+                val cancelAttempt: () -> Unit = {
+                    cancelSetup()
+                    if (dialog.isShowing) dialog.dismiss()
+                }
+                cancelModelSetup?.invoke()
+                cancelModelSetup = cancelAttempt
+                dialog.show()
+                Work.io.execute {
+                    val outcome = runCatching {
+                        check(!canceled.get()) { "Speech setup canceled" }
+                        installer.install { received, total ->
+                            if (canceled.get()) throw java.util.concurrent.CancellationException("Speech setup canceled")
+                            runOnUiThread { if (!isDestroyed && !canceled.get() && dialog.isShowing) progress.text = "Downloading speech model · ${received * 100 / total}%" }
+                        }
+                    }
+                    runOnUiThread {
+                        if (cancelModelSetup === cancelAttempt) cancelModelSetup = null
+                        finished = true
+                        if (!isDestroyed && dialog.isShowing) dialog.dismiss()
+                        if (!isFinishing && !isDestroyed && !canceled.get()) toast(if (outcome.isSuccess) "Speech model verified and ready offline"
+                            else outcome.exceptionOrNull()?.message ?: "Speech setup failed; existing model preserved")
+                    }
+                }
             }.show()
     }
 
     private fun localTask(success: String, block: () -> Unit) {
         Work.io.execute {
             val result = runCatching(block)
-            runOnUiThread { if (!isFinishing) { render(); toast(if (result.isSuccess) success else "Local storage action failed. Existing data has been kept.") } }
+            runOnUiThread { if (!isFinishing) { render(); toast(if (result.isSuccess) success else "Local storage action failed. Check retained data before retrying.") } }
         }
     }
     private fun hasMic() = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED

@@ -18,6 +18,7 @@ data class Transcript(
 class AppStore(context: Context) {
     val settings = context.getSharedPreferences("preferences", Context.MODE_PRIVATE)
     private val secure = SecureStore(context)
+    private val historyRecords = HistoryRecords(secure::read, secure::write, { secure.names("history-") }, secure::delete)
     var language: String
         get() = settings.getString("language", "en-US") ?: "en-US"
         set(value) { settings.edit().putString("language", value).apply() }
@@ -36,6 +37,9 @@ class AppStore(context: Context) {
     var cloudConsent: Boolean
         get() = settings.getBoolean("cloudConsent", false)
         set(value) { settings.edit().putBoolean("cloudConsent", value).apply() }
+    var liveCleanup: Boolean
+        get() = settings.getBoolean("liveCleanup", false)
+        set(value) { settings.edit().putBoolean("liveCleanup", value).apply() }
     var bubbleEnabled: Boolean
         get() = settings.getBoolean("bubble", true)
         set(value) { settings.edit().putBoolean("bubble", value).apply() }
@@ -47,15 +51,11 @@ class AppStore(context: Context) {
     @Synchronized fun saveDictionary(words: List<String>) {
         secure.write("dictionary", JSONArray(words.map(String::trim).filter(String::isNotEmpty).distinct()).toString())
     }
-    @Synchronized fun history(): List<Transcript> = decodeHistory(secure.read("history") ?: "[]")
-    @Synchronized fun save(entry: Transcript) {
-        if (historyEnabled) writeHistory(listOf(entry) + history())
-    }
-    @Synchronized fun deleteTranscript(id: String) = writeHistory(history().filterNot { it.id == id })
-    @Synchronized fun clearHistory() = secure.delete("history")
-
-    // ponytail: rewrites a local history file; use encrypted SQLite rows if large histories make saves slow.
-    private fun writeHistory(entries: List<Transcript>) = secure.write("history", encodeHistory(entries))
+    fun historyPage(query: String = "", after: String? = null, limit: Int = 20): HistoryPage =
+        historyRecords.page(query, after, limit)
+    fun save(entry: Transcript) = historyRecords.save(entry, historyEnabled)
+    fun deleteTranscript(id: String) = historyRecords.deleteTranscript(id)
+    fun clearHistory() = historyRecords.clear()
 
     companion object {
         fun encodeHistory(entries: List<Transcript>): String = JSONArray(entries.map { entry ->

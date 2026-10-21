@@ -63,3 +63,42 @@ Protected URLs, numbers and research limits were checked editorially.
 Source, generated notice assets and packaged APK notices are parity-checked.
 Signing material stays in local owner-only storage, never GitHub. The original
 research export stays local; only its source identity/hash is recorded.
+
+## v0.2 functional-parity correction
+
+The owner rejected artifact delivery as the completion threshold. Functional
+parity is now governed by [PARITY.md](PARITY.md), with physical-phone procedures
+in [DEVICE-CHECKS.md](DEVICE-CHECKS.md). It remains unverified, not complete.
+
+New behavioral REDs were observed for session accumulation/cancellation,
+multilingual segment boundaries, spoken-formatting prompt guards, independent
+history growth/migration/paging, and corrupt/no-op ordinary saves. Unchanged
+assertions then passed. The expanded suite has 29 JVM tests. Prompt tests prove
+instructions, not live model adherence.
+
+The isolated API 36 emulator passes real local PCM delivery/shutdown; encrypted
+history migration, aggregate growth beyond 4 MiB and deletion; cross-app cursor
+replacement; stale-target refusal; explicit fresh-target insertion; one-attempt
+semantics and cancel-after-dispatch feedback. Speech/model text is supplied,
+not spoken. One repeat fixture refused insertion because the IME was still
+rebinding. Creating a fresh disposable activity and waiting for a stable editor
+snapshot fixed fixture setup without weakening the insertion assertions.
+
+Independent correctness/Ponytail review resolved preview ownership and opt-out
+races, terminal callback replay, hidden-composer insertion, review autoscroll,
+newline/ASCII segment boundaries and verified ordinary history writes. No ASR
+dependency was added: provider support remains a phone gate, not an assertion
+that native recognition matches a commercial service.
+
+The revised landing page, multilingual controls and privacy page were inspected
+in a hidden browser, including 390px and 320px layouts without horizontal page
+overflow. The FAQ's question-volley checker flag remains justified under A10;
+other changed prose passes the installed checker. Live-preview disclosure,
+plan usage, cancel limits and non-backward-readable history migration were
+checked against source.
+
+NOT RUN: human speech, provider segmentation/latency/accuracy, long sessions,
+Bluetooth/call competition, real-phone editor matrix, eligible Android OAuth
+and authenticated cleanup. No physical phone was connected. These are required
+before calling the requested functional parity complete; build artifacts and
+emulator fixtures are not substitutes.

@@ -9,3 +9,4 @@ local.properties
 artifacts/
 validation/
 .env*
+**/.cxx/
