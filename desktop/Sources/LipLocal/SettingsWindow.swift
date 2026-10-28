@@ -160,7 +160,7 @@ import ApplicationServices
             let tab = NSTabViewItem(identifier: title); tab.label = title; tab.view = scroll; tabs.addTabViewItem(tab)
         }
         root.addSubview(tabs); window.contentView = root
-        vocabularySpelling = VocabularySpellingBinding(views: [processed, raw])
+        vocabularySpelling = VocabularySpellingBinding(views: [processed, raw], window: window)
     }
     required init?(coder: NSCoder) { fatalError("Not supported") }
     override func showWindow(_ sender: Any?) {

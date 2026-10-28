@@ -5,13 +5,14 @@ import AppKit
 @MainActor final class VocabularySpellingBinding {
     private let views: [NSTextView]
     private let store: VocabularyStore
+    private weak var window: NSWindow?
     private let worker = DispatchQueue(label: "dev.lip.vocabulary-review", qos: .utility)
     private var observer: NSObjectProtocol?
     private var request = UUID()
     private var closed = false
 
-    init(views: [NSTextView], store: VocabularyStore = .shared) {
-        self.views = views; self.store = store
+    init(views: [NSTextView], window: NSWindow, store: VocabularyStore = .shared) {
+        self.views = views; self.store = store; self.window = window
         for view in views {
             view.isAutomaticSpellingCorrectionEnabled = false
             view.isGrammarCheckingEnabled = false
@@ -26,12 +27,12 @@ import AppKit
     /// Called only for an explicitly opened Review window, not app startup or
     /// field discovery. A missing store never asks Keychain for a key.
     func refresh() {
-        guard !closed else { return }
+        guard !closed, window?.isVisible == true else { return }
         let ticket = UUID(); request = ticket
         worker.async { [weak self, store] in
             let result = Result { try store.read().activeEnglishWords }
             DispatchQueue.main.async { [weak self] in
-                guard let self, !self.closed, self.request == ticket else { return }
+                guard let self, !self.closed, self.window?.isVisible == true, self.request == ticket else { return }
                 switch result {
                 case .success(let words):
                     for view in self.views {
