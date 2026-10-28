@@ -48,7 +48,8 @@ python3 -m unittest tools/source_delivery/test_release_identity.py
   behavior and update compatibility still require package qualification.
 
 After an authorized signed release build, `:app:canonicalReleaseApk` verifies the
-actual output metadata/package version before copying to the ledger-derived
+actual output metadata/package version in an always-executed prerequisite before
+copying (even when Copy itself is NO-SOURCE/UP-TO-DATE) to the ledger-derived
 `Lip-v0.007-android16-arm64.apk`. No unsigned/stale-output fallback. The corresponding
 Mac artifact names are `Lip v0.007.app` and
 `Lip-v0.007-macOS26-apple-silicon.zip`. Printing a name does not produce or release it.
@@ -73,6 +74,11 @@ source binding; docs/tests-only or identical projections cannot advance. Use
 `--expect-last` for allocation/failure/sync writes. A short exclusive ledger lock
 prevents simultaneous allocators; stale locks fail, never auto-delete evidence.
 Failed issued ordinals and reasons remain forever; no reusing retired names.
+Allocation/failure/binding and `--sync` must be separate invocations. Mixed modes
+are rejected before a ledger read, lock or write; allocation cannot partially
+advance the ledger and then fail a stale sync check. Canonical APK packaging also
+refuses every fixture mode; fixture release guards and isolated identities remain
+unchanged, never redirected to the public production package.
 
 ```sh
 # AFTER an authorized source commit, outside the checkout; no publication:

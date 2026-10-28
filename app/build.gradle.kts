@@ -90,10 +90,12 @@ android {
 // Release upgrades the already-published package; namespace/JNI and debug/
 // isolated fixture IDs remain unchanged. Provider authorities use applicationId.
 androidComponents.onVariants(androidComponents.selector().withBuildType("release")) { variant ->
-    variant.applicationId.set("dev.lip.android.preview")
-    variant.manifestPlaceholders.put("lipInstrumentationTarget", "dev.lip.android.preview")
-    variant.manifestPlaceholders.put("lipInstrumentationTestTarget", "dev.lip.android.preview.test")
-    variant.manifestPlaceholders.put("lipApplicationLabel", lipReleaseDisplayName)
+    if (!historyFixture && !sizingFixture && !stickerFixture) {
+        variant.applicationId.set("dev.lip.android.preview")
+        variant.manifestPlaceholders.put("lipInstrumentationTarget", "dev.lip.android.preview")
+        variant.manifestPlaceholders.put("lipInstrumentationTestTarget", "dev.lip.android.preview.test")
+        variant.manifestPlaceholders.put("lipApplicationLabel", lipReleaseDisplayName)
+    }
 }
 
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
@@ -199,15 +201,27 @@ if (bundleSpeechModels) {
 
 // Exact canonical installer name, derived from the same ledger as the manifest.
 // The original published build50003 is never renamed or overwritten by this task.
-tasks.register<Copy>("canonicalReleaseApk") {
-    dependsOn("assembleRelease")
-    doFirst {
-        val output = layout.buildDirectory.dir("outputs/apk/release").get().asFile
-        val metadata = groovy.json.JsonSlurper().parse(output.resolve("output-metadata.json")) as Map<*, *>
+val canonicalReleaseMetadata = layout.buildDirectory.file("outputs/apk/release/output-metadata.json")
+val canonicalReleaseSource = layout.buildDirectory.file("outputs/apk/release/app-release.apk")
+val verifyCanonicalReleaseApk = tasks.register("verifyCanonicalReleaseApk") {
+    // Dependency resolution refuses fixtures before looking for their deliberately
+    // disabled assembleRelease task. Existing fixture release guards stay intact.
+    dependsOn(providers.provider {
+        check(!historyFixture && !sizingFixture && !stickerFixture) {
+            "Canonical release packaging refuses history/sizing/sticker fixtures; use their isolated debug identity."
+        }
+        "assembleRelease"
+    })
+    inputs.file(canonicalReleaseMetadata)
+    inputs.file(canonicalReleaseSource)
+    inputs.property("canonicalIdentity", lipReleaseVersion + ":" + lipReleaseVersionCode)
+    outputs.upToDateWhen { false } // Verification never inherits Copy's NO-SOURCE/UP-TO-DATE skip.
+    doLast {
+        val metadata = groovy.json.JsonSlurper().parse(canonicalReleaseMetadata.get().asFile) as Map<*, *>
         val elements = metadata["elements"] as List<*>
         val artifact = elements.single() as Map<*, *>
         check(artifact["outputFile"] == "app-release.apk") { "Canonical installer requires an explicitly signed release APK; no stale/unsigned fallback." }
-        val apk = output.resolve("app-release.apk")
+        val apk = canonicalReleaseSource.get().asFile
         check(apk.isFile)
         val aapt = android.sdkComponents.sdkDirectory.get().asFile.resolve("build-tools/${android.buildToolsVersion}/aapt")
         val badging = providers.exec { commandLine(aapt, "dump", "badging", apk) }.standardOutput.asText.get()
@@ -215,7 +229,11 @@ tasks.register<Copy>("canonicalReleaseApk") {
             "Built APK identity mismatch; no canonical copy was made"
         }
     }
-    from(layout.buildDirectory.file("outputs/apk/release/app-release.apk"))
+}
+tasks.register<Copy>("canonicalReleaseApk") {
+    dependsOn(verifyCanonicalReleaseApk)
+    inputs.file(canonicalReleaseMetadata)
+    from(canonicalReleaseSource)
     into(layout.buildDirectory.dir("outputs/canonical-release"))
     rename { lipReleaseIdentity["android_apk"] as String }
 }

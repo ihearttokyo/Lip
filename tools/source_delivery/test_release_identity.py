@@ -92,6 +92,12 @@ class ReleaseIdentityTest(unittest.TestCase):
         self.assertNotIn('dev.lip.OfflinePreviewRunner', gradle)
         self.assertIn('check(!bundleSpeechModels)', gradle)
         self.assertIn('withBuildType("release")', gradle)
+        self.assertIn('if (!historyFixture && !sizingFixture && !stickerFixture)', gradle)
+        self.assertIn('if (historyFixture || sizingFixture) it.enable = false', gradle)
+        self.assertIn('val verifyCanonicalReleaseApk = tasks.register("verifyCanonicalReleaseApk")', gradle)
+        self.assertIn('outputs.upToDateWhen { false }', gradle)
+        self.assertIn('dependsOn(verifyCanonicalReleaseApk)', gradle)
+        self.assertEqual(gradle.count('inputs.file(canonicalReleaseMetadata)'), 2)
         self.assertIn('variant.applicationId.set("dev.lip.android.preview")', gradle)
         self.assertIn('lipInstrumentationTestTarget", "dev.lip.android.preview.test"', gradle)
 
@@ -177,6 +183,21 @@ class ReleaseIdentityTest(unittest.TestCase):
                 self.assertFalse(Path(lock_path).exists())
                 if operation == 'sync':
                     self.assertEqual(plistlib.loads((root / 'desktop/Info.plist').read_bytes())['CFBundleVersion'], '12')
+
+    def test_mixed_sync_modes_rejected_before_lock_or_write(self):
+        for mode in (['--reserve', 'new-source'], ['--fail', 'canonical-release-identity', '--reason', 'Synthetic failure'], ['--bind', 'HEAD']):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory(prefix='lip-mixed-mode-control-') as directory:
+                root = Path(directory).resolve()
+                snapshots = {}
+                for name in ('desktop/Info.plist', 'docs/build-iterations.json'):
+                    target = root / name; target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes((ROOT / name).read_bytes()); snapshots[target] = target.read_bytes()
+                arguments = ['release_identity.py', '--root', str(root), '--expect-last', '7', '--sync', *mode]
+                with mock.patch.object(sys, 'argv', arguments), mock.patch.object(r.os, 'open') as opened, mock.patch.object(r, 'atomic_write') as written:
+                    with self.assertRaisesRegex(ValueError, 'separate invocations'): r.main()
+                    opened.assert_not_called(); written.assert_not_called()
+                for target, before in snapshots.items(): self.assertEqual(target.read_bytes(), before)
+                self.assertFalse(Path(str(root / r.LEDGER) + '.lock').exists())
 
     def test_tree_projection_counts_merged_branch_states_not_test_runs(self):
         # Commits exist ONLY in this newly-owned temporary synthetic repository.

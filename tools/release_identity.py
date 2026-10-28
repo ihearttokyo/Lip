@@ -292,6 +292,8 @@ def main():
     parser.add_argument('--artifact', action='append', default=[])
     parser.add_argument('--output', type=Path)
     args = parser.parse_args()
+    if args.sync and any(value is not None for value in (args.reserve, args.fail, args.bind, args.stamp_app, args.audit)):
+        raise ValueError('Run allocation/failure/binding and --sync as separate invocations; no mixed operation was applied')
     root = args.root.resolve()
     if args.audit is not None:
         print(json.dumps(audit(root, args.audit), indent=2, sort_keys=True)); return
