@@ -5,7 +5,7 @@ Source reconciliation PRs **17 and 18 are merged**, at main commit
 IME/Bark and macOS implementation plus Android 16+/ARM64 automatic Vulkan routing.
 This is no longer a pending source-reconciliation PR.
 
-The current **Lip v0.013** version-wiring candidate is reserved source, **not a
+The current **Lip v0.014** version-wiring candidate is reserved source, **not a
 published release**. Its audited allocation and cross-platform metadata rules
 are in [RELEASE-IDENTITY.md](RELEASE-IDENTITY.md) and the authoritative
 `build-iterations.json`. The history audit/tooling is implemented; a reserved
@@ -50,10 +50,19 @@ Future installers must omit speech weights and use separate explicit downloads.
 
 Recorded aggregate/native build checks are scoped to their exact candidates; see
 [Android GPU build evidence](ANDROID-GPU-FIRST-2026-10-29.md). They do not prove
-physical Adreno inference, accelerator efficiency or the reserved v0.013 package.
+physical Adreno inference, accelerator efficiency or the reserved v0.014 package.
 Full Gboard parity, measured swipe superiority, physical-phone/editor/microphone
 acceptance, macOS intended-use verification, Hexagon qualification, real
 ChatGPT/Claude sending, signed small-installer/update tests and the independent
 full 9.2 release gate remain open. Third-party language-data qualifications stay
 in their notices; source publication does not clear them. No Tencent/WeChat
 artwork is included.
+
+## Local sticker source increment
+
+[The ordinary-build workflow](LOCAL-STICKER-WORKFLOW.md) adds explicit local ZIP
+import, original export with same-FD readback, recoverable Remove/Restore and
+receiver-bound PNG/WebP requests. Scope-specific Android emulator controls and
+independent review pass; the remaining race/editor/accessibility/physical and
+full9.2 gates remain open. Current runtime receipts precede version-only metadata
+reservation; they are not a signed v0.014 release attestation.

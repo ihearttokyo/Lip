@@ -28,9 +28,9 @@ import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
-/** Later-major local management only. Not linked from the parity release; no activation or delivery. */
+/** Explicit local pack management; user documents only, no automatic sync or sends. */
 class StickerPacksActivity:Activity() {
-    private enum class Phase { SCAN, PICKER, PREPARING, REVIEW, COMMIT, READ, RECONCILE }
+    private enum class Phase { SCAN, PICKER, PREPARING, REVIEW, COMMIT, READ, RECONCILE, EXPORT, RELOCATE }
     private class Operation(var phase:Phase) {
         val live=AtomicBoolean(true)
         val cancellation=CancellationSignal()
@@ -39,10 +39,11 @@ class StickerPacksActivity:Activity() {
         var awaitingPicker=false
         var prepared:PreparedStickerPack?=null
         var confirmed=false
-        fun cancel(){live.set(false);cancellation.cancel();control.cancel();prepared=null}
+        var exportPack:StoredStickerPack?=null
+        fun cancel(){live.set(false);cancellation.cancel();control.cancel();prepared=null;exportPack=null}
     }
     private data class Storage(val store:StickerPackTransactionStore,val journal:StickerImportJournal,val root:Path)
-    private data class Library(val entries:List<StickerStoredEntry>,val pending:List<String>,val draining:Boolean)
+    private data class Library(val entries:List<StickerStoredEntry>,val removed:List<StickerStoredEntry>,val pending:List<String>,val draining:Boolean)
     private data class CommitOutcome(val id:String,val state:StickerImportJournal.Outcome?)
     private val worker=ThreadPoolExecutor(1,1,0,TimeUnit.MILLISECONDS,ArrayBlockingQueue(1),{r->Thread(r,"lip-sticker-packs").apply{isDaemon=true}})
     private var operation:Operation?=null
@@ -134,14 +135,14 @@ class StickerPacksActivity:Activity() {
         busy(op,"Sticker packs","Reading this device's local pack inventory…")
         submit(op,{
             val storage=storage();val entries=storage.store.scan{op.live.get()}
-            Library(entries,storage.journal.unresolved(),StickerImportAdmission.isActive())
+            Library(entries,storage.store.scanRemoved{op.live.get()},storage.journal.unresolved(),StickerImportAdmission.isActive())
         },{library->operation=null;drawLibrary(library,message)}, {
             operation=null;val column=screen("Local packs unavailable","Existing originals and recovery records were preserved. Import is blocked until storage can be checked.")
             column.addView(action("Check local storage again"){loadLibrary()})
         })
     }
     private fun drawLibrary(library:Library,message:String?){
-        val column=screen("Sticker packs","Original ZIPs and bounded static previews stay on this device. Nothing here activates, sends, exports or syncs a sticker.")
+        val column=screen("Sticker packs","Import your selected Lip pack, browse it in the keyboard, or explicitly export its original ZIP. Rights remain unverified. No automatic sync or sending.")
         message?.let{column.addView(label(it))}
         if(library.draining)column.addView(label("An earlier import is still finishing or draining. No new commit or absence decision is allowed yet."))
         if(library.pending.isNotEmpty()){
@@ -157,7 +158,13 @@ class StickerPacksActivity:Activity() {
             column.addView(label("Commit ${entry.commitId}\n"+if(entry.available)"Available for local inspection. Rights remain unverified." else "Integrity or storage check failed (${entry.reason?.name?:"UNAVAILABLE"}). Original files are retained."))
             if(entry.available)column.addView(action("Inspect ${entry.identity!!.name}"){openPack(entry.commitId)})
         }
-        column.addView(label("Imports and interrupted stages share a 256 MiB / 128-directory safety limit. Recovery journals are also bounded; no automatic deletion or eviction.",14f))
+        if(library.removed.isNotEmpty())column.addView(label("Recoverable bin",22f))
+        library.removed.forEach{entry->
+            column.addView(label(entry.identity?.name?:"Unavailable removed pack",20f))
+            column.addView(label("Removed from the keyboard, originals retained. Commit ${entry.commitId}."))
+            if(entry.available)column.addView(action("Restore ${entry.identity!!.name}",!library.draining&&library.pending.isEmpty()){confirmRelocate(entry.commitId,false,entry.identity.name)})
+        }
+        column.addView(label("Imports, removed packs and interrupted stages share a 256 MiB / 128-directory safety limit. Recovery journals are also bounded; no automatic deletion or eviction.",14f))
     }
     private fun chooseImport(){
         if(operation!=null)return
@@ -176,6 +183,7 @@ class StickerPacksActivity:Activity() {
     }
     @Deprecated("Activity result bridge") override fun onActivityResult(requestCode:Int,resultCode:Int,data:Intent?){
         super.onActivityResult(requestCode,resultCode,data)
+        if(requestCode==EXPORT_PACK){finishExportPicker(resultCode,data);return}
         if(requestCode!=PICK_PACK)return
         val op=operation?:return // Recreation never restores picker authorization or a URI.
         if(!op.awaitingPicker)return
@@ -260,6 +268,7 @@ class StickerPacksActivity:Activity() {
         busy(op,"Save locally","Transaction ${op.control.commitId}\nCancel prevents only an unclaimed commit. An admitted commit may finish after this screen closes; its exact ID will be reconciled before another attempt.")
         submit(op,{
             if(!StickerImportAdmission.claim())error("An earlier import is draining.")
+            StickerLibraryRevision.beginChange()
             try {
                 val storage=storage()
                 if(!op.live.get())return@submit CommitOutcome(op.control.commitId,StickerImportJournal.Outcome.ABSENT)
@@ -274,7 +283,7 @@ class StickerPacksActivity:Activity() {
                         catch(_:Exception){CommitOutcome(op.control.commitId,null)}
                     }else CommitOutcome(op.control.commitId,null)
                 }catch(_:Exception){CommitOutcome(op.control.commitId,null)}
-            }finally{StickerImportAdmission.release()}
+            }finally{StickerLibraryRevision.endChange();StickerImportAdmission.release()}
         },{outcome->operation=null
             loadLibrary(when(outcome.state){StickerImportJournal.Outcome.PUBLISHED->"Saved locally. Commit ${outcome.id}. Nothing activated or sent."
                 StickerImportJournal.Outcome.ABSENT->"Commit ${outcome.id} did not publish. Any interrupted staging remains preserved."
@@ -310,8 +319,65 @@ class StickerPacksActivity:Activity() {
             val column=screen("Saved pack","Local inspection only. No original encoded image is decoded here.");op.generation=generation
             describe(column,pack.inspected,pack.archiveSha256);column.addView(label("Commit $id",14f))
             column.addView(action("Back to saved packs"){if(owns(op)){cancelOperation();loadLibrary()}})
+            column.addView(action("Export original ZIP…"){if(owns(op))chooseExport(pack)})
+            column.addView(action("Remove from keyboard…"){if(owns(op))confirmRelocate(id,true,pack.inspected.identity.name)})
             showPreviews(column,pack.inspected){i->pack.previews[i].let{Preview(it.width,it.height,it.premultipliedRgbaSrgbBytes())}}
         },{cancelOperation();loadLibrary("Pack unavailable after integrity checking. Its originals were preserved.")})
     }
-    companion object { private const val PICK_PACK=4201 }
+    private fun chooseExport(pack:StoredStickerPack){
+        cancelOperation();val op=Operation(Phase.EXPORT);operation=op;op.exportPack=pack
+        val column=screen("Export original pack","This creates a plain ZIP containing all selected pack artwork, names and attribution. Anyone with the ZIP can read it. Choose a local destination; Lip does not automatically upload or sync it.")
+        op.generation=generation
+        column.addView(label("Only a new empty regular read/write document supports verified export. Cloud pipes and overwriting an existing file are refused. A failed export may leave a partial file; inspect it before another deliberate export."))
+        column.addView(action("Choose new ZIP destination…"){
+            if(owns(op)&&!op.awaitingPicker){
+                op.awaitingPicker=true
+                try{startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("application/zip")
+                    .putExtra(Intent.EXTRA_TITLE,"lip-sticker-pack.zip").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION),EXPORT_PACK)}
+                catch(_:Exception){op.awaitingPicker=false;cancelOperation();loadLibrary("No destination picker available. Nothing exported.")}
+            }
+        })
+        column.addView(action("Cancel export"){if(owns(op)){cancelOperation();loadLibrary("Nothing exported.")}})
+    }
+    private fun finishExportPicker(resultCode:Int,data:Intent?){
+        val op=operation?:return
+        if(op.phase!=Phase.EXPORT||!op.awaitingPicker)return
+        op.awaitingPicker=false
+        val pack=op.exportPack;op.exportPack=null
+        if(!owns(op)||resultCode!=RESULT_OK||data?.data==null||pack==null){cancelOperation();loadLibrary("Export canceled. Source pack unchanged.");return}
+        val uri=data.data!!
+        val column=screen("Confirm export","The selected destination will receive a plain original ZIP. It must be empty and support verified readback. No automatic sync; a receiving document provider is chosen by you.")
+        op.generation=generation
+        column.addView(action("Export selected original ZIP"){
+            if(owns(op)&&!op.confirmed){op.confirmed=true
+                busy(op,"Export selected original","Writing this selected pack's original ZIP, then verifying every byte. Cancellation after writing may leave a partial destination; no automatic retry.")
+                submit(op,{
+                    StickerPackDocumentExport.write(contentResolver,uri,pack.archiveBytes(),pack.archiveSha256,op.cancellation){op.live.get()&&op.control.claim()}
+                },{cancelOperation();loadLibrary("Original ZIP exported and readback-verified. Lip did not sync it; source unchanged.")}, {
+                    cancelOperation();loadLibrary("Export not confirmed. The destination may be empty or partial: inspect it before trying a new export. Source pack unchanged; nothing retried or overwritten.")
+                })
+            }
+        })
+        column.addView(action("Cancel export"){if(owns(op)){cancelOperation();loadLibrary("Nothing exported. The selected destination was not written by Lip.")}})
+    }
+    private fun confirmRelocate(id:String,toBin:Boolean,title:String){
+        cancelOperation();val op=Operation(Phase.RELOCATE);operation=op
+        val column=screen(if(toBin)"Remove from keyboard?" else "Restore pack?",
+            if(toBin)"$title\nOriginal ZIP and previews will move to Lip's recoverable bin, not be deleted. Removed packs still use the same storage quota." else "$title\nRestore this exact retained pack to the keyboard. No files are replaced or deleted.")
+        op.generation=generation
+        column.addView(action(if(toBin)"Confirm recoverable removal" else "Confirm restore"){
+            if(owns(op)&&!op.confirmed){op.confirmed=true
+                busy(op,if(toBin)"Remove pack" else "Restore pack","A claimed rename may finish after closing. Refresh both active packs and the recoverable bin before any new attempt; no automatic replay.")
+                submit(op,{
+                    if(!StickerImportAdmission.claim())error("A previous pack change is draining.")
+                    StickerLibraryRevision.beginChange()
+                    try{storage().store.relocate(id,toBin,op.control){op.live.get()}}finally{StickerLibraryRevision.endChange();StickerImportAdmission.release()}
+                },{cancelOperation();loadLibrary(if(toBin)"Removed from keyboard; originals retained in recoverable bin." else "Pack restored; originals unchanged.")}, {
+                    cancelOperation();loadLibrary("Pack change not confirmed. Refresh active packs and the recoverable bin to locate the exact commit before another deliberate action. Originals retained; nothing retried.")
+                })
+            }
+        })
+        column.addView(action("Cancel"){if(owns(op)){cancelOperation();loadLibrary("Pack unchanged.")}})
+    }
+    companion object { private const val PICK_PACK=4201;private const val EXPORT_PACK=4202 }
 }

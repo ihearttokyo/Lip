@@ -125,7 +125,9 @@ internal class PreparedStickerPack internal constructor(archive:ByteArray,inspec
  * payload operations are relative to secure directory handles with NOFOLLOW.
  * No deletion, overwrite, codec invocation, external-path or nonatomic fallback.
  */
-internal class StickerPackTransactionStore(root:Path,private val hook:(StickerStorePoint)->Unit={}) {
+internal class StickerPackTransactionStore(root:Path,
+    private val moveNoReplace:(Path,Any,String,String)->Unit={root,key,from,to->RootedStickerRename.move(root,key,from,to)},
+    private val hook:(StickerStorePoint)->Unit={}) {
     private val root:Path
     private val rootKey:Any
     private val fs=root.fileSystem
@@ -135,7 +137,7 @@ internal class StickerPackTransactionStore(root:Path,private val hook:(StickerSt
         const val MAX_DESCRIPTOR_BYTES=65_536
         private val magic="LIP-STICKERS-V1\u0000".toByteArray(Charsets.US_ASCII)
         private val idPattern=Regex("[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}")
-        private val directoryPattern=Regex("(?:pending|commit)-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}")
+        private val directoryPattern=Regex("(?:pending|commit|bin)-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}")
         private val previewPattern=Regex("preview-(?:0[0-9]{2}|1[01][0-9]|120)\\.rgba")
         private val readOptions=setOf<OpenOption>(StandardOpenOption.READ,LinkOption.NOFOLLOW_LINKS)
         private val createOptions=setOf<OpenOption>(StandardOpenOption.WRITE,StandardOpenOption.CREATE_NEW,LinkOption.NOFOLLOW_LINKS)
@@ -327,9 +329,9 @@ internal class StickerPackTransactionStore(root:Path,private val hook:(StickerSt
             if(bytes.size!=p.byteCount||hash(bytes)!=p.rgbaSha256)fail(StickerStoreException.Reason.INTEGRITY)
         }
     }
-    private fun readCommit(root:SecureDirectoryStream<Path>,id:String,live:()->Boolean):StoredStickerPack {
+    private fun readCommit(root:SecureDirectoryStream<Path>,id:String,live:()->Boolean,removed:Boolean=false):StoredStickerPack {
         uuid(id)
-        child(root,"commit-$id").use{dir->
+        child(root,"${if(removed)"bin" else "commit"}-$id").use{dir->
             val actualFiles=files(dir)
             val record=terminal(readBytes(dir,"terminal.bin",MAX_DESCRIPTOR_BYTES,live))
             if(record.id!=id||actualFiles.keys!=(setOf("archive.zip","terminal.bin")+record.previews.indices.map(::previewName)))fail(StickerStoreException.Reason.INTEGRITY)
@@ -388,7 +390,7 @@ internal class StickerPackTransactionStore(root:Path,private val hook:(StickerSt
                         root.move(name(stage),root,name(target)) // SecureDirectoryStream contract: atomic, no fallback.
                         hook(StickerStorePoint.AFTER_MOVE);forceDirectory(root);hook(StickerStorePoint.AFTER_ROOT_SYNC)
                         hook(StickerStorePoint.BEFORE_READBACK)
-                        val stored=readCommit(root,control.commitId){true}
+                        val stored=readCommit(root,control.commitId,{true})
                         if(stored.archiveSha256!=prepared.archiveSha256||!samePack(stored.inspected,prepared.inspected))fail(StickerStoreException.Reason.INTEGRITY)
                         hook(StickerStorePoint.BEFORE_RETURN);checkRoot();control.finish()
                         StickerCommitReceipt(control.transactionId,control.commitId,prepared.archiveSha256,payloadBytes)
@@ -405,16 +407,54 @@ internal class StickerPackTransactionStore(root:Path,private val hook:(StickerSt
     fun read(commitId:String,live:()->Boolean={true}):StoredStickerPack=try{
         uuid(commitId);withRoot{root->inventory(root);readCommit(root,commitId,live)}
     }catch(e:StickerStoreException){throw e}catch(_:Throwable){fail(StickerStoreException.Reason.IO)}
-    fun scan(live:()->Boolean={true}):List<StickerStoredEntry> = try{
+    fun scan(live:()->Boolean={true}):List<StickerStoredEntry> = scanLocation(false,live)
+    fun scanRemoved(live:()->Boolean={true}):List<StickerStoredEntry> = scanLocation(true,live)
+    private fun scanLocation(removed:Boolean,live:()->Boolean):List<StickerStoredEntry> = try{
+        val prefix=if(removed)"bin-" else "commit-"
         withRoot{root->
-            val names=inventory(root).directories.filter{it.startsWith("commit-")}.sorted()
+            val names=inventory(root).directories.filter{it.startsWith(prefix)}.sorted()
             names.map{file->
                 if(!running(live))fail(StickerStoreException.Reason.CANCELED)
-                val id=file.removePrefix("commit-")
-                try{val stored=readCommit(root,id,live);StickerStoredEntry(id,true,stored.inspected.identity,stored.archiveSha256,null)}
+                val id=file.removePrefix(prefix)
+                try{val stored=readCommit(root,id,live,removed);StickerStoredEntry(id,true,stored.inspected.identity,stored.archiveSha256,null)}
                 catch(e:StickerStoreException){if(e.reason==StickerStoreException.Reason.CANCELED)throw e;StickerStoredEntry(id,false,null,null,e.reason)}
                 catch(_:Throwable){StickerStoredEntry(id,false,null,null,StickerStoreException.Reason.IO)}
             }
         }
     }catch(e:StickerStoreException){throw e}catch(_:Throwable){fail(StickerStoreException.Reason.IO)}
+    /** Reversible same-root relocation. Bin contents remain in the SAME inventory
+     * and quota; no archive or preview is rewritten, evicted or permanently deleted.
+     * A thrown result after the kernel attempt is explicitly uncertain: inspect
+     * active/bin lists before a new deliberate action, never replay automatically.
+     */
+    fun relocate(commitId:String,toBin:Boolean,control:StickerCommitControl=StickerCommitControl(),live:()->Boolean={true}):StoredStickerPack {
+        var attempted=false
+        if(!control.start())throw StickerStoreException(StickerStoreException.Reason.STATE,control.transactionId,commitId,StickerStoreException.Publication.UNCONFIRMED)
+        try{
+            uuid(commitId);checkCancel(control,live)
+            return withRoot{root->writerLock(root).use{lockChannel->
+                val lock=try{lockChannel.tryLock()}catch(_:OverlappingFileLockException){null}?:fail(StickerStoreException.Reason.BUSY)
+                lock.use{
+                    inventory(root) // Counts active + removed + interrupted directories and bytes.
+                    val source="${if(toBin)"commit" else "bin"}-$commitId"
+                    val target="${if(toBin)"bin" else "commit"}-$commitId"
+                    if(attributes(root,target)!=null)fail(StickerStoreException.Reason.STATE)
+                    val before=readCommit(root,commitId,{checkCancel(control,live);true},!toBin)
+                    checkRoot();checkCancel(control,live)
+                    if(!control.claim())fail(StickerStoreException.Reason.CANCELED)
+                    attempted=true
+                    moveNoReplace(this.root,rootKey,source,target) // Verified root-bound dirfd NOREPLACE; no path fallback.
+                    forceDirectory(root);checkRoot()
+                    val after=readCommit(root,commitId,{true},toBin)
+                    if(after.archiveSha256!=before.archiveSha256)fail(StickerStoreException.Reason.INTEGRITY)
+                    control.finish();after
+                }
+            }}
+        }catch(t:Throwable){
+            control.finish()
+            throw StickerStoreException((t as? StickerStoreException)?.reason?:StickerStoreException.Reason.IO,
+                control.transactionId,commitId,if(attempted)StickerStoreException.Publication.UNCONFIRMED else StickerStoreException.Publication.NOT_PUBLISHED)
+        }
+    }
+
 }

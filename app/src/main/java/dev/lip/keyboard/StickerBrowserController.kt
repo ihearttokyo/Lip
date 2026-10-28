@@ -15,7 +15,7 @@ import java.util.UUID
 import java.util.concurrent.Executors
 import java.util.concurrent.RejectedExecutionException
 
-/** Real manifest/component gate; DEBUG alone must never expose later-major controls. */
+/** Real manager component availability; never a DEBUG-only feature gate. */
 internal object StickerBrowserFeature {
     fun enabled(context:Context):Boolean=runCatching{
         context.packageManager.getActivityInfo(ComponentName(context,StickerPacksActivity::class.java),
@@ -49,6 +49,8 @@ internal class StickerBrowserController(context:Context):AutoCloseable {
         check(Looper.myLooper()==Looper.getMainLooper());cancel()
         if(closed||!owner())return
         if(!StickerBrowserFeature.enabled(app)){deliver(StickerPanelState.Error("Local sticker browser is unavailable."));return}
+        val libraryEpoch=dev.lip.stickers.StickerLibraryRevision.snapshot()
+        if(libraryEpoch==null){deliver(StickerPanelState.Error("A pack change is still finishing. Return to Packs to refresh."));return}
         val ticket=admission.begin()
         if(ticket==null){deliver(StickerPanelState.Error("A previous local read is still draining. Return to Packs to retry."));return}
         request=ticket;deliver(StickerPanelState.Loading)
@@ -59,7 +61,7 @@ internal class StickerBrowserController(context:Context):AutoCloseable {
                 StickerPanelState.Error("Local pack could not be read. Originals were preserved. Return to Packs or Manage packs.")
             }finally{admission.finish(ticket)}
             main.post{
-                if(!closed&&request===ticket&&ticket.isLive()&&owner()&&StickerBrowserFeature.enabled(app)){
+                if(!closed&&request===ticket&&ticket.isLive()&&owner()&&dev.lip.stickers.StickerLibraryRevision.isCurrent(libraryEpoch)&&StickerBrowserFeature.enabled(app)){
                     request=null;deliver(result)
                 }
             }

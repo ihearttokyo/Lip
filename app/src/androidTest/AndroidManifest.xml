@@ -57,7 +57,18 @@
     <instrumentation android:name="dev.lip.StickerReadBarrierRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
     <instrumentation android:name="dev.lip.OwnedUndoRedoRunner" android:targetPackage="${lipInstrumentationTestTarget}" android:functionalTest="true" />
     <instrumentation android:name="dev.lip.TextEditingRunner" android:targetPackage="${lipInstrumentationTestTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.testing.localsticker.LocalStickerFixtureRunner" android:targetPackage="${lipInstrumentationTestTarget}" android:functionalTest="true" />
     <application>
+        <!-- Normal test-APK UID, owner-bound synthetic emulator fixtures only. -->
+        <activity android:name="dev.lip.testing.localsticker.LocalStickerReceiverActivity" android:exported="true"
+            android:windowSoftInputMode="adjustResize|stateAlwaysVisible" android:configChanges="orientation|screenSize|keyboardHidden"
+            android:theme="@android:style/Theme.Material.NoActionBar" />
+        <provider android:name="dev.lip.testing.localsticker.LocalStickerDocuments"
+            android:authorities="${applicationId}.localstickerfixtures" android:exported="true"
+            android:permission="android.permission.MANAGE_DOCUMENTS" android:grantUriPermissions="true">
+            <intent-filter><action android:name="android.content.action.DOCUMENTS_PROVIDER" /></intent-filter>
+        </provider>
+
         <activity android:name="dev.lip.StickerEditorFixtureActivity" android:enabled="${stickerFixtureEnabled}"
             android:exported="true" android:windowSoftInputMode="adjustResize|stateAlwaysVisible"
             android:configChanges="orientation|screenSize|keyboardHidden" android:theme="@android:style/Theme.Material.NoActionBar" />
@@ -87,4 +98,6 @@
     <instrumentation android:name="dev.lip.VocabularyPortableRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
     <instrumentation android:name="dev.lip.PersonalSwipeNativeRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
     <instrumentation android:name="dev.lip.PersonalSwipeSeedRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.LocalStickerStorageRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.LocalStickerGestureRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
 </manifest>

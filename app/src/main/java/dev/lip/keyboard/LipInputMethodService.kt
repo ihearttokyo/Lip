@@ -57,6 +57,32 @@ class LipInputMethodService : InputMethodService() {
     private var stickerPanel:StickerPanel?=null
     private var stickerBrowser:StickerBrowserController?=null
     private var stickerAttachment:StickerAttachmentController?=null
+    private var productionStickerAttachment:ProductionStickerAttachmentController?=null
+    private fun stickerSafety()=ProductionStickerSafety(info?.inputType?:0,info?.imeOptions?:0,
+        !destroyed&&isInputViewShown,getSystemService(android.os.PowerManager::class.java).isInteractive,
+        !getSystemService(android.app.KeyguardManager::class.java).isDeviceLocked,
+        composingStart>=0||composingEnd>=0||correction!=null,
+        dictation.busy||voiceTicket!=null||swipePending||localSearchActive()||gifOwner.current!=null)
+    private fun productionStickerAttachContext():ProductionStickerAttachContext? {
+        if(page!=KeyboardPage.STICKERS)return null
+        val safety=stickerSafety();if(!safety.eligible)return null // Before any bounded editor text read.
+        val libraryEpoch=dev.lip.stickers.StickerLibraryRevision.snapshot()?:return null
+        val attribute=info?:return null;val bindingUid=currentInputBinding?.uid?:return null
+        val connection=currentInputConnection?:return null;val generation=session.manualGeneration()?:return null
+        val token=stickerWindowToken;val start=selectionStart;val end=selectionEnd
+        val types=attribute.contentMimeTypes
+        if(!StickerHandoffMime.accepts("image/png",types)&&!StickerHandoffMime.accepts("image/webp",types))return null
+        val receiver=ProductionStickerReceiver.capture(this,attribute.packageName,bindingUid)?:return null
+        val surrounding=runCatching{connection.getSurroundingText(32,32,0)}.getOrNull()?:return null
+        val cursor=StickerCursorSnapshot.capture(attribute.packageName,attribute.fieldId,surrounding.text,
+            surrounding.selectionStart,surrounding.selectionEnd,surrounding.offset,start,end)?:return null
+        if(currentInputConnection!==connection||currentInputBinding?.uid!=bindingUid||info!==attribute||
+            session.manualGeneration()!=generation||stickerWindowToken!==token||selectionStart!=start||selectionEnd!=end||
+            !dev.lip.stickers.StickerLibraryRevision.isCurrent(libraryEpoch)||stickerSafety()!=safety)return null
+        return ProductionStickerAttachContext(connection,cursor,token,receiver,types,safety,libraryEpoch)
+    }
+    private fun stickerAttachmentAvailable()=if(StickerPrivateTransport.enabled(this))stickerAttachContext()?.composing==false else productionStickerAttachContext()!=null
+    private fun stickerAttachmentBusy()=stickerAttachment?.busy==true||productionStickerAttachment?.busy==true
     private fun stickerAttachContext():StickerAttachContext? {
         if(destroyed||page!=KeyboardPage.STICKERS||!isInputViewShown||!policy().voice||dictation.busy||voiceTicket!=null||swipePending||
             localSearchActive()||gifOwner.current!=null||info?.packageName!=StickerPrivateTransport.RECEIVER)return null
@@ -70,10 +96,33 @@ class LipInputMethodService : InputMethodService() {
             selectionStart,selectionEnd)?:return null
         return StickerAttachContext(connection,cursor,stickerWindowToken,target,types,composingStart>=0||composingEnd>=0)
     }
-    private fun requestStickerOriginal(asset:StickerAssetIdentity){
+    private fun captureStickerAttachment(asset:StickerAssetIdentity,contactCurrent:()->Boolean):(() -> Unit)? {
+        if(!contactCurrent())return null
+        if(StickerPrivateTransport.enabled(this))return {if(contactCurrent())requestStickerOriginal(asset)}
+        val generation=session.manualGeneration()?:return null
+        val expected=productionStickerAttachContext()?:return null
+        if(!contactCurrent()||session.manualGeneration()!=generation)return null
+        return {
+            val fresh=productionStickerAttachContext()
+            if(fresh!=null&&fresh.matches(expected)&&session.manualGeneration()==generation&&contactCurrent())
+                requestStickerOriginal(asset,expected,contactCurrent)
+        }
+    }
+    private fun requestStickerOriginal(asset:StickerAssetIdentity,expected:ProductionStickerAttachContext?=null,contactCurrent:()->Boolean={true}){
         editBarrier()
+        if(!StickerPrivateTransport.enabled(this)){
+            if(expected==null||!contactCurrent())return
+            val controller=productionStickerAttachment?:ProductionStickerAttachmentController(this,session,::productionStickerAttachContext,
+                {stickerPanel?.setAttachmentPending(stickerAttachmentBusy()||!stickerAttachmentAvailable())},
+                {outcome->android.widget.Toast.makeText(this,when(outcome){
+                    ProductionStickerAttachmentController.Outcome.REQUESTED->"Image requested in the receiving app. Lip did not press Send; that app controls what happens next."
+                    ProductionStickerAttachmentController.Outcome.NOT_CONFIRMED->"Image request not confirmed. Check the receiving app; nothing retried."
+                    ProductionStickerAttachmentController.Outcome.UNAVAILABLE->"Image unavailable or another request is draining. Nothing retried."
+                },android.widget.Toast.LENGTH_LONG).show()}).also{productionStickerAttachment=it}
+            controller.request(asset,expected,contactCurrent);return
+        }
         val controller=stickerAttachment?:StickerAttachmentController(this,session,::stickerAttachContext,
-            {stickerPanel?.setAttachmentPending(stickerAttachment?.busy==true||stickerAttachContext()?.composing!=false)},
+            {stickerPanel?.setAttachmentPending(stickerAttachmentBusy()||!stickerAttachmentAvailable())},
             {outcome->android.widget.Toast.makeText(this,when(outcome){
                 StickerAttachmentController.Outcome.REQUESTED->"Image requested; check the editor. Lip did not press Send."
                 StickerAttachmentController.Outcome.NOT_CONFIRMED->"Image request not confirmed; check the editor. No retry was made."
@@ -82,31 +131,40 @@ class LipInputMethodService : InputMethodService() {
         controller.request(asset)
     }
 
+    private val stickerLibraryChanged:()->Unit={main.post{
+        if(!destroyed){
+            val wasBrowser=page==KeyboardPage.STICKERS
+            invalidateStickers()
+            if(wasBrowser&&stickerSafety().eligible)loadStickers(StickerBrowserPage.Library())
+        }
+    };Unit}
     private var stickerPage:StickerBrowserPage=StickerBrowserPage.Library()
     private var stickerState:StickerPanelState=StickerPanelState.Loading
+    private var stickerStateEpoch:Any?=null
     private var stickerWindowToken=Any()
     private fun invalidateStickers(){
-        stickerAttachment?.cancel()
+        stickerAttachment?.cancel();productionStickerAttachment?.cancel()
         stickerWindowToken=Any();stickerBrowser?.cancel();stickerPanel?.close();stickerPanel=null
-        stickerPage=StickerBrowserPage.Library();stickerState=StickerPanelState.Loading
+        stickerPage=StickerBrowserPage.Library();stickerState=StickerPanelState.Loading;stickerStateEpoch=null
     }
     private fun openStickers(){
-        if(!StickerBrowserFeature.enabled(this)||!policy().voice||dictation.busy||!isInputViewShown)return
+        if(!StickerBrowserFeature.enabled(this)||!stickerSafety().eligible)return
         clearEmoji();clearGifSearch();cancelOwnedVoice();invalidateStickers()
         page=KeyboardPage.STICKERS;loadStickers(StickerBrowserPage.Library())
     }
     private fun loadStickers(target:StickerBrowserPage){
-        if(page!=KeyboardPage.STICKERS||!StickerBrowserFeature.enabled(this)||!isInputViewShown)return
-        stickerAttachment?.cancel()
+        if(page!=KeyboardPage.STICKERS||!StickerBrowserFeature.enabled(this)||!stickerSafety().eligible)return
+        stickerAttachment?.cancel();productionStickerAttachment?.cancel()
         val connection=currentInputConnection?:return
         val editor=session.editorGeneration()?:return
         val token=stickerWindowToken
+        val libraryEpoch=dev.lip.stickers.StickerLibraryRevision.snapshot()?:return
         stickerPage=target
         val browser=stickerBrowser?:StickerBrowserController(this).also{stickerBrowser=it}
         browser.load(target,{
             !destroyed&&page==KeyboardPage.STICKERS&&stickerWindowToken===token&&isInputViewShown&&
-                currentInputConnection===connection&&session.editorGeneration()==editor&&policy().voice&&!dictation.busy
-        }){state->stickerState=state;renderKeys();updateState()}
+                currentInputConnection===connection&&session.editorGeneration()==editor&&stickerSafety().eligible&&dev.lip.stickers.StickerLibraryRevision.isCurrent(libraryEpoch)
+        }){state->stickerState=state;stickerStateEpoch=libraryEpoch;renderKeys();updateState()}
     }
     private fun manageStickerPacks(){
         if(page!=KeyboardPage.STICKERS||!isInputViewShown||!StickerBrowserFeature.enabled(this))return
@@ -411,6 +469,7 @@ class LipInputMethodService : InputMethodService() {
     private val historyScreenReceiver=object:android.content.BroadcastReceiver(){
         override fun onReceive(context:android.content.Context?,intent:Intent?){
             if(intent?.action==Intent.ACTION_SCREEN_OFF){
+                invalidateStickers()
                 closeTextEditing();if(page==KeyboardPage.TEXT_EDITING){page=KeyboardPage.LETTERS;renderKeys();updateState()}
                 clearOwnedEdits();revokePersonalAccess();stopSwipe()
             }
@@ -931,6 +990,7 @@ class LipInputMethodService : InputMethodService() {
 
     override fun onCreate() {
         super.onCreate()
+        dev.lip.stickers.StickerLibraryRevision.observe(stickerLibraryChanged)
         typingPreferences.registerOnSharedPreferenceChangeListener(vocabularyChanges)
         swipeVocabulary.observe(vocabularyMutation)
         debuggable=applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE!=0
@@ -948,6 +1008,7 @@ class LipInputMethodService : InputMethodService() {
         updateHistoryEligibility()
     }
     override fun onDestroy() {
+        dev.lip.stickers.StickerLibraryRevision.unobserve(stickerLibraryChanged)
         closeTextEditing()
         clearOwnedEdits()
         typingPreferences.unregisterOnSharedPreferenceChangeListener(vocabularyChanges)
@@ -956,7 +1017,7 @@ class LipInputMethodService : InputMethodService() {
         agentController?.close(); agentController = null; agentSlot = null; agentFixtureAdapter = null
         cancelKeyGestures()
         invalidateStickers();stickerBrowser?.close();stickerBrowser=null
-        stickerAttachment?.close();stickerAttachment=null
+        stickerAttachment?.close();stickerAttachment=null;productionStickerAttachment?.close();productionStickerAttachment=null
         destroyed=true;debugConnectionOverride=null;typingLoad=null;typingEngine=null;typingWorker.shutdownNow()
         clearEmoji(true);emojiLoad=null;emojiWorker.shutdownNow();clearGifSearch();gifPanel?.close();gifPanel=null;gifWorker.shutdownNow()
         if(clipboardListenerRegistered)getSystemService(android.content.ClipboardManager::class.java).removePrimaryClipChangedListener(clipboardListener)
@@ -1034,7 +1095,7 @@ class LipInputMethodService : InputMethodService() {
             editTransactions.selection(newSelStart,newSelEnd,owned?.let{editPort(it,allowComposition=true)})
         }
         if(compositionChanged)editTransactions.composition(candidatesStart,candidatesEnd)
-        if(compositionChanged||oldSelStart!=newSelStart||oldSelEnd!=newSelEnd)stickerAttachment?.cancel()
+        if(compositionChanged||oldSelStart!=newSelStart||oldSelEnd!=newSelEnd){stickerAttachment?.cancel();productionStickerAttachment?.cancel()}
         if(compositionChanged)wordDeleteCancel?.invoke()
         composingStart=candidatesStart;composingEnd=candidatesEnd
         if(compositionChanged){nextWordOwner.clear();updateState()}
@@ -1168,7 +1229,7 @@ class LipInputMethodService : InputMethodService() {
         val interactive=visible&&getSystemService(android.os.PowerManager::class.java).isInteractive
         val unlocked=visible&&!getSystemService(android.app.KeyguardManager::class.java).isDeviceLocked
         return TextEditingState(info?.inputType?:0,info?.imeOptions?:0,selectionStart,selectionEnd,
-            currentInputConnection!=null,visible,dictation.busy||voiceTicket!=null||swipePending||gifOwner.current!=null||stickerAttachment?.busy==true,
+            currentInputConnection!=null,visible,dictation.busy||voiceTicket!=null||swipePending||gifOwner.current!=null||stickerAttachmentBusy(),
             composingStart>=0||composingEnd>=0||correction!=null,interactive,unlocked)
     }
     private fun textEditingContext():TextEditingContext {
@@ -1264,7 +1325,7 @@ class LipInputMethodService : InputMethodService() {
                 true
             }
         }
-        if(StickerBrowserFeature.enabled(this))menu.menu.add("Local sticker packs").setOnMenuItemClickListener {
+        if(StickerBrowserFeature.enabled(this))menu.menu.add("Local sticker packs").apply{contentDescription="Open local sticker packs";isEnabled=stickerSafety().eligible}.setOnMenuItemClickListener {
             if(browserToken===keyboardRenderToken&&anchor.isAttachedToWindow&&isInputViewShown)openStickers()
             true
         }
@@ -1544,13 +1605,20 @@ class LipInputMethodService : InputMethodService() {
         if(page==KeyboardPage.TEXT_EDITING){renderTextEditing(container);return}
         if(page==KeyboardPage.STICKERS){
             if(!StickerBrowserFeature.enabled(this)){page=KeyboardPage.LETTERS;invalidateStickers();renderKeys();return}
-            stickerPanel=StickerPanel(this,rowHeight()*5,stickerState,stickerScale,
+            val libraryEpoch=stickerStateEpoch
+            val attachment:((StickerAssetIdentity)->Unit)?=if(libraryEpoch!=null&&dev.lip.stickers.StickerLibraryRevision.isCurrent(libraryEpoch)&&stickerAttachmentAvailable())
+                {asset->if(dev.lip.stickers.StickerLibraryRevision.isCurrent(libraryEpoch))requestStickerOriginal(asset)} else null
+            lateinit var panel:StickerPanel
+            panel=StickerPanel(this,rowHeight()*5,stickerState,stickerScale,
                 {invalidateStickers();page=KeyboardPage.LETTERS;renderKeys();updateState()},
                 ::manageStickerPacks,{loadStickers(StickerBrowserPage.Library())},
                 {id->loadStickers(StickerBrowserPage.Pack(id))},
                 {stickerPage.previous()?.let(::loadStickers)},{loadStickers(stickerPage.next())},
-                if(stickerAttachContext()?.composing==false)::requestStickerOriginal else null)
-            stickerPanel?.setAttachmentPending(stickerAttachment?.busy==true||stickerAttachContext()?.composing!=false)
+                attachment,
+                {asset,current->captureStickerAttachment(asset){libraryEpoch!=null&&dev.lip.stickers.StickerLibraryRevision.isCurrent(libraryEpoch)&&current()}},
+                {if(stickerPanel===panel){stickerAttachment?.cancel();productionStickerAttachment?.cancel()}})
+            stickerPanel=panel
+            stickerPanel?.setAttachmentPending(stickerAttachmentBusy()||!stickerAttachmentAvailable())
             container.addView(stickerPanel)
             toolsBar?.visibility=View.GONE;toolsFrame?.visibility=View.GONE
             return
@@ -1857,7 +1925,7 @@ class LipInputMethodService : InputMethodService() {
         toolsBar?.visibility=if(dedicatedMediaHeader)View.GONE else if(swipeMessage!=null||candidatesVisible)View.INVISIBLE else View.VISIBLE
         candidateMic?.isEnabled=policy().voice&&!dictation.busy
         gifPanel?.setBusy(gifOwner.current!=null)
-        stickerPanel?.setAttachmentPending(stickerAttachment?.busy==true||stickerAttachContext()?.composing!=false)
+        stickerPanel?.setAttachmentPending(stickerAttachmentBusy()||!stickerAttachmentAvailable())
         gifTool?.isEnabled=policy().voice&&!dictation.busy
         undoTool?.isEnabled=!localSearchActive()
         mic?.isEnabled = !localSearchActive()&&gifOwner.current==null&&policy().voice && (!dictation.busy || voiceTicket != null)
