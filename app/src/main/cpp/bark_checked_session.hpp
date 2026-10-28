@@ -608,7 +608,10 @@ public:
     std::uint64_t create_ticket(int profile_id) noexcept {
         CheckedBarkSession::Profile profile;
         if (!trusted_profile(profile_id, profile)) return 0;
-        return create(profile, CheckedSessionOps{}, STARLING_GGML_DEVICE_CPU);
+        // GPU-first automatic eligibility is internal policy, never a user knob.
+        // Software/virtual/unknown provenance is rejected before initialization;
+        // checked same-snapshot CPU retirement/retry remains unchanged.
+        return create(profile, CheckedSessionOps{}, STARLING_GGML_DEVICE_AUTOMATIC);
     }
     std::shared_ptr<CheckedBarkSession> session(std::uint64_t id) noexcept {
         if (id == 0 || id > kMaxId) return {};

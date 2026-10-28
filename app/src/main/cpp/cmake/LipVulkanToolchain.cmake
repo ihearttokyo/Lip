@@ -1,6 +1,7 @@
-# Preparatory only: this file is not included by Lip's production CMakeLists.txt.
-# Run after project(... CXX) under the real Android NDK toolchain. It neither
-# enables GGML_VULKAN nor selects an inference device. No dependency downloads.
+# Production dependency validation, invoked after project(... CXX) by Lip's
+# Android CMake. The caller separately enables the compiled Vulkan backend and
+# chooses automatic runtime eligibility. This helper never downloads dependencies
+# or substitutes a host loader/CPU-only build for a missing Vulkan input.
 include_guard(GLOBAL)
 
 function(lip_prepare_android_vulkan)
@@ -125,5 +126,5 @@ function(lip_prepare_android_vulkan)
     set(SPIRV-Headers_DIR "${_config_dir}" PARENT_SCOPE)
     set(LIP_VULKAN_TOOLCHAIN_SPIRV_INCLUDE "${_spirv}" PARENT_SCOPE)
     set(LIP_VULKAN_TOOLCHAIN_PROBE_DIR "${_work}" PARENT_SCOPE)
-    message(STATUS "Lip Vulkan toolchain dependencies probed; backend/device NOT enabled")
+    message(STATUS "Lip Vulkan toolchain dependencies verified; runtime device selection is separate")
 endfunction()
