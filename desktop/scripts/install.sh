@@ -1,6 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+RELEASE_TOOL="$ROOT/../tools/release_identity.py"
+DISPLAY_NAME=$(python3 "$RELEASE_TOOL" --check --check-source --field display_name)
+echo "Building $DISPLAY_NAME · local source candidate, not a published release"
 DEST="$HOME/Applications/Lip Local.app"
 if [ -e "$DEST" ]; then
   echo "Existing app preserved. Move it aside before reinstalling: $DEST" >&2
@@ -28,8 +31,11 @@ cp "$ROOT/THIRD_PARTY.md" "$DEST/Contents/Resources/"
 cp "$ROOT/.build/checkouts/FluidAudio/LICENSE" "$DEST/Contents/Resources/FluidAudio-LICENSE"
 cp "$ROOT/../LICENSE" "$DEST/Contents/Resources/Lip-LICENSE"
 cp "$ROOT/../docs/assets/bark-CC-BY-4.0.txt" "$ROOT/../docs/assets/bark-NOTICE.txt" "$DEST/Contents/Resources/"
+# Generated AFTER source commit, outside tracked inputs; never claim an old HEAD
+# describes dirty production files. App path/bundle ID remain stable for grants.
+python3 "$RELEASE_TOOL" --stamp-app "$DEST" >/dev/null
 # Local-only signing; no notarization/upload and no timestamp-server request.
 codesign --force --deep --timestamp=none --sign "$IDENTITY" "$DEST"
 codesign --verify --deep --strict "$DEST"
-echo "Installed $DEST"
+echo "Installed $DISPLAY_NAME at $DEST"
 echo 'Open Lip Local, then choose Enable Fn controls / check permissions in its menu.'

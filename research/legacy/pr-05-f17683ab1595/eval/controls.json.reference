@@ -1,0 +1,126 @@
+{
+  "schema_version": 1,
+  "id": "lip-nonspeech-controls-v1",
+  "cases": [
+    {
+      "id": "silence-en",
+      "language": "en",
+      "origin": "negative_control",
+      "audio": "audio/silence.wav",
+      "size_bytes": 160044,
+      "sha256": "262d1f34f300560a4c82ba8127ddea9e1d72946f187fdbd3e8f70ee096077aec",
+      "reference_raw": "",
+      "max_error_rate": 0,
+      "checks": [],
+      "license": "MIT",
+      "source": {
+        "generator": "eval/controls.py",
+        "seed": 20261008,
+        "duration_seconds": 5,
+        "sample_rate": 16000,
+        "kind": "silence",
+        "noise_amplitude_int16": 0
+      }
+    },
+    {
+      "id": "silence-ja",
+      "language": "ja",
+      "origin": "negative_control",
+      "audio": "audio/silence.wav",
+      "size_bytes": 160044,
+      "sha256": "262d1f34f300560a4c82ba8127ddea9e1d72946f187fdbd3e8f70ee096077aec",
+      "reference_raw": "",
+      "max_error_rate": 0,
+      "checks": [],
+      "license": "MIT",
+      "source": {
+        "generator": "eval/controls.py",
+        "seed": 20261008,
+        "duration_seconds": 5,
+        "sample_rate": 16000,
+        "kind": "silence",
+        "noise_amplitude_int16": 0
+      }
+    },
+    {
+      "id": "silence-zh",
+      "language": "zh",
+      "origin": "negative_control",
+      "audio": "audio/silence.wav",
+      "size_bytes": 160044,
+      "sha256": "262d1f34f300560a4c82ba8127ddea9e1d72946f187fdbd3e8f70ee096077aec",
+      "reference_raw": "",
+      "max_error_rate": 0,
+      "checks": [],
+      "license": "MIT",
+      "source": {
+        "generator": "eval/controls.py",
+        "seed": 20261008,
+        "duration_seconds": 5,
+        "sample_rate": 16000,
+        "kind": "silence",
+        "noise_amplitude_int16": 0
+      }
+    },
+    {
+      "id": "noise-en",
+      "language": "en",
+      "origin": "negative_control",
+      "audio": "audio/noise.wav",
+      "size_bytes": 160044,
+      "sha256": "af9a9dfee9e45c53834a5258369d5308d95f47ea7e423f0a44c8cb8b147b5d45",
+      "reference_raw": "",
+      "max_error_rate": 0,
+      "checks": [],
+      "license": "MIT",
+      "source": {
+        "generator": "eval/controls.py",
+        "seed": 20261008,
+        "duration_seconds": 5,
+        "sample_rate": 16000,
+        "kind": "noise",
+        "noise_amplitude_int16": 655
+      }
+    },
+    {
+      "id": "noise-ja",
+      "language": "ja",
+      "origin": "negative_control",
+      "audio": "audio/noise.wav",
+      "size_bytes": 160044,
+      "sha256": "af9a9dfee9e45c53834a5258369d5308d95f47ea7e423f0a44c8cb8b147b5d45",
+      "reference_raw": "",
+      "max_error_rate": 0,
+      "checks": [],
+      "license": "MIT",
+      "source": {
+        "generator": "eval/controls.py",
+        "seed": 20261008,
+        "duration_seconds": 5,
+        "sample_rate": 16000,
+        "kind": "noise",
+        "noise_amplitude_int16": 655
+      }
+    },
+    {
+      "id": "noise-zh",
+      "language": "zh",
+      "origin": "negative_control",
+      "audio": "audio/noise.wav",
+      "size_bytes": 160044,
+      "sha256": "af9a9dfee9e45c53834a5258369d5308d95f47ea7e423f0a44c8cb8b147b5d45",
+      "reference_raw": "",
+      "max_error_rate": 0,
+      "checks": [],
+      "license": "MIT",
+      "source": {
+        "generator": "eval/controls.py",
+        "seed": 20261008,
+        "duration_seconds": 5,
+        "sample_rate": 16000,
+        "kind": "noise",
+        "noise_amplitude_int16": 655
+      }
+    }
+  ]
+}

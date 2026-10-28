@@ -1,0 +1,2 @@
+# Preserve the pinned upstream notice bytes; its hash is checked in the CPU fixtures.
+docs/assets/android-ndk-toolchain-notice.txt -whitespace

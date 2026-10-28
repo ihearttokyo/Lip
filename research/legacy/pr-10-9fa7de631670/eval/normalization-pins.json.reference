@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "runtime_revision": "306c88f4d1286aec1bf96e544632897886af5501",
+  "target_peak": 0.5,
+  "absolute_deadline": "2026-10-09T23:48:00Z",
+  "model": {
+    "name": "ggml-large-v3-turbo-q5_0.bin",
+    "revision": "5359861c739e955e79d9a303bcbc70fb988958b1",
+    "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-large-v3-turbo-q5_0.bin",
+    "bytes": 574041195,
+    "sha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2"
+  },
+  "source_sha256": {
+    ".github/workflows/initial-ts-experiment.yml": "6c94851def3805a53fcd3c0e7270d4dd1149f37184ebe40cdb39afc5102c1fc9",
+    ".github/workflows/normalization-experiment.yml": "4d4bbf1d3142ac368b67fd65730aee078fbb99d9eacf1726a052ad86c8b0fabf",
+    "NOTICE.md": "ee599072fb1086cf84455c7a6680e2096ca06718f114e47909114615be596911",
+    "app/src/main/cpp/whisper_jni.cpp": "7f6e5ed3587b7ed1bb7a1cb4da81290caef35db8042e9d36e7a7c823727b2d04",
+    "eval/benchmark.py": "a681b82e4c444756bda0f3440a84c0ef3df47819e9da0af5628f6f4db4621e76",
+    "eval/controls.json": "eb8a7133e3dcd11d056bc2324384b3d7b664fff29d700f052b1cb67d9e6a0620",
+    "eval/controls.py": "a8a842b294cc0d465ff173925d737fbc7b66944527041efe8fbe123fc52ca93a",
+    "eval/corpus.json": "46b5595291997beda8b5648541400640a80b458a411c2572bd9d4f83f49c01ef",
+    "eval/fetch_corpus.py": "6a1eaa51507aff890c5c334c632b0e5fdd6634acdd109c26207a2c5e2a3a50bf",
+    "eval/initial-ts-pins.json": "1f4e05b8b8d8fb7907789e6c3709ae7cd6e7cd014010dd4c47651f4fdbd6df6c",
+    "eval/initial_ts_ci.py": "04adcd5d695b6ebdbc94cafcb1cd459fd801736a54a8ca04c828afef04c19c73",
+    "eval/normalization_ci.py": "018d48708046daa7327ccaed90eef9718f2537e1a84a01aeb171c11f9e7ab4b0",
+    "eval/observe_vad.py": "f4a05cb94ed37e751da117135eb99b999753444332160b25ce724be28baade9b",
+    "eval/quant_ci.py": "e9dba7eef60e232dfd7ab6cfecac60783176d35ff88b0237c0a376cbfead47f0",
+    "eval/qwen17_ci.py": "081d9043960f3edfb612678580c1348ee81b0567870ee3f270158d9e9642448e",
+    "eval/qwen17_cli.py": "baab465befce891e41138ed146da9975c75aadadf0bbb3b2861430d09a0215b1",
+    "eval/sensevoice_cli.py": "e9688330565adf99a794b4b2e89397b0568c69a56ac51a7a5bb835ac7eaa0b0a",
+    "eval/test_initial_ts_ci.py": "1059cc41c91ef5fad5b99a5a04f6128b4c5c2b1276b5456f4698afd5bbb1a785",
+    "eval/test_normalization_ci.py": "35d4e5003d7c8f7178a80a984727880efebacbf3e340a69e550cbae9695d5e01",
+    "eval/test_quant_ci.py": "4f7c219c95c3dd0db24f736d701c7f417fde266240e83989a5d6d307227ca041",
+    "eval/vad_holdouts.py": "15e880e14aea1e93210e7f9dfd744cddce9ae12bad11906010325eba2f17b435",
+    "third_party/whisper.cpp/examples/cli/cli.cpp": "840f331f80a98c41fc21eb4cf109c4c6a5496b8f248e9bbce58dd733dece76b2",
+    "third_party/whisper.cpp/examples/common-whisper.cpp": "852fbc77d2461322a82b9c571cf4703bac3c78c5c51d3a90e80792ce0c04e313",
+    "third_party/whisper.cpp/examples/miniaudio.h": "c029554572ae71a94b7825ef1ab9bd7e646344a79e2e852a03f8b18e428c1443",
+    "third_party/whisper.cpp/src/whisper.cpp": "00d02d64b6818ef24ab97cc2184794634668e7cb0343ede2791d78a3f651dc45"
+  },
+  "prior_evidence": {
+    "normalized_inference_here": "not_performed",
+    "previous_strict_silence": "failed; exact zero inputs remain unchanged",
+    "historical_quant_receipt_sha256": "35e648d568892a5f5ca580f1732c0f73715e7c8b175ef3d9159bfafe71435eea",
+    "historical_initial_receipt_sha256": "4868f6ab14d48c071833e148e73affc099c77fecf63cfd64d9ee0f735ad106a3",
+    "historical_context_only": "not matched baseline; not candidate acceptance"
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "whisper": "306c88f4d1286aec1bf96e544632897886af5501",
+  "ndk": "30.0.16248370",
+  "cmake": "4.1.2",
+  "vulkan_core_sha256": "b8944f451db2231a07acbce90d1d6de2993fc6d656ab120cd833447ec9120710",
+  "vulkan_headers": "2fa203425eb4af9dfc6b03f97ef72b0b5bcb8350",
+  "hpp_headers_gitlink": "2fa203425eb4af9dfc6b03f97ef72b0b5bcb8350",
+  "archives": [
+    {
+      "repository": "KhronosGroup/Vulkan-Hpp",
+      "commit": "9d55db6621613adf9ccea21dbc853fbd27ea2924",
+      "root": "Vulkan-Hpp",
+      "license": "LICENSE.txt",
+      "required": [
+        "vulkan/vulkan.hpp",
+        "vulkan/vulkan_enums.hpp",
+        "vulkan/vulkan_handles.hpp",
+        "vulkan/vulkan_structs.hpp",
+        "vulkan/vulkan_funcs.hpp"
+      ],
+      "compressed_limit": 16777216,
+      "expanded_limit": 134217728,
+      "files_limit": 10000,
+      "member_limit": 16777216,
+      "independent_archive_sha256": null
+    },
+    {
+      "repository": "KhronosGroup/SPIRV-Headers",
+      "commit": "b824a462d4256d720bebb40e78b9eb8f78bbb305",
+      "root": "SPIRV-Headers",
+      "license": "LICENSE",
+      "required": [
+        "include/spirv/unified1/spirv.hpp",
+        "CMakeLists.txt"
+      ],
+      "compressed_limit": 16777216,
+      "expanded_limit": 134217728,
+      "files_limit": 10000,
+      "member_limit": 16777216,
+      "independent_archive_sha256": null
+    }
+  ],
+  "whisper_files": {
+    "LICENSE": "94f29bbed6a22c35b992c5c6ebf0e7c92f13b836b90f36f461c9cf2f0f1d010d",
+    "ggml/src/ggml-vulkan/CMakeLists.txt": "95b77526cbede60b669abf1bc13657956284d0b20835096e64f24682a5a1a0e2",
+    "ggml/src/ggml-vulkan/ggml-vulkan.cpp": "c894c08a483ebccb70a07d1fc45c65fab9a26e949de4578353bd84d32d94ebe3",
+    "ggml/src/ggml-vulkan/vulkan-shaders/dequant_head.glsl": "0f02440f3754e1512c5181225f2ea96a0f113f07931116c1c53c486e8f7e185e",
+    "ggml/src/ggml-vulkan/vulkan-shaders/dequant_q5_0.comp": "e5d5320a760eaffb507851ae874faa98e32d6b42e301282f136c195712e892d5",
+    "ggml/src/ggml-vulkan/vulkan-shaders/dot_product_funcs.glsl": "79678679e01db7932fb81a15e5a7cbe45d66acc532681291206f9cb108002ce4",
+    "ggml/src/ggml-vulkan/vulkan-shaders/feature-tests/bfloat16.comp": "ca85c0e211098c9a1cf169750f2589ade4f84c56ec10e3b17d93661bf3191fe3",
+    "ggml/src/ggml-vulkan/vulkan-shaders/feature-tests/coopmat.comp": "b884498f13d34b47f126812f4ac9f899ff5b16dccd2b9634d7a953fa70f43989",
+    "ggml/src/ggml-vulkan/vulkan-shaders/feature-tests/coopmat2.comp": "ca5500437f3baa48d9095102a604907080279a7481d08637286aad82b7088a19",
+    "ggml/src/ggml-vulkan/vulkan-shaders/feature-tests/coopmat2_decode_vector.comp": "5a721c9778de046da28589db843ec23c3d28f87d62a39810d5404950c5b152de",
+    "ggml/src/ggml-vulkan/vulkan-shaders/feature-tests/float_e2m1.comp": "d4d96cfd2e2f7417e7ba5e370f6ac5b5dc5bb27bbe8a0eb0a838c919244c3c09",
+    "ggml/src/ggml-vulkan/vulkan-shaders/feature-tests/float_e4m3.comp": "43bc484b2c5d978c5f466e59b6548ba0063c84a04637f5e8334af07ee364b085",
+    "ggml/src/ggml-vulkan/vulkan-shaders/feature-tests/integer_dot.comp": "18022cc94f70d741ac21590b4656d11098f12cdb4dc732e07362ddb25e60468f",
+    "ggml/src/ggml-vulkan/vulkan-shaders/flash_attn.comp": "79bcd0eafe2a5dbcf86a0864f61e7be0e632dd91099de91786006d8bb01143e1",
+    "ggml/src/ggml-vulkan/vulkan-shaders/flash_attn_base.glsl": "e3415426190374f193747b2374905fb4fc9001b7653b05d61a536f02e9a1658b",
+    "ggml/src/ggml-vulkan/vulkan-shaders/flash_attn_dequant.glsl": "adcefcf7a84e461ff2d8e0fb779256a0d8121bc560f2bdd240c86ba511a4a4f9",
+    "ggml/src/ggml-vulkan/vulkan-shaders/flash_attn_mmq_funcs.glsl": "ed448731b59fb6c16f1470896ce725c4b5a06f5c775105f18995dccacf00c17d",
+    "ggml/src/ggml-vulkan/vulkan-shaders/generic_unary_head.glsl": "6e47874c1b5a523c1912fca267fa2602126c20780a4920c30fe4d2a56a4e6a98",
+    "ggml/src/ggml-vulkan/vulkan-shaders/mul_mmq_shmem_types.glsl": "06df962db1904a994d303f12481f84fab5fe699ad02f12efcf3102335a743e07",
+    "ggml/src/ggml-vulkan/vulkan-shaders/norm.comp": "ca26cdf00c148c7b2c9b2be821402c83dfe70552fbbb038580b89805fbd3ead2",
+    "ggml/src/ggml-vulkan/vulkan-shaders/types.glsl": "770122344546ec9b8ee443c38093df76ed3287fffc4e643e08f3150ffef5d03e",
+    "ggml/src/ggml-vulkan/vulkan-shaders/vulkan-shaders-gen.cpp": "cf98bc7b80e4ca3e11953192d1c6b19385239b912e8381bd877a136fc4ffaa36"
+  }
+}

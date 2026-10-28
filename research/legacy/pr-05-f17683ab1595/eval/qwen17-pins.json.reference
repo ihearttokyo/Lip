@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "research_only": true,
+  "runtime_repo": "ggml-org/llama.cpp",
+  "runtime_revision": "71ad0590f4808b6202f9213d166913858c73b1bc",
+  "official_python_revision": "7c6daf77a2421100f5fb066495372c00129d39ff",
+  "observed_upstream_revision_not_proven_conversion_input": "7278e1e70fe206f11671096ffdd38061171dd6e5",
+  "weights": {
+    "repo": "ggml-org/Qwen3-ASR-1.7B-GGUF",
+    "revision": "36a678687ba7d07a74ca70ccb0e36902e005fb80",
+    "files": [
+      {
+        "name": "Qwen3-ASR-1.7B-Q8_0.gguf",
+        "bytes": 2165034944,
+        "sha256": "58e22d0532d4eacaf034cfac17a6fed159f37c41390c710186783be439d1fc57",
+        "url": "https://huggingface.co/ggml-org/Qwen3-ASR-1.7B-GGUF/resolve/36a678687ba7d07a74ca70ccb0e36902e005fb80/Qwen3-ASR-1.7B-Q8_0.gguf"
+      },
+      {
+        "name": "mmproj-Qwen3-ASR-1.7B-Q8_0.gguf",
+        "bytes": 355709344,
+        "sha256": "46c1d533af3f354ceb37ce855dbceff7da7fa7cf1e6a523df3b13440bd164c0d",
+        "url": "https://huggingface.co/ggml-org/Qwen3-ASR-1.7B-GGUF/resolve/36a678687ba7d07a74ca70ccb0e36902e005fb80/mmproj-Qwen3-ASR-1.7B-Q8_0.gguf"
+      }
+    ],
+    "total_bytes": 2520744288,
+    "license_evidence": "PinnedofficialQwenbasecardApache2; GGUFcard namesbase; no converted-specificlicense or converterrevision explicitlypublished. No redistribution/Androidpromotion."
+  },
+  "source_sha256": {
+    "tools_server_server-common.cpp": "8ea2b7de77da8e67b5624e4583e27ffae200fd03a30969d64951feff31e6dab6",
+    "tools_server_server-task.cpp": "64d096b71189998891cdb2415c71360bd92ca1699b029c452b866b20711951d7",
+    "tools_server_server-context.cpp": "ed89eee1b5eeee82953e3d422cc640e686f674210609154291ec9a151dc2a06d",
+    "common_arg.cpp": "4fb47f8056cdc714d4b349b52e1fc5806249b0e1c4b056ba743e1afed2ed37d7",
+    "common_chat.cpp": "b937e5653cff917c2baa751b5c425674024cdb0847b52c51983cbcdd927f54b7",
+    "qwen_qwen_asr_inference_utils.py": "b37fb4140e6d9be85f2ecb1552ed16136eb98a57f44b402f8b0b213cb6df2a82",
+    "qwen_qwen_asr_inference_qwen3_asr.py": "0b1770f8e907b6c5a0a1e9ebce037cb63f48555f3cd15eaf6ea2078e9df41a7b",
+    "chat_template.json": "75a8cfca24f00de72d796fbfed6858fc9614ef3dabd8696684cc3bc03a9c58ff"
+  },
+  "limits": {
+    "address_space_bytes": 12884901888,
+    "cpu_threads": 4,
+    "startup_seconds": 90,
+    "request_seconds": 180,
+    "outer_benchmark_seconds": 300,
+    "output_bytes": 131072
+  },
+  "ancestry_limit": "Official GGUF card declares Qwen base and convert_hf_to_gguf.py; exact base revision, converter revision and quantization command are unpublished. Research only; no redistribution or Android promotion claim."
+}

@@ -1,0 +1,47 @@
+name: Vulkan tool preflight (diagnostic only)
+on:
+  push:
+    branches: [codex/lip-vulkan-preflight]
+permissions:
+  contents: read
+jobs:
+  diagnostic:
+    if: >-
+      github.repository == 'ihearttokyo/Lip' && github.event.repository.private == false &&
+      github.event_name == 'push' && contains(github.event.head_commit.message, '[vulkan-preflight]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Admit exact case-sensitive checked-out push and source pins
+        id: admit
+        env:
+          VULKAN_RUNNER_TEMP: ${{ runner.temp }}
+        run: python3 -B eval/vulkan_preflight.py admit
+      - name: Install only qualified NDK and CMake with sdkmanager
+        timeout-minutes: 21
+        env:
+          VULKAN_RUNNER_TEMP: ${{ runner.temp }}
+          VULKAN_EVIDENCE: ${{ steps.admit.outputs.evidence }}
+          VULKAN_SCRATCH: ${{ steps.admit.outputs.scratch }}
+        run: python3 -B eval/vulkan_preflight.py install
+      - name: Serial five-minute Linux tool, shader and Android header diagnostic
+        timeout-minutes: 6
+        env:
+          VULKAN_RUNNER_TEMP: ${{ runner.temp }}
+          VULKAN_EVIDENCE: ${{ steps.admit.outputs.evidence }}
+          VULKAN_SCRATCH: ${{ steps.admit.outputs.scratch }}
+        run: python3 -B eval/vulkan_preflight.py collect
+      - name: Retain bounded public diagnostic text, including failures
+        if: always() && steps.admit.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Lip-vulkan-preflight-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ steps.admit.outputs.evidence }}/*.json
+            ${{ steps.admit.outputs.evidence }}/*.txt
+          if-no-files-found: error
+          retention-days: 7

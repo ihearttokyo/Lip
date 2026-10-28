@@ -1,32 +1,59 @@
-# Development-source publication
+# Source delivery and artifact identity
 
-This source PR reconciles the previously unpublished Android and macOS work. It
-is not a claim that every feature is complete or that this post-release source
-exactly reproduces the historical build 50003 APK. In particular, future speech
-weight bundling is now prohibited; the new version ledger is still pending.
+Source reconciliation PRs **17 and 18 are merged**, at main commit
+`13d87e4439d38811a4c82a8bab747f1d7443d88c`. They include the local-first Android
+IME/Bark and macOS implementation plus Android 16+/ARM64 automatic Vulkan routing.
+This is no longer a pending source-reconciliation PR.
+
+The current **Lip v0.007** version-wiring candidate is reserved source, **not a
+published release**. Its audited allocation and cross-platform metadata rules
+are in [RELEASE-IDENTITY.md](RELEASE-IDENTITY.md) and the authoritative
+`build-iterations.json`. The history audit/tooling is implemented; a reserved
+identity is not proof of a signed artifact or completed release qualification.
+
+## What the repository preserves
 
 Android application/IME/native code, instrumentation and unit tests, desktop
 Swift sources/configuration, generation/evaluation tools, notices and required
-small runtime keyboard data are included. No speech model weights, personal
-histories, signing credentials, local build caches or validation recordings are
-included. A historical instrumentation WAV is withheld pending origin evidence;
-see app/src/androidTest/assets/README.md. This prevents replaying that historical
-audio test from a clean checkout until a properly provenanced input is supplied.
+small runtime keyboard data are included. No speech weights, personal histories,
+signing credentials, local build caches or validation recordings are included.
+A historical instrumentation WAV remains withheld pending origin evidence; see
+`app/src/androidTest/assets/README.md`. Replaying that historical audio test from
+a clean checkout requires a separately provenanced input.
 
-Starling and its already-patched GGML native dependency are vendored as a minimal
-source snapshot, with original licenses, base upstream commits and a per-file
-size/SHA manifest. This includes local lifecycle/model/device-policy fixes that
-were previously stranded inside dirty submodules. CMake verifies the snapshot
-read-only rather than running Git patch/index operations in the enclosing Lip
-checkout. Verification requires a POSIX build host; unsupported hosts fail closed.
-This protects integrity against drift, not authenticity of arbitrary manifest and
-source pairs. The ordinary upstream submodule mode is retained when no snapshot
-manifest exists. Optional legacy Whisper still uses its pinned submodule.
+Starling and its patched GGML dependency are a minimal vendored source snapshot,
+with original licenses, upstream commits and per-file size/SHA manifest, including
+checked lifecycle/model/device-policy fixes. CMake verifies it read-only rather
+than modifying Git patch/index state. The verifier requires a POSIX build host
+and fails closed on unsupported hosts. This checks drift, not authenticity of
+arbitrary replacement source/manifest pairs. Upstream submodule mode remains
+available when no snapshot manifest exists; optional legacy Whisper retains its
+pinned submodule. The Vulkan header closure is separately pinned and verified.
 
-Prior local evidence covers individual features; clean-checkout build/test and
-review of the reconciled aggregate remain separate merge gates. Full Gboard
-parity, measured swipe superiority, physical-phone/editor/microphone acceptance,
-macOS user verification, accelerator qualification, real ChatGPT/Claude sending
-and the full independent 9.2 release gate remain open. Third-party language-data
-provenance qualifications are preserved in their notices, not declared cleared
-by publication. No Tencent/WeChat artwork is included.
+Missing historical research and coupled helpers are preserved inertly under
+[`research/`](../research/README.md), with exact per-PR/head/blob/SHA identities.
+Superseded production is referenced, not restored. This is source-history
+preservation, not model adoption, active legacy workflows or permission to run
+old research/phone/cloud jobs.
+
+## Published download versus current source
+
+The public download remains **build 50003**,
+`0.5.0-preview.3-offline`, with its original URL, bundled weights and compatibility.
+The post-release merged source is **not established as an exact reproducible source
+match for that historical APK**. GitHub's automatic source archive is the selected
+repository revision, not a retroactive source/artifact attestation. No new APK or
+Mac installer is produced or published merely by merging source or version wiring.
+Future installers must omit speech weights and use separate explicit downloads.
+
+## Evidence and remaining gates
+
+Recorded aggregate/native build checks are scoped to their exact candidates; see
+[Android GPU build evidence](ANDROID-GPU-FIRST-2026-10-29.md). They do not prove
+physical Adreno inference, accelerator efficiency or the reserved v0.007 package.
+Full Gboard parity, measured swipe superiority, physical-phone/editor/microphone
+acceptance, macOS intended-use verification, Hexagon qualification, real
+ChatGPT/Claude sending, signed small-installer/update tests and the independent
+full 9.2 release gate remain open. Third-party language-data qualifications stay
+in their notices; source publication does not clear them. No Tencent/WeChat
+artwork is included.

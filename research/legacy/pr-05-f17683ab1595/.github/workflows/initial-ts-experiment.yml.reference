@@ -1,0 +1,40 @@
+name: Initial timestamp experiment
+on:
+  push:
+    branches: ['codex/lip-initial-timestamp']
+permissions:
+  contents: read
+concurrency:
+  group: lip-initial-ts-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  compare:
+    if: >-
+      github.repository == 'ihearttokyo/Lip' && github.event.repository.private == false &&
+      github.event_name == 'push' && github.ref == 'refs/heads/codex/lip-initial-timestamp' &&
+      contains(github.event.head_commit.message, '[initial-ts-canary]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          submodules: recursive
+          persist-credentials: false
+      - name: Check exact opt-in and hosted identity before any heavy work
+        id: exact
+        run: |
+          git log -1 --format=%B | grep -F '[initial-ts-canary]' >/dev/null
+          python3 -B eval/initial_ts_ci.py --preflight
+      - name: Contract tests only (no model inference)
+        run: python3 -B -m unittest discover -s eval -p 'test_initial_ts_ci.py' -v
+      - name: Matched CPU comparison (diagnostic, not Android acceptance)
+        run: python3 -B eval/initial_ts_ci.py
+      - name: Retain bounded public text only
+        if: always() && steps.exact.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Lip-initial-ts-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/lip-initial-ts-evidence/
+          if-no-files-found: warn
+          retention-days: 7
