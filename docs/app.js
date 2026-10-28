@@ -1,77 +1,61 @@
-'use strict';
-
-// Prepared illustrations only: no microphone, account, or network request.
-const examples = {
-  en: {
-    raw: 'so um i was thinking maybe we could grab coffee this afternoon and try the new bookshop in town',
-    polished: 'Want to grab coffee this afternoon? We could try the new bookshop in town.',
-    light: 'So, um, I was thinking maybe we could grab coffee this afternoon and try the new bookshop in town.'
-  },
-  ja: {
-    raw: 'えっと週末に新しい本屋に行ってそのあとコーヒー飲みませんか',
-    polished: '週末、新しい本屋に行ってからコーヒーを飲みませんか？',
-    light: 'えっと、週末に新しい本屋に行って、そのあとコーヒー飲みませんか？'
-  },
-  zh: {
-    raw: '那个我们下午三点见面去看看新开的书店然后喝杯咖啡吧',
-    polished: '我们下午三点见面，去看看新开的书店，再喝杯咖啡吧。',
-    light: '那个，我们下午三点见面，去看看新开的书店，然后喝杯咖啡吧。'
-  }
-};
-
-function demoText(language, style) {
-  const example = examples[language] || examples.en;
-  return style === 'verbatim' ? example.raw : example[style] || example.polished;
-}
-
-if (typeof document !== 'undefined') {
-  const language = document.getElementById('demo-language');
-  const styles = document.getElementById('demo-styles');
-  const copy = document.getElementById('copy-demo');
-  const clean = document.getElementById('demo-clean');
-  const feedback = document.getElementById('demo-feedback');
-  const disclaimer = feedback.textContent;
-  function render() {
-    const style = styles.querySelector('input:checked').value;
-    document.getElementById('demo-raw').textContent = examples[language.value].raw;
-    clean.textContent = demoText(language.value, style);
-    clean.lang = language.value;
-    document.getElementById('demo-raw').lang = language.value;
-    document.getElementById('demo-style-label').textContent = style[0].toUpperCase() + style.slice(1);
-    feedback.textContent = disclaimer;
-  }
-  language.disabled = styles.disabled = copy.disabled = false;
-  language.addEventListener('change', render);
-  styles.addEventListener('change', render);
-  render();
-  copy.addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText(clean.textContent);
-      feedback.textContent = 'Example copied. This is prepared text, not a live transcription.';
-    } catch {
-      const range = document.createRange();
-      range.selectNodeContents(clean);
-      const selection = window.getSelection();
-      selection.removeAllRanges();
-      selection.addRange(range);
-      feedback.textContent = 'Clipboard access is unavailable. The example is selected; use your browser’s Copy command.';
+/* Local gallery only. No speech demo, clipboard, storage, account or network API. */
+(() => {
+  if (typeof document === 'undefined') {
+    if (process.argv.includes('--self-test')) {
+      const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict');
+      const html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+      const readme = fs.readFileSync(path.join(__dirname, '..', 'README.md'), 'utf8');
+      const apk = 'https://github.com/ihearttokyo/Lip/releases/download/v0.5.0-preview.3-offline/Lip-0.5.0-preview.3-offline-universal.apk';
+      assert(html.includes(apk) && readme.includes(apk));
+      assert(html.includes('50003') && readme.includes('50003'));
+      for (const key of ['keyboard', 'emoji', 'gifs']) {
+        assert(html.includes(`id="capture-${key}"`));
+        assert(fs.statSync(path.join(__dirname, `assets/screens/${key}.png`)).size > 0);
+      }
+      assert(!html.includes('No qualified release download is offered here'));
+      assert(html.includes('not verified or enabled') && html.includes('small installer'));
+      console.log('PASS: release identity, download links, gallery assets and honest status');
     }
-  });
-  document.querySelectorAll('.mobile-nav a').forEach(link => {
-    link.addEventListener('click', () => { link.closest('details').open = false; });
-  });
-}
-
-if (typeof process !== 'undefined' && process.argv.includes('--self-test')) {
-  const assert = require('node:assert/strict');
-  assert.equal(demoText('en', 'polished'), 'Want to grab coffee this afternoon? We could try the new bookshop in town.');
-  const words = value => value.toLowerCase().replace(/[\p{P}\p{Z}\s]/gu, '');
-  for (const language of ['en', 'ja', 'zh']) {
-    assert.equal(demoText(language, 'verbatim'), examples[language].raw);
-    assert.notEqual(demoText(language, 'light'), examples[language].raw);
-    assert.equal(words(demoText(language, 'light')), words(examples[language].raw));
-    assert.notEqual(demoText(language, 'polished'), examples[language].raw);
+    return;
   }
-  assert.equal(demoText('unknown', 'unknown'), examples.en.polished);
-  console.log('PASS: prepared examples, verbatim/Light word preservation, language/style fallback');
-}
+  const captures = {
+    keyboard: { title: 'English keyboard', detail: 'Actual Android emulator capture · development build · synthetic editor. The page shows a keyboard detail; this is the unmodified full capture.', src: 'assets/screens/keyboard.png', alt: 'Full native Android development screenshot of Lip’s English keyboard and synthetic editor.' },
+    emoji: { title: 'Emoji skin-tone choices', detail: 'Actual Android emulator capture · development build · synthetic editor. Unicode glyphs are drawn by Android’s font.', src: 'assets/screens/emoji.png', alt: 'Full native Android development screenshot of six thumbs-up skin-tone choices in Lip.' },
+    gifs: { title: 'Local GIF search', detail: 'Actual Android emulator capture · development build · synthetic editor. Bundled Noto Emoji GIFs by Google, CC BY 4.0; small local catalog.', src: 'assets/screens/gifs.png', alt: 'Full native Android development screenshot of local GIF search in Lip.' }
+  };
+  const choices = document.querySelector('.gallery-choices');
+  if (choices) {
+    function select(value) {
+      if (!Object.hasOwn(captures, value)) return;
+      Object.keys(captures).forEach(key => { document.getElementById(`capture-${key}`).hidden = key !== value; });
+      document.getElementById('gallery-status').textContent = `Showing ${captures[value].title}. Actual Android emulator capture.`;
+    }
+    choices.addEventListener('change', event => { if (event.target.matches('input[name="capture"]')) select(event.target.value); });
+    select(choices.querySelector('input:checked').value);
+    choices.disabled = false;
+    document.documentElement.classList.add('js');
+  }
+  const dialog = document.getElementById('capture-dialog');
+  if (!dialog || typeof dialog.showModal !== 'function') return; // Plain image links remain functional.
+  let opener;
+  document.querySelectorAll('[data-capture]').forEach(link => {
+    link.addEventListener('click', event => {
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const capture = captures[link.dataset.capture];
+      if (!capture) return;
+      event.preventDefault(); opener = link;
+      document.getElementById('capture-title').textContent = capture.title;
+      document.getElementById('capture-detail').textContent = capture.detail;
+      const image = document.getElementById('full-capture'); image.src = capture.src; image.alt = capture.alt;
+      dialog.showModal(); dialog.scrollTop = 0;
+      document.getElementById('close-capture').focus();
+    });
+  });
+  document.getElementById('close-capture').addEventListener('click', () => dialog.close());
+  // The only focusable control in this image dialog is Close. Keep Tab/Shift-Tab
+  // on it; Escape and browser shortcuts retain their native behavior.
+  dialog.addEventListener('keydown', event => {
+    if (event.key === 'Tab') { event.preventDefault(); document.getElementById('close-capture').focus(); }
+  });
+  dialog.addEventListener('close', () => { if (opener && opener.isConnected) opener.focus(); });
+})();

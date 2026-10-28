@@ -1,0 +1,23 @@
+[
+  {
+    "file": "docs/assets/screens/keyboard.png",
+    "source": "validation/keyboard-preferences-20261027/insets-full-tall-glass.png",
+    "sha256": "7b22fc2c784f48f47f13f4fb91e28edea0d90c175a09103f069b720ba42fd01a",
+    "scope": "Native Android emulator, actual development keyboard; synthetic editor; full tall glass; not physical phone",
+    "presentation": "CSS detail crop only; full original available in dialog; no raster editing"
+  },
+  {
+    "file": "docs/assets/screens/emoji.png",
+    "source": "validation/emoji-variants-20261027/diagnostic/choices.png",
+    "sha256": "24e3c35d7e06b100837bbd29256872dd9d31ca003b3d8a87bec60e61bda0fbe4",
+    "scope": "Native Android emulator, actual Unicode skin-tone chooser; synthetic editor",
+    "presentation": "CSS detail crop only; full original available in dialog; no raster editing"
+  },
+  {
+    "file": "docs/assets/screens/gifs.png",
+    "source": "validation/gif-20261027/gif-search-results.png",
+    "sha256": "2b2c5eba3b0f645bb9ceab71cc87553bceeae2bf05017362ebb8d00e6912ee3d",
+    "scope": "Native Android emulator, actual bundled local GIF search; synthetic receiving editor",
+    "presentation": "CSS detail crop only; full original available in dialog; no raster editing"
+  }
+]
