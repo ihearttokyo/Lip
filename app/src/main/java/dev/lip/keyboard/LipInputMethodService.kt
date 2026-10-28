@@ -71,6 +71,7 @@ class LipInputMethodService : InputMethodService() {
         return StickerAttachContext(connection,cursor,stickerWindowToken,target,types,composingStart>=0||composingEnd>=0)
     }
     private fun requestStickerOriginal(asset:StickerAssetIdentity){
+        editBarrier()
         val controller=stickerAttachment?:StickerAttachmentController(this,session,::stickerAttachContext,
             {stickerPanel?.setAttachmentPending(stickerAttachment?.busy==true||stickerAttachContext()?.composing!=false)},
             {outcome->android.widget.Toast.makeText(this,when(outcome){
@@ -341,7 +342,9 @@ class LipInputMethodService : InputMethodService() {
         cancelKeyGestures();stopSwipe();cancelOwnedVoice()
         val accepted=runCatching{
             connection.finishComposingText()&&emojiPickOwner.claimedCurrent(ticket,currentInputConnection,emojiPanelToken,selectionStart,selectionEnd)&&
-                page==KeyboardPage.EMOJI&&isInputViewShown&&connection.commitText(item.sequence,1)
+                page==KeyboardPage.EMOJI&&isInputViewShown&&ownEdit(connection,item.sequence,ImeEditJournal.Kind.EMOJI){
+                    emojiPickOwner.claimedCurrent(ticket,currentInputConnection,emojiPanelToken,selectionStart,selectionEnd)&&connection.commitText(item.sequence,1)
+                }
         }.getOrDefault(false)
         val stillOwn=emojiPickOwner.claimedCurrent(ticket,currentInputConnection,emojiPanelToken,selectionStart,selectionEnd)
         if(session.editorGeneration()==ticket.generation.first)session.editorChanged() // Never invalidate a reentrant new editor.
@@ -364,6 +367,7 @@ class LipInputMethodService : InputMethodService() {
     private fun clearGifSearch(){if(gifSearch.active)gifKeysNeedRebind=true;gifSearch.clear()}
     private fun openGifs(){if(!policy().voice||dictation.busy)return;clearEmoji();gifSearch.finish();page=KeyboardPage.GIF;renderKeys();updateState()}
     private fun requestGif(item:GifItem){
+        editBarrier()
         if(gifOwner.current!=null||dictation.busy||!policy().voice||localSearchActive())return
         stopSwipe();cancelOwnedVoice()
         val connection=currentInputConnection?:return
@@ -406,7 +410,7 @@ class LipInputMethodService : InputMethodService() {
     private val clipboardListener=android.content.ClipboardManager.OnPrimaryClipChangedListener{captureClipboard()}
     private val historyScreenReceiver=object:android.content.BroadcastReceiver(){
         override fun onReceive(context:android.content.Context?,intent:Intent?){
-            if(intent?.action==Intent.ACTION_SCREEN_OFF){revokePersonalAccess();stopSwipe()}
+            if(intent?.action==Intent.ACTION_SCREEN_OFF){clearOwnedEdits();revokePersonalAccess();stopSwipe()}
             updateHistoryEligibility();history?.revalidateTime()
         }
     }
@@ -447,7 +451,7 @@ class LipInputMethodService : InputMethodService() {
         if(page!=KeyboardPage.CLIPBOARD||dictation.busy||!lease.canRun(currentInputConnection)||!historyContextAllowed())return
         val item=controller.item(id)?:return
         stopSwipe();cancelOwnedVoice();session.editorChanged()
-        currentInputConnection?.let{if(it.finishComposingText())it.commitText(item.text,1)} // Explicit saved-item tap; no clipboard write/retry.
+        currentInputConnection?.let{if(it.finishComposingText())ownEdit(it,item.text,ImeEditJournal.Kind.CLIP){lease.canRun(currentInputConnection)&&it.commitText(item.text,1)}} // Explicit saved-item tap; no clipboard write/retry.
     }
     private fun clipboardAvailability()=ClipboardActions.available(info?.inputType?:0,info?.imeOptions?:0,
         selectionStart,selectionEnd,currentInputConnection!=null)
@@ -457,6 +461,7 @@ class LipInputMethodService : InputMethodService() {
         if(page!=KeyboardPage.CLIPBOARD||dictation.busy||!lease.canRun(currentInputConnection)||
             !(if(copy)allowed.copy else allowed.paste))return
         stopSwipe();cancelOwnedVoice();session.editorChanged()
+        editBarrier()
         val dispatched=currentInputConnection?.performContextMenuAction(if(copy)android.R.id.copy else android.R.id.paste)==true
         android.widget.Toast.makeText(this,if(dispatched)"Clipboard action sent to editor" else "This editor did not accept the clipboard action",android.widget.Toast.LENGTH_SHORT).show()
         // Remote dispatch is not a host acknowledgement. Never retry or claim observed success.
@@ -475,6 +480,127 @@ class LipInputMethodService : InputMethodService() {
     private var debugConnectionOverride:InputConnection?=null
     private var debuggable=false
     override fun getCurrentInputConnection():InputConnection? = if(debuggable)debugConnectionOverride?:super.getCurrentInputConnection() else super.getCurrentInputConnection()
+    private val ownedEdits=ImeEditJournal()
+    private val editTransactions=ImeEditTransaction(ownedEdits){SystemClock.uptimeMillis()}
+    private var editContext:Any=Any()
+    private var editConnection:InputConnection?=null
+    private var editPopup:android.widget.PopupWindow?=null
+    private val editAckExpiry=Runnable{editTransactions.expireSelectionAcknowledgements()}
+    private val editReplayExpiry=Runnable{editTransactions.expirePendingReplay()}
+    private var editSelectionObservation=0L
+    private fun clearOwnedEdits(){
+        editPopup?.dismiss();editPopup=null
+        main.removeCallbacks(editAckExpiry);main.removeCallbacks(editReplayExpiry)
+        editConnection=null;editContext=Any();editTransactions.bind(editContext)
+    }
+    private fun editBarrier(){editPopup?.dismiss();editPopup=null;editTransactions.barrier()}
+    private fun ownedEditEligible():Boolean {
+        val interactive=getSystemService(android.os.PowerManager::class.java).isInteractive
+        val unlocked=!getSystemService(android.app.KeyguardManager::class.java).isDeviceLocked
+        return interactive&&unlocked&&!destroyed&&isInputViewShown&&!localSearchActive()&&policy().voice
+    }
+    private fun editPort(connection:InputConnection,allowComposition:Boolean=false):ImeEditTransaction.Port {
+        if(editConnection!==connection){editConnection=connection;editContext=Any();editTransactions.bind(editContext)}
+        val context=editContext;val epoch=session.editorGeneration()
+        return object:ImeEditTransaction.Port {
+            override fun eligible()=ownedEditEligible()&&editContext===context&&currentInputConnection===connection&&session.editorGeneration()==epoch&&
+                (allowComposition||composingStart<0&&composingEnd<0)
+            override fun read(before:Int,after:Int):ImeEditWindow? {
+                if(!eligible()||before !in 0..ImeEditTransaction.MAX_EDIT+32||after !in 0..ImeEditTransaction.MAX_EDIT+32||
+                    selectionStart<0||selectionEnd<0||kotlin.math.abs(selectionEnd-selectionStart)>ImeEditTransaction.MAX_EDIT)return null
+                val observation=editSelectionObservation;val observedStart=selectionStart;val observedEnd=selectionEnd
+                val value=connection.getSurroundingText(before,after,0)?:return null
+                if(value.offset<0||value.text.length>ImeEditTransaction.MAX_EDIT+64||value.selectionStart<0||value.selectionEnd<0||value.selectionStart>value.text.length||
+                    value.selectionEnd>value.text.length||value.offset>Int.MAX_VALUE-value.text.length)return null
+                val fresh=ImeEditWindow(value.offset,value.text.toString(),value.offset+value.selectionStart,value.offset+value.selectionEnd)
+                val current=eligible()
+                return ImeEditSelection.observed(fresh,observedStart,observedEnd,current&&observation==editSelectionObservation,observation)
+            }
+            override fun select(start:Int,end:Int)=eligible()&&connection.setSelection(start,end)
+            override fun selectionStamp()=editSelectionObservation
+            override fun selectObserved(start:Int,end:Int,beforeDispatch:(Long)->Boolean):Boolean {
+                if(!eligible())return false
+                // No IPC between this actual observation baseline and dispatch.
+                return beforeDispatch(editSelectionObservation)&&connection.setSelection(start,end)
+            }
+            override fun replace(text:String)=eligible()&&connection.finishComposingText()&&eligible()&&connection.commitText(text,1)
+        }
+    }
+    private fun ownEdit(connection:InputConnection,inserted:String,kind:ImeEditJournal.Kind,removeBefore:Int=0,range:IntRange?=null,
+        allowComposition:Boolean=false,originalSelection:Pair<Int,Int>?=null,dispatch:()->Boolean):Boolean {
+        val epoch=session.editorGeneration()
+        val accepted=editTransactions.edit(editPort(connection,allowComposition),inserted,kind,removeBefore,range,originalSelection){
+            val current=!destroyed&&currentInputConnection===connection&&session.editorGeneration()==epoch
+            current&&(allowComposition||connection.finishComposingText())&&
+                !destroyed&&currentInputConnection===connection&&session.editorGeneration()==epoch&&dispatch()
+        }
+        main.removeCallbacks(editAckExpiry);main.postDelayed(editAckExpiry,500)
+        return accepted
+    }
+    private fun showOwnedUndo(anchor:View){
+        if(!anchor.isAttachedToWindow||!isInputViewShown||localSearchActive())return
+        cancelKeyGestures();stopRepeat();stopSwipe();cancelOwnedVoice()
+        editPopup?.dismiss()
+        val connection=currentInputConnection?:return
+        if(!anchor.isAttachedToWindow||!isInputViewShown)return
+        val port=editPort(connection);val context=editContext
+        val anchorBounds=android.graphics.Rect();if(!anchor.getGlobalVisibleRect(anchorBounds))return
+        val anchorWindow=anchor.windowToken
+        fun anchorCurrent():Boolean {
+            val current=android.graphics.Rect()
+            return anchor.isAttachedToWindow&&anchor.windowToken===anchorWindow&&anchor.getGlobalVisibleRect(current)&&current==anchorBounds
+        }
+        val panel=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(8),dp(8),dp(8),dp(8));setBackgroundColor(KeyboardVisualTokens.BACKDROP)}
+        val row=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;layoutDirection=anchor.layoutDirection}
+        lateinit var popup:android.widget.PopupWindow
+        fun button(title:String,direction:ImeEditJournal.Direction,available:Boolean):GlassKeyButton = GlassKeyButton(this).apply{
+            this.text=title;contentDescription="$title last Lip-owned text edit";minimumHeight=dp(48);fitText(18)
+            isEnabled=available&&port.eligible()&&!dictation.busy&&!swipePending&&!editTransactions.busy
+            interactionAllowed={editPopup===popup&&popup.isShowing&&anchorCurrent()&&editContext===context&&port.eligible()}
+            setOnClickListener{
+                if(editPopup!==popup||!popup.isShowing||!anchorCurrent()||editContext!==context||!port.eligible())return@setOnClickListener
+                popup.dismiss() // Consume this actual button action before editor IPC.
+                val succeeded=editTransactions.replay(port,direction)
+                if(editTransactions.busy){main.removeCallbacks(editReplayExpiry);main.postDelayed(editReplayExpiry,250)}
+                session.editorChanged();clearCandidates()
+                main.removeCallbacks(editAckExpiry);main.postDelayed(editAckExpiry,500)
+                android.widget.Toast.makeText(this@LipInputMethodService,
+                    if(succeeded)"$title confirmed" else if(editTransactions.busy)"$title requested; waiting for editor selection confirmation" else "Local $title unavailable or unconfirmed; check the editor. No host-undo fallback.",android.widget.Toast.LENGTH_SHORT).show()
+                updateState()
+            }
+        }
+        row.addView(button("Undo",ImeEditJournal.Direction.UNDO,ownedEdits.canUndo),LinearLayout.LayoutParams(0,dp(48),1f))
+        row.addView(button("Redo",ImeEditJournal.Direction.REDO,ownedEdits.canRedo),LinearLayout.LayoutParams(0,dp(48),1f))
+        panel.addView(row)
+        panel.addView(label(when(editTransactions.notice){
+            ImeEditTransaction.Notice.RESOURCE->"Local undo paused: memory unavailable. Reopen the field to reset."
+            ImeEditTransaction.Notice.UNCONFIRMED->"Last edit unconfirmed; history cleared. Check the editor."
+            ImeEditTransaction.Notice.UNSUPPORTED->"This editor, composition or large edit could not be journaled."
+            else->"Lip-owned text only · RAM only · cleared on editor/privacy departure"
+        },11f))
+        popup=android.widget.PopupWindow(panel,minOf(dp(330),resources.displayMetrics.widthPixels-dp(16)),android.view.ViewGroup.LayoutParams.WRAP_CONTENT,true)
+        popup.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(KeyboardVisualTokens.BACKDROP));popup.isOutsideTouchable=true;popup.elevation=dp(8).toFloat()
+        val anchorLayout=android.view.ViewTreeObserver.OnGlobalLayoutListener{if(!anchorCurrent())popup.dismiss()}
+        anchor.viewTreeObserver.addOnGlobalLayoutListener(anchorLayout)
+        val anchorAttachment=object:View.OnAttachStateChangeListener{
+            override fun onViewAttachedToWindow(view:View){}
+            override fun onViewDetachedFromWindow(view:View){popup.dismiss()}
+        }
+        anchor.addOnAttachStateChangeListener(anchorAttachment)
+        popup.setOnDismissListener{
+            anchor.removeOnAttachStateChangeListener(anchorAttachment)
+            if(anchor.viewTreeObserver.isAlive)anchor.viewTreeObserver.removeOnGlobalLayoutListener(anchorLayout)
+            if(editPopup===popup)editPopup=null
+        }
+        panel.setOnTouchListener{_,event->if(event.actionMasked==android.view.MotionEvent.ACTION_CANCEL)popup.dismiss();false}
+        editPopup=popup
+        try{popup.showAsDropDown(anchor,0,-anchor.height)}catch(_:RuntimeException){
+            anchor.removeOnAttachStateChangeListener(anchorAttachment)
+            if(anchor.viewTreeObserver.isAlive)anchor.viewTreeObserver.removeOnGlobalLayoutListener(anchorLayout)
+            popup.dismiss();if(editPopup===popup)editPopup=null
+        }
+    }
+
     private val candidateOwner=SwipeCandidateOwner(session)
     private val nextWordOwner=NextWordOwner(session)
     private var nextWordEngine:NextWordSuggestions?=null
@@ -531,6 +657,7 @@ class LipInputMethodService : InputMethodService() {
         val pending=CandidateCorrection(state,replacement,connection,checkNotNull(cursor),automatic,vocabularyEpoch);correction=pending
         // RemoteInputConnection returns dispatch success, not the host's Boolean.
         // Only a matching editor-reported composing span can authorize the write.
+        editTransactions.expectComposition(state.start,state.end)
         if(!connection.setComposingRegion(state.start,state.end)){
             cancelCorrection();correctionFailed();return
         }
@@ -545,7 +672,12 @@ class LipInputMethodService : InputMethodService() {
         val valid=current==pending.cursor&&session.claimedContextCurrent(checkNotNull(state.ticket),current)&&
             connection.getTextBeforeCursor(state.inserted.length,0)?.toString()==state.inserted
         if(!valid){connection.finishComposingText();correctionFailed();return}
-        val accepted=connection.setComposingText(pending.replacement,1)
+        val accepted=ownEdit(connection,pending.replacement,ImeEditJournal.Kind.REPLACEMENT,range=state.start until state.end,allowComposition=true){
+            if(session.claimedContextCurrent(checkNotNull(state.ticket),candidateCursor(state,connection))&&composingStart==state.start&&composingEnd==state.end){
+                editTransactions.expectComposition(state.start,state.start+pending.replacement.length)
+                connection.setComposingText(pending.replacement,1)
+            }else false
+        }
         val cleaned=connection.finishComposingText()
         session.editorChanged()
         if(accepted&&cleaned)stageCandidates(state.base,pending.replacement,state.alternatives,connection,state.epoch,if(pending.automatic)CandidateOrigin.AUTO else state.origin.let{if(it==CandidateOrigin.AUTO)CandidateOrigin.TYPED else it},
@@ -582,9 +714,11 @@ class LipInputMethodService : InputMethodService() {
         if(!nextWordsAllowed()||nextWordOwner.current!==request||correction!=null||swipePending)return
         val connection=currentInputConnection?:return
         val cursor=typingCursor(connection)
-        val inserted=NextWordWriter.write(nextWordOwner,request,index,cursor,connection){
-            currentInputConnection===connection&&nextWordsAllowed()&&session.claimedContextCurrent(request.ticket,typingCursor(connection))
-        }
+        val word=nextWordOwner.claim(request,index,cursor,connection)?:return
+        val expectedText=SwipeTextFormat.insertion(word,checkNotNull(cursor),false,false,true)
+        val inserted=if(connection.finishComposingText()&&ownEdit(connection,expectedText,ImeEditJournal.Kind.NEXT_WORD){
+            currentInputConnection===connection&&nextWordsAllowed()&&session.claimedContextCurrent(request.ticket,typingCursor(connection))&&connection.commitText(expectedText,1)
+        })expectedText else null
         stopSwipe();session.editorChanged()
         if(inserted!=null)stageCandidates(checkNotNull(cursor),inserted,listOf(inserted),connection,session.editorGeneration()?:return,CandidateOrigin.TYPED,automaticAllowed=false)
         else android.widget.Toast.makeText(this,"Next-word insertion was not confirmed; check the editor",android.widget.Toast.LENGTH_SHORT).show()
@@ -781,7 +915,7 @@ class LipInputMethodService : InputMethodService() {
             val variation=(info?.inputType?:0) and 0xff0
             val text=SwipeTextFormat.insertion(word,request.ticket.cursor,capital,lockedCaps,variation !in setOf(0x10,0x20,0xd0))
             // A dispatch already claimed before a later vocabulary mutation may finish once.
-            val accepted=connection.commitText(text,1) // One consumed dispatch; no ambiguous retry.
+            val accepted=ownEdit(connection,text,ImeEditJournal.Kind.SWIPE){session.claimedContextCurrent(request.ticket,snapshot(connection))&&connection.commitText(text,1)} // One consumed dispatch; no ambiguous retry.
             session.editorChanged();swipePending=false
             val warning=if(accepted)null else "Check the editor; swipe insertion could not be confirmed"
             if(shift&&!caps){shift=false;renderKeys()}
@@ -811,6 +945,7 @@ class LipInputMethodService : InputMethodService() {
         updateHistoryEligibility()
     }
     override fun onDestroy() {
+        clearOwnedEdits()
         typingPreferences.unregisterOnSharedPreferenceChangeListener(vocabularyChanges)
         swipeVocabulary.unobserve(vocabularyMutation);revokePersonalAccess()
         dictation.unobserveCompletedForAgent(agentResultObserver)
@@ -829,6 +964,7 @@ class LipInputMethodService : InputMethodService() {
     }
     override fun onEvaluateFullscreenMode() = false
     override fun onStartInput(attribute: EditorInfo, restarting: Boolean) {
+        clearOwnedEdits()
         revokePersonalAccess()
         agentController?.bindUi(Any())
         val privateField = ImeFieldPolicy.forInput(attribute.inputType, attribute.imeOptions).protected ||
@@ -845,6 +981,7 @@ class LipInputMethodService : InputMethodService() {
         loadTyping();renderKeys(); updateState()
     }
     override fun onFinishInput() {
+        clearOwnedEdits()
         revokePersonalAccess()
         agentController?.bindUi(null)
         cancelKeyGestures()
@@ -870,6 +1007,7 @@ class LipInputMethodService : InputMethodService() {
         else if(page==KeyboardPage.CLIPBOARD||page==KeyboardPage.GIF||gifKeysNeedRebind||emojiKeysNeedRebind||page==KeyboardPage.EMOJI){renderKeys();updateState()}else keys?.invalidate()
     }
     override fun onFinishInputView(finishingInput: Boolean) {
+        clearOwnedEdits()
         revokePersonalAccess()
         agentController?.bindUi(null)
         cancelKeyGestures()
@@ -882,6 +1020,12 @@ class LipInputMethodService : InputMethodService() {
         super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
         wordDeleteTransaction?.selectionChanged(newSelStart,newSelEnd)
         val compositionChanged=composingStart!=candidatesStart||composingEnd!=candidatesEnd
+        editSelectionObservation++;selectionStart=newSelStart;selectionEnd=newSelEnd
+        if(oldSelStart!=newSelStart||oldSelEnd!=newSelEnd){
+            val owned=editConnection?.takeIf{it===currentInputConnection}
+            editTransactions.selection(newSelStart,newSelEnd,owned?.let{editPort(it,allowComposition=true)})
+        }
+        if(compositionChanged)editTransactions.composition(candidatesStart,candidatesEnd)
         if(compositionChanged||oldSelStart!=newSelStart||oldSelEnd!=newSelEnd)stickerAttachment?.cancel()
         if(compositionChanged)wordDeleteCancel?.invoke()
         composingStart=candidatesStart;composingEnd=candidatesEnd
@@ -921,6 +1065,7 @@ class LipInputMethodService : InputMethodService() {
         KeyboardPresentation.rowHeight(availableWidth.takeIf{w->w>0}?:it.widthPixels,it.heightPixels,it.density,landscape(),presentation.height)
     }
     override fun onCreateInputView(): View {
+        editPopup?.dismiss();editPopup=null
         revokePersonalAccess() // A newly-created input view never inherits a prior context token.
         agentController?.bindUi(Any())
         invalidateStickers()
@@ -968,10 +1113,8 @@ class LipInputMethodService : InputMethodService() {
         clipboardTool=tool(KeyIcon.CLIPBOARD, "Show clipboard actions and optional encrypted text history") {
             if(clipboardAvailability().paste&&!dictation.busy){clearEmoji();clearGifSearch();cancelOwnedVoice();page=KeyboardPage.CLIPBOARD;renderKeys();updateState()}
         }
-        undoTool=tool(KeyIcon.UNDO, "Undo edit; cancel pending Lip dictation") {
-            stopSwipe()
-            if (voiceTicket != null) cancelOwnedVoice()
-            else { session.editorChanged(); currentInputConnection?.performContextMenuAction(android.R.id.undo) }
+        undoTool=tool(KeyIcon.UNDO, "Show adjacent Lip-owned Undo and Redo; cancel pending dictation") {
+            undoTool?.let(::showOwnedUndo)
         }
         mic = tool(KeyIcon.MIC, "Record with the selected local Bark model") { toggleVoice() }.apply {
             background = DarkGlassDrawable(resources.displayMetrics.density, capsule = true, circle = true)
@@ -1035,6 +1178,7 @@ class LipInputMethodService : InputMethodService() {
     }
     private fun cursorGestureAllowed()=ImeFieldPolicy.manualCursor(info?.inputType?:0,selectionStart,selectionEnd)&&!swipePending&&!dictation.busy&&!localSearchActive()&&gifOwner.current==null&&isInputViewShown
     private fun cursorSteps(connection:InputConnection,lease:ImeRepeatLease,steps:Int):Boolean {
+        editBarrier()
         val code=if(steps<0)KeyEvent.KEYCODE_DPAD_LEFT else KeyEvent.KEYCODE_DPAD_RIGHT
         repeat(kotlin.math.abs(steps)){
             if(!cursorGestureAllowed()||!lease.canRun(currentInputConnection))return false
@@ -1199,8 +1343,14 @@ class LipInputMethodService : InputMethodService() {
                             transaction=WordDeleteTransaction(origin,starts,object:WordDeleteTransaction.Port{
                                 override fun valid()=lease?.canRun(currentInputConnection)==true&&view.isAttachedToWindow&&view.interactionAllowed()&&wordDeleteAllowed()
                                 override fun read()=if(valid())wordDeleteRead(conn) else null
-                                override fun select(start:Int,end:Int)=valid()&&conn.setSelection(start,end)
-                                override fun deleteSelection()=valid()&&conn.commitText("",1) // Exact selected span, single attempt; no markers/fallback.
+                                override fun select(start:Int,end:Int):Boolean {
+                                    if(!valid())return false
+                                    if(!editTransactions.expectSelection(start,end,ImeEditWindow(origin.offset,origin.text,origin.start,origin.end)))editBarrier()
+                                    val accepted=conn.setSelection(start,end)
+                                    if(!accepted)editBarrier()
+                                    return accepted
+                                }
+                                override fun deleteSelection()=valid()&&ownEdit(conn,"",ImeEditJournal.Kind.DELETE,originalSelection=origin.start to origin.end){valid()&&conn.commitText("",1)} // Exact selected span, single attempt; no markers/fallback.
                             },{SystemClock.uptimeMillis()},contactStarted)
                             wordDeleteTransaction=transaction
                         }
@@ -1428,7 +1578,7 @@ class LipInputMethodService : InputMethodService() {
         action("Turn off and erase","Turn off and erase clipboard history"){historyConfirmation.begin("off");renderHistoryArea()}
     }
     override fun onKeyDown(keyCode:Int,event:KeyEvent):Boolean{
-        if(!localSearchActive())return if(keyCode in gifConsumedHardwareKeys)true else super.onKeyDown(keyCode,event)
+        if(!localSearchActive()){editBarrier();return if(keyCode in gifConsumedHardwareKeys)true else super.onKeyDown(keyCode,event)}
         if(event.isSystem&&keyCode!=KeyEvent.KEYCODE_BACK)return super.onKeyDown(keyCode,event)
         if(keyCode in 0..KeyEvent.getMaxKeyCode())gifConsumedHardwareKeys.add(keyCode)
         when(keyCode){
@@ -1448,7 +1598,7 @@ class LipInputMethodService : InputMethodService() {
         return super.onKeyUp(keyCode,event)
     }
     override fun onKeyMultiple(keyCode:Int,count:Int,event:KeyEvent):Boolean{
-        if(!localSearchActive())return super.onKeyMultiple(keyCode,count,event)
+        if(!localSearchActive()){editBarrier();return super.onKeyMultiple(keyCode,count,event)}
         event.characters?.let(::appendQuery);updateState();return true
     }
     private fun type(value: String) {
@@ -1466,7 +1616,7 @@ class LipInputMethodService : InputMethodService() {
         stopSwipe();cancelOwnedVoice(); session.editorChanged()
         // A deliberate key inserts at the current caret. Finish markers first so a canceled,
         // late composing-region request cannot make this new key replace an earlier word.
-        val accepted=connection!=null&&connection.finishComposingText()&&connection.commitText(value,1)
+        val accepted=connection!=null&&connection.finishComposingText()&&ownEdit(connection,value,ImeEditJournal.Kind.TYPING){connection.commitText(value,1)}
         if(!accepted)android.widget.Toast.makeText(this,"Editor did not confirm the typing request",android.widget.Toast.LENGTH_SHORT).show()
         val epoch=session.editorGeneration()
         if (shift && !caps && value.any(Char::isLetter)) { shift = false; renderKeys() }
@@ -1485,16 +1635,16 @@ class LipInputMethodService : InputMethodService() {
         val connection = currentInputConnection ?: return
         if(!connection.finishComposingText())return // Explicit Delete targets the caret, never a late earlier composing span.
         if (owned==null&&selectionStart >= 0 && selectionEnd >= 0 && selectionStart != selectionEnd) {
-            connection.commitText("", 1); return // Explicit user's Delete key, not dictation replacement.
+            ownEdit(connection,"",ImeEditJournal.Kind.DELETE){connection.commitText("",1)}; return // Explicit user's Delete key, not dictation replacement.
         }
-        if (policy().protected) { connection.deleteSurroundingTextInCodePoints(1, 0); return }
+        if (!policy().voice) { editBarrier();connection.deleteSurroundingTextInCodePoints(1, 0); return }
         val before = connection.getTextBeforeCursor(64, 0)?.toString()
-        if (before.isNullOrEmpty()) { connection.deleteSurroundingTextInCodePoints(1, 0); return }
+        if (before.isNullOrEmpty()) { editBarrier();connection.deleteSurroundingTextInCodePoints(1, 0); return }
         val iterator = BreakIterator.getCharacterInstance(); iterator.setText(before)
         val boundary = iterator.preceding(before.length)
         if (boundary >= 0){
             val removed=before.length-boundary
-            val accepted=connection.deleteSurroundingText(removed,0)
+            val accepted=ownEdit(connection,"",ImeEditJournal.Kind.DELETE,removeBefore=removed){connection.deleteSurroundingText(removed,0)}
             val remaining=owned?.inserted?.dropLast(removed)
             val epoch=session.editorGeneration()
             if(accepted&&owned!=null&&connection===ownedConnection&&epoch==owned.epoch&&!remaining.isNullOrEmpty()&&
@@ -1516,11 +1666,13 @@ class LipInputMethodService : InputMethodService() {
         if(!connection.finishComposingText())return // Explicit Enter/action must not replace a late earlier span.
         val action = resolvedAction()
         if (action.actionId != null) {
+            editBarrier()
             connection.performEditorAction(action.actionId) // Only an explicit user's action-key tap.
         } else if (attribute.inputType == InputType.TYPE_NULL) {
+            editBarrier()
             connection.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
             connection.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
-        } else connection.commitText("\n", 1)
+        } else ownEdit(connection,"\n",ImeEditJournal.Kind.NEWLINE){connection.commitText("\n",1)}
     }
     private fun candidateCursor(state:SwipeCandidateState,connection:InputConnection)=
         if(state.origin==CandidateOrigin.SWIPE)snapshot(connection) else typingCursor(connection)
@@ -1556,7 +1708,7 @@ class LipInputMethodService : InputMethodService() {
                 !session.claim(ticket, snapshot(connection))) { voiceTicket = null; done(false) }
             else {
                 voiceTicket = null // Own selection callback must not cancel the already dispatched operation.
-                val accepted = ImeVoiceTextWriter.write(connection,text)
+                val accepted = ownEdit(connection,text,ImeEditJournal.Kind.DICTATION){session.claimedContextCurrent(ticket,snapshot(connection))&&connection.commitText(text,1)}
                 session.editorChanged()
                 if (!accepted) done(false) // A false return can still be ambiguous: no retry/fallback.
                 else main.postDelayed({
@@ -1612,6 +1764,7 @@ class LipInputMethodService : InputMethodService() {
         if (!dictation.busy) voiceTicket = null
     }
     override fun onWindowHidden() {
+        clearOwnedEdits()
         revokePersonalAccess()
         agentController?.bindUi(null)
         cancelKeyGestures()

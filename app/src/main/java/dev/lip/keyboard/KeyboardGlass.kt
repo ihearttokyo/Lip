@@ -103,7 +103,7 @@ object GlassMaterial {
     """
 }
 
-enum class KeyIcon { NONE, SHIFT, SHIFT_ON, CAPS, DELETE, MIC, STOP, MENU, TRANSLATE, FACE, GIF, CLIPBOARD, UNDO, ENTER, DONE, SEARCH, SPACE, PERSON, LEAF, FOOD, PLANE, BALL, BULB, FLAG, RECENT, AGENT }
+enum class KeyIcon { NONE, SHIFT, SHIFT_ON, CAPS, DELETE, MIC, STOP, MENU, TRANSLATE, FACE, GIF, CLIPBOARD, UNDO, REDO, ENTER, DONE, SEARCH, SPACE, PERSON, LEAF, FOOD, PLANE, BALL, BULB, FLAG, RECENT, AGENT }
 
 class GlassKeyButton(context: Context, capsule: Boolean = false, private val flat: Boolean = false) : Button(context) {
     var interactionAllowed:()->Boolean={true}
@@ -192,6 +192,7 @@ class GlassKeyButton(context: Context, capsule: Boolean = false, private val fla
                 KeyIcon.FLAG -> { canvas.drawPath(Path().apply{moveTo(6f,26f);lineTo(6f,3f);lineTo(23f,3f);lineTo(18f,9f);lineTo(23f,15f);lineTo(6f,15f)},ink) }
                 KeyIcon.RECENT -> { canvas.drawCircle(14f,14f,11f,ink);canvas.drawLine(14f,6f,14f,14f,ink);canvas.drawLine(14f,14f,20f,17f,ink) }
                 KeyIcon.CLIPBOARD -> { canvas.drawRoundRect(6f,5f,22f,25f,2f,2f,ink);canvas.drawRoundRect(10f,2f,18f,7f,1.5f,1.5f,ink);for(y in listOf(12f,17f,21f))canvas.drawLine(10f,y,18f,y,ink) }
+                KeyIcon.REDO -> { canvas.save();canvas.scale(-1f,1f,14f,14f);canvas.drawArc(6f,8f,24f,24f,-140f,260f,false,ink);canvas.drawLine(4f,9f,4f,16f,ink);canvas.drawLine(4f,16f,11f,16f,ink);canvas.restore() }
                 KeyIcon.UNDO -> { canvas.drawArc(6f,8f,24f,24f,-140f,260f,false,ink);canvas.drawLine(4f,9f,4f,16f,ink);canvas.drawLine(4f,16f,11f,16f,ink) }
                 KeyIcon.SPACE -> { canvas.drawPath(Path().apply { moveTo(4f,11f);lineTo(4f,18f);lineTo(24f,18f);lineTo(24f,11f) },ink) }
                 KeyIcon.ENTER -> { canvas.drawPath(Path().apply { moveTo(24f,6f);lineTo(24f,17f);lineTo(5f,17f);moveTo(11f,10f);lineTo(4f,17f);lineTo(11f,24f) },ink) }
