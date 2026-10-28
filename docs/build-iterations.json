@@ -87,6 +87,11 @@
       "ordinal": 11,
       "candidate": "owned-text-undo-redo",
       "status": "reserved"
+    },
+    {
+      "ordinal": 12,
+      "candidate": "macos-agent-finish-shortcut",
+      "status": "reserved"
     }
   ]
 }
