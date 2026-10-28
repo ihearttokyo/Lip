@@ -425,6 +425,7 @@ class MainActivity : Activity() {
         picker(page, "Cleanup style", listOf("polished", "light", "verbatim"), listOf("Local commands", "Raw", "Verbatim"), store.style) { store.style = it }
         page.addSpaced(label("Local commands applies only explicit whole-line format commands. Raw and Verbatim preserve the recognized text. Clean provides model-native filler/restart removal; there is no separate AI editor, account or network cleanup.", 13f))
         page.addSpaced(action("Keyboard layout, material & haptics") { startActivity(Intent(this,dev.lip.keyboard.KeyboardSettingsActivity::class.java)) })
+        page.addSpaced(action("Manage local sticker packs") { startActivity(Intent(this,dev.lip.stickers.StickerPacksActivity::class.java)) })
         toggle("Keyboard typing and next-word suggestions",store.typingSuggestions){store.typingSuggestions=it}
         toggle("Keyboard autocorrect at word boundaries",store.typingAutocorrect){store.typingAutocorrect=it}
         toggle("Insert automatically", store.autoInsert) { store.autoInsert = it }

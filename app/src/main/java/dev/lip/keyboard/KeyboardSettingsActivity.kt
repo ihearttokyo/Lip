@@ -59,13 +59,17 @@ class KeyboardSettingsActivity:Activity() {
         }
         column.addView(label("System follows Android's font size. Larger labels fit within each key; emoji previews fit the available window. This changes the picker, not emoji size in messages.",14f))
         if(StickerBrowserFeature.enabled(this)){
+            column.addView(GlassKeyButton(this,capsule=true).apply{
+                text="Manage local sticker packs";contentDescription="Manage local sticker packs"
+                setOnClickListener{startActivity(android.content.Intent(this@KeyboardSettingsActivity,dev.lip.stickers.StickerPacksActivity::class.java))}
+            })
             val stickerStore=StickerPreferencesStore(this)
             choices("Sticker preview size",KeyboardScale.entries,stickerStore.load(),{it.label}){scale->
                 if(!rendering&&!stickerStore.save(scale)){
                     Toast.makeText(this,"Sticker size could not be saved",Toast.LENGTH_LONG).show();render()
                 }
             }
-            column.addView(label("Changes local sticker browsing only—not original image resolution or the size in another app. Later-major preview; no sending yet.",14f))
+            column.addView(label("Changes local sticker browsing only—not original image resolution or recipient size. Import only files you may use; rights declarations are not verified.",14f))
         }
         choices("Material",KeyboardTheme.entries,value.theme,{it.label}){save(value.copy(theme=it))}
         column.addView(Switch(this).apply{

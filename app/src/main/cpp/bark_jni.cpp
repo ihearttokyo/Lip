@@ -123,3 +123,49 @@ Java_dev_lip_speech_BundledModelPublisher_publishNoReplace(JNIEnv* env, jobject,
 #endif
     } catch (...) { return ENOMEM; }
 }
+
+// Root-bound reversible sticker management only. Never use absolute child paths:
+// a concurrent replacement of the named root cannot retarget this held dirfd.
+#include <sys/stat.h>
+extern "C" JNIEXPORT jint JNICALL
+Java_dev_lip_stickers_RootedStickerRename_renameAt(JNIEnv* env, jobject,
+                                                 jbyteArray rootBytes, jlong expectedDev, jlong expectedIno,
+                                                 jbyteArray fromBytes, jbyteArray toBytes) {
+    if (!rootBytes || !fromBytes || !toBytes) return EINVAL;
+    try {
+        const auto root = bytes(env, rootBytes);
+        if (env->ExceptionCheck()) return ENOMEM;
+        const auto from = bytes(env, fromBytes);
+        if (env->ExceptionCheck()) return ENOMEM;
+        const auto to = bytes(env, toBytes);
+        if (env->ExceptionCheck()) return ENOMEM;
+        auto valid = [](const std::string& name) {
+            const size_t prefix = name.compare(0, 7, "commit-") == 0 ? 7 : name.compare(0, 4, "bin-") == 0 ? 4 : 0;
+            if (!prefix || name.size() != prefix + 36) return false;
+            for (size_t i = 0; i < 36; ++i) {
+                const char c = name[prefix + i];
+                if (i == 8 || i == 13 || i == 18 || i == 23) { if (c != '-') return false; }
+                else if (!((c >= 'a' && c <= 'f') || (c >= '0' && c <= '9'))) return false;
+            }
+            return true;
+        };
+        if (root.size() < 2 || root.size() > 4095 || root.front() != '/' || root.find('\0') != std::string::npos ||
+            !valid(from) || !valid(to) || from == to ||
+            (from.compare(0, 7, "commit-") == 0) == (to.compare(0, 7, "commit-") == 0) ||
+            from.substr(from.find('-') + 1) != to.substr(to.find('-') + 1)) return EINVAL;
+#if defined(__NR_renameat2)
+        const int fd = open(root.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
+        if (fd < 0) return errno;
+        struct stat state {};
+        int result = 0;
+        if (fstat(fd, &state) != 0) result = errno;
+        else if (!S_ISDIR(state.st_mode) || static_cast<uint64_t>(state.st_dev) != static_cast<uint64_t>(expectedDev) ||
+                 static_cast<uint64_t>(state.st_ino) != static_cast<uint64_t>(expectedIno)) result = ESTALE;
+        else if (syscall(__NR_renameat2, fd, from.c_str(), fd, to.c_str(), 1 /* RENAME_NOREPLACE */) != 0) result = errno;
+        close(fd);
+        return result;
+#else
+        return ENOSYS;
+#endif
+    } catch (...) { return ENOMEM; }
+}

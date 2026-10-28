@@ -12,11 +12,13 @@
             android:exported="false" android:grantUriPermissions="true" />
         <provider android:name=".keyboard.StickerContentProvider" android:authorities="${applicationId}.sticker-handoff"
             android:enabled="${stickerFixtureEnabled}" android:exported="false" android:grantUriPermissions="true" />
+        <provider android:name=".keyboard.ProductionStickerContentProvider" android:authorities="${applicationId}.sticker-originals"
+            android:enabled="true" android:exported="false" android:grantUriPermissions="true" />
         <service android:name=".stickers.StickerDecodeService" android:exported="false" android:isolatedProcess="true" android:process=":sticker_decode" />
         <activity android:name=".keyboard.KeyboardSettingsActivity" android:exported="false" />
-        <!-- Unlinked later-major UI; only an explicit isolated fixture build enables it. -->
+        <!-- Explicit local user-document manager, available in normal builds. -->
         <activity android:name=".stickers.StickerPacksActivity" android:exported="false"
-            android:enabled="${stickerFixtureEnabled}" android:theme="@style/Theme.Lip.Stickers" />
+            android:enabled="true" android:theme="@style/Theme.Lip.Stickers" />
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

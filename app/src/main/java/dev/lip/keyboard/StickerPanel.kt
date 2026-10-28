@@ -52,16 +52,23 @@ internal sealed class StickerPanelState {
     }
 }
 
-/** Fixture-gated caller supplies one immutable bounded page. No I/O, decoder, delivery or activation.
+/** Ordinary local browser receives one immutable bounded page. No I/O or decoder.
+ * Explicit original requests use a production route; the older isolated fixture
+ * transport stays separate. Pixels never grant artwork rights.
  * baseHeightPx is a base pixel budget, NOT an absolute cap: measured first-row/chrome
  * expansion remains bounded by the actual parent MeasureSpec and display cap.
  */
 internal class StickerPanel(context:Context,baseHeightPx:Int,state:StickerPanelState,previewSize:KeyboardScale,
     back:()->Unit,manage:()->Unit,library:()->Unit,selectPack:(String)->Unit,previous:()->Unit,next:()->Unit,
     attach:((StickerAssetIdentity)->Unit)?=null,
+    private val captureAttachment:((StickerAssetIdentity,()->Boolean)->(()->Unit)?)?=null,
+    private val cancelAttachment:()->Unit={},
 ):LinearLayout(context),AutoCloseable {
     private var closed=false
     private var binding:Any?=Any()
+    private val contactOwner=StickerPanelContact()
+    private val touchGate=StickerPanelTouchGate()
+    private val contacts=java.util.IdentityHashMap<View,StickerPanelContact.Ticket>()
     private val baseHeight=baseHeightPx
     private val header:LinearLayout
     private val intro:LinearLayout
@@ -115,7 +122,7 @@ internal class StickerPanel(context:Context,baseHeightPx:Int,state:StickerPanelS
         }
         val attachmentAllowed=attach!=null&&state is StickerPanelState.Pack&&state.previews.any{it.asset!=null}
         val disclosure=if(attachmentAllowed)
-            "Tap a sticker to request its original in the owned test editor. Rights are UNVERIFIED. No Send, activation, high-resolution or animated-playback claim."
+            "Tap a sticker to request its original in the receiving app. Lip does not press Send; that app controls what happens next. Rights UNVERIFIED. Preview size does not change the recipient image size; no high-resolution or animated-playback claim."
             else "Browse only. Rights are UNVERIFIED. No sending, activation, high-resolution or animated-playback claim."
         intro.addView(label(disclosure,"disclosure",12f),LayoutParams(-1,-2))
         intro.addView(button("Manage packs","Manage local sticker packs",action=manage),LayoutParams(-1,-2))
@@ -150,8 +157,7 @@ internal class StickerPanel(context:Context,baseHeightPx:Int,state:StickerPanelS
                             if(eligible){minimumHeight=pixels(48);minimumWidth=pixels(48);contentDescription="Request original sticker ${preview.title}"}
                         }
                         if(asset!=null&&attach!=null){
-                            val token=binding
-                            tile.setOnClickListener{if(!attachmentPending&&active(tile,token))attach(asset)}
+                            bindAttachment(tile,asset,attach)
                         }
                         val image=ImageView(context).apply{
                             tag="lip:sticker:preview";contentDescription="Static sticker preview ${preview.title}"
@@ -174,6 +180,59 @@ internal class StickerPanel(context:Context,baseHeightPx:Int,state:StickerPanelS
         }
         val scroll=ScrollView(context).apply{tag="lip:sticker:scroll";contentDescription="Local sticker browser results";addView(content)}
         addView(scroll,LayoutParams(-1,0,1f))
+    }
+    /** Capture context at DOWN, not at a later native onClick. A11y/key activation
+     * has its own explicit entry, never a fallback from a stale physical click.
+     */
+    private fun bindAttachment(tile:View,asset:StickerAssetIdentity,attach:(StickerAssetIdentity)->Unit){
+        val bindingToken=binding
+        fun capture(){
+            eligibleImageTiles.forEach{it.cancelPendingInputEvents();it.isPressed=false}
+            tile.cancelPendingInputEvents()
+            contactOwner.cancel();contacts.clear()
+            if(attachmentPending||touchGate.blocked||!active(tile,bindingToken))return
+            val epoch=contactOwner.snapshot()
+            val current={contactOwner.isCurrent(epoch)&&!attachmentPending&&!touchGate.blocked&&active(tile,bindingToken)}
+            val invoke=if(captureAttachment!=null)captureAttachment.invoke(asset,current) else ({if(current())attach(asset)})
+            if(invoke!=null&&current())contactOwner.bind(epoch,invoke)?.let{contacts[tile]=it}
+        }
+        fun click(){
+            val ticket=contacts.remove(tile)?:return
+            if(!attachmentPending&&!touchGate.blocked&&active(tile,bindingToken))contactOwner.claim(ticket)?.invoke()
+        }
+        tile.setOnTouchListener{_,event->
+            when(event.actionMasked){
+                android.view.MotionEvent.ACTION_DOWN->capture()
+                android.view.MotionEvent.ACTION_MOVE,android.view.MotionEvent.ACTION_UP->{
+                    if(event.x<0||event.y<0||event.x>=tile.width||event.y>=tile.height){contactOwner.cancel();contacts.clear();tile.cancelPendingInputEvents();tile.isPressed=false;return@setOnTouchListener true}
+                }
+                android.view.MotionEvent.ACTION_CANCEL,android.view.MotionEvent.ACTION_POINTER_DOWN,android.view.MotionEvent.ACTION_POINTER_UP->{contactOwner.cancel();contacts.clear();tile.cancelPendingInputEvents();tile.isPressed=false;return@setOnTouchListener true}
+            };false
+        }
+        tile.setOnClickListener{click()}
+        tile.setOnKeyListener{_,code,event->
+            if(code!=android.view.KeyEvent.KEYCODE_ENTER&&code!=android.view.KeyEvent.KEYCODE_DPAD_CENTER&&code!=android.view.KeyEvent.KEYCODE_SPACE)return@setOnKeyListener false
+            if(event.action==android.view.KeyEvent.ACTION_DOWN&&event.repeatCount==0)capture()
+            false
+        }
+        tile.accessibilityDelegate=object:View.AccessibilityDelegate(){
+            override fun performAccessibilityAction(host:View,action:Int,args:android.os.Bundle?):Boolean {
+                if(action!=android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)return super.performAccessibilityAction(host,action,args)
+                if(attachmentPending||touchGate.blocked||!active(tile,bindingToken))return false
+                capture();val admitted=contacts.containsKey(tile);click();return admitted
+            }
+        }
+    }
+    override fun dispatchTouchEvent(event:android.view.MotionEvent):Boolean {
+        if(closed)return true
+        val decision=touchGate.event(event.pointerCount,event.actionMasked==android.view.MotionEvent.ACTION_UP,event.actionMasked==android.view.MotionEvent.ACTION_CANCEL)
+        if(decision.cancel){
+            contactOwner.cancel();contacts.clear();cancelAttachment()
+            eligibleImageTiles.forEach{it.cancelPendingInputEvents();it.isPressed=false}
+            if(decision.consume){val cancel=android.view.MotionEvent.obtain(event)
+                try{cancel.action=android.view.MotionEvent.ACTION_CANCEL;super.dispatchTouchEvent(cancel)}finally{cancel.recycle()}}
+        }
+        return if(decision.consume)true else super.dispatchTouchEvent(event)
     }
     private fun pagination(hasPrevious:Boolean,hasNext:Boolean,previous:()->Unit,next:()->Unit){
         content.addView(button("Previous","Previous sticker browser page",hasPrevious,previous),LayoutParams(-1,-2))
@@ -206,12 +265,13 @@ internal class StickerPanel(context:Context,baseHeightPx:Int,state:StickerPanelS
     fun setAttachmentPending(value:Boolean){
         if(closed)return
         attachmentPending=value
+        if(value){contactOwner.cancel();contacts.clear()}
         eligibleImageTiles.forEach{it.isEnabled=!value}
     }
     override fun onDetachedFromWindow(){close();super.onDetachedFromWindow()}
     override fun close(){
         if(closed)return
-        closed=true;binding=null
+        closed=true;binding=null;contactOwner.cancel();contacts.clear();cancelAttachment()
         eligibleImageTiles.forEach{it.isEnabled=false};eligibleImageTiles.clear()
         images.forEach{(view,bitmap)->view.setImageDrawable(null);if(!bitmap.isRecycled)bitmap.recycle()};images.clear()
     }
