@@ -124,9 +124,9 @@ class ReleaseIdentityTest(unittest.TestCase):
                 target.write_bytes((ROOT / name).read_bytes())
             git('add', '.'); git('commit', '-qm', 'synthetic committed source')
             commit = git('rev-parse', 'HEAD')
-            info = r.identity(self.data)
+            info = r.identity(self.actual)
             artifact = owned / info['android_apk']; artifact.write_bytes(b'PUBLIC_SYNTHETIC_BINDING_BYTES_NOT_AN_APK')
-            binding = r.build_binding(root, self.data, commit, [artifact])
+            binding = r.build_binding(root, self.actual, commit, [artifact])
             self.assertEqual(binding['source_commit'], commit)
             self.assertEqual(binding['production_state_sha256'], r.source_identity(root, commit))
             self.assertEqual(binding['artifacts'][0]['name'], info['android_apk'])
@@ -150,7 +150,7 @@ class ReleaseIdentityTest(unittest.TestCase):
             # This path is not part of the explicit main production projection.
             (root / 'app/src/main').mkdir(parents=True)
             (root / 'app/src/main/Injected.kt').write_text('PUBLIC_SYNTHETIC')
-            with self.assertRaises(ValueError): r.build_binding(root, self.data, commit)
+            with self.assertRaises(ValueError): r.build_binding(root, self.actual, commit)
 
     def test_mutators_read_ledger_only_after_exclusive_lock(self):
         # Deterministic interleaving: B reaches lock acquisition; A has just

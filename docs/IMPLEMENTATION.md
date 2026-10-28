@@ -2,7 +2,7 @@
 
 This replaces the original Android 13/cloud-OAuth/bubble-only contract. Source
 PRs 17 and 18 are merged at `13d87e4439d38811a4c82a8bab747f1d7443d88c`.
-The next **Lip v0.007** identity is reserved source, not a published installer;
+The next **Lip v0.008** identity is reserved source, not a published installer;
 see [release identity](RELEASE-IDENTITY.md). Historical validation/research receipts
 describe their original candidates, not automatic acceptance of current main.
 
@@ -76,7 +76,7 @@ Translation, including a future optional ChatGPT backend, remains future work.
 
 Source/build/synthetic/emulator/physical evidence are distinct. The recorded
 ARM64/API36 CPU+Vulkan build and aggregate checks are scoped implementation
-evidence, not GPU execution or acceptance of the reserved v0.007 package.
+evidence, not GPU execution or acceptance of the reserved v0.008 package.
 Still open: physical microphone/editor matrix, matched GPU/CPU quality/latency/
 memory/power, Hexagon support, macOS intended-use verification, full Gboard parity,
 measured swipe superiority, real provider delivery, signed small-installer/update

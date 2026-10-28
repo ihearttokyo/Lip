@@ -19,7 +19,7 @@ Reference: NULL CHOIR docs/MAJOR-UPGRADE-PLAN-2026-10-26.md, “One release iden
 - Preserve existing release names/URLs/rollback, bundle/application IDs, user data and downloaded models.
 - Keep Android versionCode strictly above published 50003; map monotonically from the ledger rather than reducing it to the displayed ordinal. macOS build metadata must remain valid/monotonic.
 
-Implemented in the current source candidate: the history audit and authoritative ledger/tooling reserve **Lip v0.007** (Android versionCode50004, macOS build11), without claiming a lifetime iteration count. See [RELEASE-IDENTITY.md](RELEASE-IDENTITY.md) for allocation, metadata enforcement and post-commit source/artifact binding. This is reserved/unreleased source, not a new download. Small-installer signing, packaging, update and model-download end-to-end qualification remain separate gates. Published50003 is unchanged.
+Implemented in the current source candidate: the history audit and authoritative ledger/tooling reserve **Lip v0.008** (Android versionCode50005, macOS build12), without claiming a lifetime iteration count. See [RELEASE-IDENTITY.md](RELEASE-IDENTITY.md) for allocation, metadata enforcement and post-commit source/artifact binding. This is reserved/unreleased source, not a new download. Small-installer signing, packaging, update and model-download end-to-end qualification remain separate gates. Published50003 is unchanged.
 
 ## Updated target hardware and delivery priorities
 - Future Android builds: Android 16/API36+, ARM64 only. No x86_64 release artifacts.
