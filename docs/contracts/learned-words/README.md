@@ -80,7 +80,9 @@ actual typed suggestions and autocorrect protection. The personal prefix index
 supports the contract's100,000 entries without scanning the entire personal list
 on every keystroke. Other approved entries are retained for export, but phrases,
 other scripts and imported weights are not yet supported by the typing ranker.
-This does **not** add personal terms to neural swipe decoding or Bark recognition.
+Eligible imported/manual English terms now also join the [actual neural swipe
+lexicon](../../PERSONAL-NEURAL-SWIPE.md), with preserved base priors, explicit
+40-key-path eligibility and no model-weight training. This does not bias Bark.
 If portable storage cannot be read, base/manual suggestions remain available but
 automatic correction is disabled until personal protection is available again.
 Returning to the keyboard reloads vocabulary; protected/no-learning fields do not
@@ -108,5 +110,8 @@ category ranges. The Python reference remains the oracle. See bundled provenance
 [Unicode license](https://www.unicode.org/license.txt) and
 [Python license](https://docs.python.org/3.14/license.html); the original notices
 accompany the app resource. This is not a Python runtime or a speech-model bundle.
-The Android adapter still checks its real ICU16 contract; future Android Unicode
-versions require pinned-adapter support rather than silent reinterpretation.
+Android now bundles the same pinned tables via Java resources; its default codec
+does not reinterpret data using newer OS Unicode tables. The old real ICU adapter
+is retained only as a comparator, not a fallback. Actual packaged resource lookup
+passes in the owned API36 emulator; future OS/device behavior remains a separate
+qualification, and Unicode17-only characters are still refused by the v1 contract.

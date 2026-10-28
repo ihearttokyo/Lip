@@ -67,3 +67,7 @@ Next requirements remain: actual Mac UI/Keychain/private-spell/editor evidence,
 Android future-Unicode adapter, portable/manual combined backup, history-export
 candidate extraction, personal swipe integration and provider round trips. No
 physical-phone/installed-Mac test hold, permission or release gate was lifted.
+
+Subsequent Android source now adds [personal neural swipe](PERSONAL-NEURAL-SWIPE.md)
+and shares the pinned Unicode16 resource. The Mac-side spelling consumer remains
+Review-only; no retrospective GUI/Keychain or full-product acceptance is claimed.

@@ -405,7 +405,10 @@ class LipInputMethodService : InputMethodService() {
     private var historyCaptureAfter=Long.MAX_VALUE
     private val clipboardListener=android.content.ClipboardManager.OnPrimaryClipChangedListener{captureClipboard()}
     private val historyScreenReceiver=object:android.content.BroadcastReceiver(){
-        override fun onReceive(context:android.content.Context?,intent:Intent?){updateHistoryEligibility();history?.revalidateTime()}
+        override fun onReceive(context:android.content.Context?,intent:Intent?){
+            if(intent?.action==Intent.ACTION_SCREEN_OFF){revokePersonalAccess();stopSwipe()}
+            updateHistoryEligibility();history?.revalidateTime()
+        }
     }
     private fun historyContextAllowed():Boolean = clipboardWindowVisible&&isInputViewShown&&clipboardAvailability().paste&&
         getSystemService(android.os.PowerManager::class.java).isInteractive&&
@@ -480,15 +483,19 @@ class LipInputMethodService : InputMethodService() {
     private var candidateBar:LinearLayout?=null
     private var candidateMic:GlassKeyButton?=null
     private var renderedCandidate:SwipeCandidateState?=null
+    private var candidateVocabularyEpoch:SwipeVocabularyEpoch.Snapshot?=null
     private var swipePending=false
-    private fun clearCandidates(){nextWordOwner.clear();renderedNextWord=null;previousWordChoices=false;candidateOwner.clear();renderedCandidate=null;candidateMic=null;candidateBar?.removeAllViews()}
-    private fun stageCandidates(base:ImeCursor,text:String,choices:List<String>,connection:InputConnection,expectedEpoch:Long,origin:CandidateOrigin=CandidateOrigin.SWIPE,automatic:Int?=null,expectSelection:Boolean=true,automaticAllowed:Boolean=true){
-        if(currentInputConnection!==connection||session.editorGeneration()!=expectedEpoch)return
+    private fun clearCandidates(){candidateVocabularyEpoch=null;nextWordOwner.clear();renderedNextWord=null;previousWordChoices=false;candidateOwner.clear();renderedCandidate=null;candidateMic=null;candidateBar?.removeAllViews()}
+    private fun stageCandidates(base:ImeCursor,text:String,choices:List<String>,connection:InputConnection,expectedEpoch:Long,origin:CandidateOrigin=CandidateOrigin.SWIPE,automatic:Int?=null,expectSelection:Boolean=true,automaticAllowed:Boolean=true,expectedVocabulary:SwipeVocabularyEpoch.Snapshot?=null){
+        val vocabularyEpoch=expectedVocabulary?:swipeVocabulary.snapshot()?:return
+        if(!swipeVocabulary.isCurrent(vocabularyEpoch)||currentInputConnection!==connection||session.editorGeneration()!=expectedEpoch)return
         nextWordOwner.clear();previousWordChoices=false
         val state=candidateOwner.stage(base,text,choices,connection,origin,expectSelection,automaticAllowed)?:return
+        candidateVocabularyEpoch=vocabularyEpoch
         updateState()
         main.postDelayed({
             if(candidateOwner.current!==state)return@postDelayed
+            if(!swipeVocabulary.isCurrent(vocabularyEpoch)){clearCandidates();updateState();return@postDelayed}
             val current=if(currentInputConnection===connection)candidateCursor(state,connection) else null
             val exact=if(current!=null)connection.getTextBeforeCursor(text.length,0)?.toString() else null
             if(!candidateOwner.confirm(state,current,exact,currentInputConnection))swipeMessage="Check the editor; insertion could not be confirmed"
@@ -499,7 +506,7 @@ class LipInputMethodService : InputMethodService() {
             }
         },80)
     }
-    private data class CandidateCorrection(val state:SwipeCandidateState,val replacement:String,val connection:InputConnection,val cursor:ImeCursor,val automatic:Boolean)
+    private data class CandidateCorrection(val state:SwipeCandidateState,val replacement:String,val connection:InputConnection,val cursor:ImeCursor,val automatic:Boolean,val vocabularyEpoch:SwipeVocabularyEpoch.Snapshot)
     private var correction:CandidateCorrection?=null
     private fun cancelCorrection(){
         val pending=correction?:return;correction=null
@@ -511,13 +518,17 @@ class LipInputMethodService : InputMethodService() {
     private fun chooseCandidate(state:SwipeCandidateState,index:Int,automatic:Boolean=false){
         if(swipePending||dictation.busy||correction!=null||candidateOwner.current!==state||automatic&&!state.automaticAllowed)return
         if(state.origin!=CandidateOrigin.SWIPE&&(composingStart>=0||composingEnd>=0)){clearCandidates();updateState();return}
+        val vocabularyEpoch=candidateVocabularyEpoch?:run{clearCandidates();updateState();return}
+        if(!swipeVocabulary.isCurrent(vocabularyEpoch)){clearCandidates();updateState();return}
         val connection=currentInputConnection?:run{clearCandidates();updateState();return}
         val cursor=candidateCursor(state,connection)
         val exact=if(cursor!=null)connection.getTextBeforeCursor(state.inserted.length,0)?.toString() else null
-        val replacement=candidateOwner.claim(state,index,cursor,exact,connection)
-        renderedCandidate=null;updateState()
+        var claimedReplacement:String?=null
+        swipeVocabulary.claim(vocabularyEpoch) { claimedReplacement=candidateOwner.claim(state,index,cursor,exact,connection);claimedReplacement!=null }
+        val replacement=claimedReplacement
+        renderedCandidate=null;candidateVocabularyEpoch=null;updateState()
         if(replacement==null||replacement==state.inserted)return
-        val pending=CandidateCorrection(state,replacement,connection,checkNotNull(cursor),automatic);correction=pending
+        val pending=CandidateCorrection(state,replacement,connection,checkNotNull(cursor),automatic,vocabularyEpoch);correction=pending
         // RemoteInputConnection returns dispatch success, not the host's Boolean.
         // Only a matching editor-reported composing span can authorize the write.
         if(!connection.setComposingRegion(state.start,state.end)){
@@ -538,7 +549,7 @@ class LipInputMethodService : InputMethodService() {
         val cleaned=connection.finishComposingText()
         session.editorChanged()
         if(accepted&&cleaned)stageCandidates(state.base,pending.replacement,state.alternatives,connection,state.epoch,if(pending.automatic)CandidateOrigin.AUTO else state.origin.let{if(it==CandidateOrigin.AUTO)CandidateOrigin.TYPED else it},
-            automaticAllowed=if(!pending.automatic&&state.origin!=CandidateOrigin.SWIPE)false else state.automaticAllowed)
+            automaticAllowed=if(!pending.automatic&&state.origin!=CandidateOrigin.SWIPE)false else state.automaticAllowed,expectedVocabulary=pending.vocabularyEpoch)
         else correctionFailed()
     }
     private fun nextWordsAllowed():Boolean = !dictation.busy&&voiceTicket==null&&composingStart<0&&composingEnd<0&&
@@ -628,28 +639,52 @@ class LipInputMethodService : InputMethodService() {
     }
 
     private val typingPreferences by lazy { getSharedPreferences("preferences", android.content.Context.MODE_PRIVATE) }
+    private val swipeVocabulary = SwipeVocabularyEpoch.process
+    private var personalAccess: SwipeVocabularyAccess? = null
+    private val vocabularyMutation: () -> Unit = { main.post { if (!destroyed) vocabularyChanged() } }
+    private fun personalSwipeEligible() = !destroyed && isInputViewShown && session.editorGeneration() != null &&
+        getSystemService(android.os.PowerManager::class.java).isInteractive &&
+        !getSystemService(android.app.KeyguardManager::class.java).isDeviceLocked &&
+        info?.let { ImeFieldPolicy.forInput(it.inputType,it.imeOptions).swipe } == true
+    private fun personalAccess(): SwipeVocabularyAccess? {
+        if (!personalSwipeEligible()) return null
+        return personalAccess?.takeIf { it.isCurrent() } ?: SwipeVocabularyAccess().also { personalAccess = it }
+    }
+    private fun revokePersonalAccess() {
+        personalAccess?.revoke(); personalAccess = null
+        typingLoad=null;typingEngine=null;nextWordEngine=null;typingAutomatic=false;typingVocabularyEpoch=null
+    }
+    private fun vocabularyChanged() {
+        revokePersonalAccess();stopSwipe();swipeWorker?.vocabularyChanged()
+        if (personalSwipeEligible()) loadTyping()
+    }
     private val vocabularyChanges=android.content.SharedPreferences.OnSharedPreferenceChangeListener{_,key->
-        if(key in setOf("portableVocabularyRevision","dictionaryRevision","typingSuggestions","typingAutocorrect")){
-            main.post{if(!destroyed&&session.editorGeneration()!=null)loadTyping()}
-        }
+        if(key in setOf("portableVocabularyRevision","dictionaryRevision")) main.post { if(!destroyed) vocabularyChanged() }
+        else if(key in setOf("typingSuggestions","typingAutocorrect")) main.post { if(!destroyed&&session.editorGeneration()!=null) loadTyping() }
     }
     private var typingEngine:TypingSuggestions?=null
     private var typingAutomatic=false
+    private var typingVocabularyEpoch:SwipeVocabularyEpoch.Snapshot?=null
     private var typingLoad:Any?=null
     private val typingWorker=java.util.concurrent.ThreadPoolExecutor(1,1,0,java.util.concurrent.TimeUnit.MILLISECONDS,
         java.util.concurrent.ArrayBlockingQueue<Runnable>(1),{r->Thread(r,"lip-typing-suggestions").apply{isDaemon=true}})
     private fun loadTyping(){
         val epoch=session.editorGeneration()?:return
-        val load=Any();typingLoad=load;typingEngine=null;nextWordEngine=null;typingAutomatic=false;typingWorker.queue.clear()
+        val load=Any();typingLoad=load;typingEngine=null;nextWordEngine=null;typingAutomatic=false;typingVocabularyEpoch=null;typingWorker.queue.clear()
         // Do not schedule personal-vocabulary reads from protected/no-learning fields.
         if(info?.let{TypingPolicy.forInput(it.inputType,it.imeOptions).suggest}!=true)return
+        val access=personalAccess()?:return
+        val vocabularyEpoch=swipeVocabulary.snapshot()?:return
         try{typingWorker.execute{
             var next:NextWordSuggestions?=null
             val loaded=runCatching{
+                check(access.isCurrent()&&swipeVocabulary.isCurrent(vocabularyEpoch))
                 val store=dev.lip.AppStore(applicationContext)
                 if(!store.typingSuggestions)null else {
                     next=runCatching{NextWordAssets.load(applicationContext)}.getOrNull()
+                    check(access.isCurrent()&&swipeVocabulary.isCurrent(vocabularyEpoch))
                     val personal=store.typingDictionarySnapshot()
+                    check(access.isCurrent()&&swipeVocabulary.isCurrent(vocabularyEpoch))
                     // Missing/corrupt/unsupported portable protection must not
                     // disable ordinary suggestions, nor enable unsafe autocorrect.
                     TypingSuggestions(SwipeAssets.dictionary(applicationContext).entries,personal.words) to
@@ -657,8 +692,8 @@ class LipInputMethodService : InputMethodService() {
                 }
             }
             main.post{
-                if(!destroyed&&typingLoad===load&&session.editorGeneration()==epoch){
-                typingEngine=loaded.getOrNull()?.first;nextWordEngine=next;typingAutomatic=loaded.getOrNull()?.second?:false
+                if(!destroyed&&typingLoad===load&&session.editorGeneration()==epoch&&access.isCurrent()&&swipeVocabulary.isCurrent(vocabularyEpoch)){
+                typingEngine=loaded.getOrNull()?.first;nextWordEngine=next;typingAutomatic=loaded.getOrNull()?.second?:false;typingVocabularyEpoch=vocabularyEpoch
                 val state=candidateOwner.current;val connection=currentInputConnection
                 if(state?.origin==CandidateOrigin.TYPED&&connection!=null&&ownsTyped(state,typingCursor(connection),connection)){
                     if(typingEngine!=null)typedCandidates(state.base,state.inserted,connection,epoch,state.automaticAllowed)
@@ -678,15 +713,17 @@ class LipInputMethodService : InputMethodService() {
         stageCandidates(base,text,listOf(text),connection,epoch,CandidateOrigin.TYPED,automaticAllowed=automaticAllowed)
         val placeholder=candidateOwner.current?:return
         val engine=typingEngine?:return
+        val vocabularyEpoch=typingVocabularyEpoch?:return
+        if(!swipeVocabulary.isCurrent(vocabularyEpoch))return
         typingWorker.queue.clear()
         try{typingWorker.execute{
             val choices=engine.suggest(token)
             main.post{
-                if(destroyed||candidateOwner.current!==placeholder||typingEngine!==engine||currentInputConnection!==connection)return@post
+                if(destroyed||candidateOwner.current!==placeholder||typingEngine!==engine||currentInputConnection!==connection||!swipeVocabulary.isCurrent(vocabularyEpoch))return@post
                 if(!ownsTyped(placeholder,typingCursor(connection),connection)){clearCandidates();updateState();return@post}
                 val values=choices.choices.map{it+suffix}
                 stageCandidates(base,text,values,connection,epoch,CandidateOrigin.TYPED,
-                    if(suffix.isNotEmpty()&&placeholder.automaticAllowed&&typingAutomatic&&TypingPolicy.forInput(info?.inputType?:0,info?.imeOptions?:0).automatic)choices.automatic else null,placeholder.expectedSelection,placeholder.automaticAllowed)
+                    if(suffix.isNotEmpty()&&placeholder.automaticAllowed&&typingAutomatic&&TypingPolicy.forInput(info?.inputType?:0,info?.imeOptions?:0).automatic)choices.automatic else null,placeholder.expectedSelection,placeholder.automaticAllowed,expectedVocabulary=vocabularyEpoch)
             }
         }}catch(_:java.util.concurrent.RejectedExecutionException){}
     }
@@ -698,48 +735,58 @@ class LipInputMethodService : InputMethodService() {
     private val swipeOwner=SwipeRequestOwner(session)
     private var swipeRequest:SwipeRequest?=null
     private var swipeConnection:InputConnection?=null
+    private var swipeVocabularyRequest:SwipeVocabularyEpoch.Snapshot?=null
+    private var swipeVocabularyAccess:SwipeVocabularyAccess?=null
     private var swipeFrame:SwipeKeyboardFrame?=null
     private var swipeWorker:SwipeDecodeWorker?=null
     private var swipeCapital=false
     private var swipeCaps=false
     private var swipeMessage:String?=null
     private fun worker():SwipeDecodeWorker { check(!destroyed);return swipeWorker?:SwipeDecodeWorker(applicationContext).also{swipeWorker=it} }
-    private fun invalidateSwipe(){swipeOwner.cancel();swipeRequest=null;swipeConnection=null;swipeWorker?.cancelQueued();swipePending=false;swipeMessage=null;updateState()}
+    private fun invalidateSwipe(){swipeOwner.cancel();swipeRequest=null;swipeConnection=null;swipeVocabularyRequest=null;swipeVocabularyAccess=null;swipeWorker?.cancelQueued();swipePending=false;swipeMessage=null;updateState()}
     private fun stopSwipe(){stopGif();swipeFrame?.abort();cancelCorrection();clearCandidates();invalidateSwipe()}
     private fun beginSwipe():Boolean {
         cancelKeyGestures()
         if(swipePending||localSearchActive()||gifOwner.current!=null)return false
         stopRepeat();cancelOwnedVoice();cancelCorrection();clearCandidates();invalidateSwipe()
-        if(!policy().swipe||dictation.busy)return false
+        if(!personalSwipeEligible()||dictation.busy)return false
+        val vocabularyEpoch=swipeVocabulary.snapshot()?:return false
+        val access=personalAccess()?:return false
         val connection=currentInputConnection?:return false
-        val request=swipeOwner.begin(snapshot(connection),connection)?:return false
-        swipeRequest=request;swipeConnection=connection;swipeCapital=shift;swipeCaps=caps
+        val cursor=snapshot(connection) // Editor IPC stays outside vocabulary admission locks.
+        var request:SwipeRequest?=null
+        if(!swipeVocabulary.claim(vocabularyEpoch) { request=swipeOwner.begin(cursor,connection); request!=null })return false
+        swipeRequest=request;swipeConnection=connection;swipeVocabularyRequest=vocabularyEpoch;swipeVocabularyAccess=access;swipeCapital=shift;swipeCaps=caps
         return true
     }
     private fun finishSwipe(shape:SwipeGeometry,points:List<SwipePoint>){
         val request=swipeRequest?:return
         val connection=swipeConnection?:return
+        val vocabularyEpoch=swipeVocabularyRequest?:return
+        val access=swipeVocabularyAccess?:return
         val capital=swipeCapital;val lockedCaps=swipeCaps
         swipePending=true;swipeMessage="Decoding swipe locally…";updateState()
-        worker().decode(shape,points){result->
+        worker().decode(shape,points,vocabularyEpoch,access){result->
             if(swipeRequest!==request)return@decode
             val word=result.getOrNull()?.firstOrNull()
-            if(word==null||currentInputConnection!==connection||!session.isCurrent(request.ticket,snapshot(connection))){
-                invalidateSwipe();swipeMessage=when{result.isFailure->"Swipe unavailable; type normally";word==null->"No word recognized; try again or type";else->null};updateState();return@decode
+            if(word==null||!personalSwipeEligible()||!access.isCurrent()||!swipeVocabulary.isCurrent(vocabularyEpoch)||currentInputConnection!==connection||!session.isCurrent(request.ticket,snapshot(connection))){
+                invalidateSwipe();swipeMessage=when{result.isFailure->"Swipe unavailable; reopen keyboard to retry or type normally";word==null->"No word recognized; try again or type";else->null};updateState();return@decode
             }
             if(!connection.finishComposingText()){
                 invalidateSwipe();swipeMessage="Check the editor; swipe composition could not be finished";updateState();return@decode
             }
-            if(!swipeOwner.claim(request,snapshot(connection),connection)){invalidateSwipe();return@decode}
-            swipeRequest=null;swipeConnection=null
+            val cursor=snapshot(connection) // Fresh cursor IPC BEFORE the final CPU-only claim gate.
+            if(!personalSwipeEligible()||!access.isCurrent()||!swipeVocabulary.claim(vocabularyEpoch) { swipeOwner.claim(request,cursor,connection) }){invalidateSwipe();return@decode}
+            swipeRequest=null;swipeConnection=null;swipeVocabularyRequest=null;swipeVocabularyAccess=null
             val variation=(info?.inputType?:0) and 0xff0
             val text=SwipeTextFormat.insertion(word,request.ticket.cursor,capital,lockedCaps,variation !in setOf(0x10,0x20,0xd0))
+            // A dispatch already claimed before a later vocabulary mutation may finish once.
             val accepted=connection.commitText(text,1) // One consumed dispatch; no ambiguous retry.
             session.editorChanged();swipePending=false
             val warning=if(accepted)null else "Check the editor; swipe insertion could not be confirmed"
             if(shift&&!caps){shift=false;renderKeys()}
             swipeMessage=warning
-            if(accepted)stageCandidates(request.ticket.cursor,text,result.getOrThrow().map{SwipeTextFormat.insertion(it,request.ticket.cursor,capital,lockedCaps,variation !in setOf(0x10,0x20,0xd0))}.distinct(),connection,request.ticket.epoch)
+            if(accepted&&swipeVocabulary.isCurrent(vocabularyEpoch))stageCandidates(request.ticket.cursor,text,result.getOrThrow().map{SwipeTextFormat.insertion(it,request.ticket.cursor,capital,lockedCaps,variation !in setOf(0x10,0x20,0xd0))}.distinct(),connection,request.ticket.epoch,expectedVocabulary=vocabularyEpoch)
             updateState()
         }
     }
@@ -748,6 +795,7 @@ class LipInputMethodService : InputMethodService() {
     override fun onCreate() {
         super.onCreate()
         typingPreferences.registerOnSharedPreferenceChangeListener(vocabularyChanges)
+        swipeVocabulary.observe(vocabularyMutation)
         debuggable=applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE!=0
         if(debuggable)debugInstance=java.lang.ref.WeakReference(this)
         agentController = dev.lip.agent.AgentShortcutController(this, dictation::currentCompletedForAgent,
@@ -764,6 +812,7 @@ class LipInputMethodService : InputMethodService() {
     }
     override fun onDestroy() {
         typingPreferences.unregisterOnSharedPreferenceChangeListener(vocabularyChanges)
+        swipeVocabulary.unobserve(vocabularyMutation);revokePersonalAccess()
         dictation.unobserveCompletedForAgent(agentResultObserver)
         agentController?.close(); agentController = null; agentSlot = null; agentFixtureAdapter = null
         cancelKeyGestures()
@@ -780,6 +829,7 @@ class LipInputMethodService : InputMethodService() {
     }
     override fun onEvaluateFullscreenMode() = false
     override fun onStartInput(attribute: EditorInfo, restarting: Boolean) {
+        revokePersonalAccess()
         agentController?.bindUi(Any())
         val privateField = ImeFieldPolicy.forInput(attribute.inputType, attribute.imeOptions).protected ||
             attribute.imeOptions and EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING != 0
@@ -795,6 +845,7 @@ class LipInputMethodService : InputMethodService() {
         loadTyping();renderKeys(); updateState()
     }
     override fun onFinishInput() {
+        revokePersonalAccess()
         agentController?.bindUi(null)
         cancelKeyGestures()
         invalidateStickers();clearEmoji(true);clearGifSearch();gifPanel?.close()
@@ -805,6 +856,7 @@ class LipInputMethodService : InputMethodService() {
         super.onFinishInput()
     }
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
+        revokePersonalAccess();stopSwipe()
         super.onStartInputView(info,restarting)
         // Re-read a durable vocabulary after returning from Settings/import, even
         // when the host retains the same InputConnection/editor generation.
@@ -818,6 +870,7 @@ class LipInputMethodService : InputMethodService() {
         else if(page==KeyboardPage.CLIPBOARD||page==KeyboardPage.GIF||gifKeysNeedRebind||emojiKeysNeedRebind||page==KeyboardPage.EMOJI){renderKeys();updateState()}else keys?.invalidate()
     }
     override fun onFinishInputView(finishingInput: Boolean) {
+        revokePersonalAccess()
         agentController?.bindUi(null)
         cancelKeyGestures()
         invalidateStickers();clearEmoji(true);clearGifSearch();gifPanel?.close()
@@ -868,6 +921,7 @@ class LipInputMethodService : InputMethodService() {
         KeyboardPresentation.rowHeight(availableWidth.takeIf{w->w>0}?:it.widthPixels,it.heightPixels,it.density,landscape(),presentation.height)
     }
     override fun onCreateInputView(): View {
+        revokePersonalAccess() // A newly-created input view never inherits a prior context token.
         agentController?.bindUi(Any())
         invalidateStickers()
         cancelKeyGestures();stopRepeat();stopSwipe();GlassMaterial.refresh()
@@ -939,8 +993,8 @@ class LipInputMethodService : InputMethodService() {
         }
         root.addView(status, LinearLayout.LayoutParams(-1,-2))
         keys = column()
-        swipeFrame=SwipeKeyboardFrame(this,{!destroyed&&policy().swipe&&!dictation.busy&&page==KeyboardPage.LETTERS&&!localSearchActive()},
-            {shape->worker().prepare(shape)},::beginSwipe,::finishSwipe,::invalidateSwipe,
+        swipeFrame=SwipeKeyboardFrame(this,{personalSwipeEligible()&&!dictation.busy&&page==KeyboardPage.LETTERS&&!localSearchActive()},
+            {shape->val access=personalAccess();val epoch=swipeVocabulary.snapshot();if(access!=null&&epoch!=null)worker().prepare(shape,epoch,access)},::beginSwipe,::finishSwipe,::invalidateSwipe,
             {android.widget.Toast.makeText(this,"That input was not accepted while decoding. Try again.",android.widget.Toast.LENGTH_SHORT).show()})
         swipeFrame!!.addView(keys);root.addView(swipeFrame)
         renderKeys(); updateState()
@@ -949,6 +1003,7 @@ class LipInputMethodService : InputMethodService() {
             {hand->if(presentationFrame===frame&&frame.isAttachedToWindow)changeHand(hand)},
             {width->if(presentationFrame===frame&&availableWidth!=width){availableWidth=width;renderKeys();updateState()}})
         presentationFrame=frame
+        main.post { if (presentationFrame===frame && frame.isAttachedToWindow && personalSwipeEligible()) loadTyping() }
         return frame
     }
     private fun showKeyboardMenu(anchor: View) {
@@ -1206,13 +1261,14 @@ class LipInputMethodService : InputMethodService() {
         // A letters/symbols layout switch is not an editor mutation. Carry only
         // an exact owned typed span, never a pending correction or swipe claim.
         val state=candidateOwner.current
+        val vocabularyEpoch=candidateVocabularyEpoch
         val connection=currentInputConnection
-        val keep=state?.origin==CandidateOrigin.TYPED&&connection!=null&&correction==null&&
+        val keep=vocabularyEpoch!=null&&swipeVocabulary.isCurrent(vocabularyEpoch)&&state?.origin==CandidateOrigin.TYPED&&connection!=null&&correction==null&&
             ownsTyped(state,typingCursor(connection),connection)
         renderKeys()
-        if(keep&&state!=null&&connection!=null&&ownsTyped(state,typingCursor(connection),connection))
+        if(keep&&state!=null&&connection!=null&&vocabularyEpoch!=null&&ownsTyped(state,typingCursor(connection),connection))
             stageCandidates(state.base,state.inserted,state.alternatives,connection,state.epoch,CandidateOrigin.TYPED,
-                expectSelection=state.expectedSelection,automaticAllowed=state.automaticAllowed)
+                expectSelection=state.expectedSelection,automaticAllowed=state.automaticAllowed,expectedVocabulary=vocabularyEpoch)
     }
     private fun renderKeys() {
         cancelKeyGestures()
@@ -1556,6 +1612,7 @@ class LipInputMethodService : InputMethodService() {
         if (!dictation.busy) voiceTicket = null
     }
     override fun onWindowHidden() {
+        revokePersonalAccess()
         agentController?.bindUi(null)
         cancelKeyGestures()
         invalidateStickers();clearEmoji(true);clearGifSearch();gifPanel?.close()

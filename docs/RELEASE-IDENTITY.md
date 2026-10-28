@@ -1,8 +1,8 @@
 # One Lip release identity
 
 `docs/build-iterations.json` is the authoritative allocation ledger. The current
-**Lip v0.009** is **reserved source, not a published release**. Android versionCode
-50006 and macOS build13 are derived from it, above the retained50003/build10 floors.
+**Lip v0.010** is **reserved source, not a published release**. Android versionCode
+50007 and macOS build14 are derived from it, above the retained50003/build10 floors.
 Minimum-three-digit display ordinals are not semantic-version patch counts.
 
 ## Audited seed, not a lifetime counter
@@ -14,7 +14,7 @@ The read-only Git audit through
 history is included—not unrelated/unmerged refs or uncommitted development.
 This is not an exported-build, PR, test-run or provable lifetime iteration count.
 The first identity feature reserved6+1=7; the next distinct Android vocabulary
-feature reserves8; the macOS counterpart reserves9. All issued ordinals remain
+feature reserves8; the macOS counterpart reserves9; personal neural swipe reserves10. All issued ordinals remain
 in the ledger.
 
 The ledger contains the exact production projection. The audit uses sorted raw
@@ -52,16 +52,16 @@ python3 -m unittest tools/source_delivery/test_release_identity.py
 After an authorized signed release build, `:app:canonicalReleaseApk` verifies the
 actual output metadata/package version in an always-executed prerequisite before
 copying (even when Copy itself is NO-SOURCE/UP-TO-DATE) to the ledger-derived
-`Lip-v0.009-android16-arm64.apk`. No unsigned/stale-output fallback. The corresponding
-Mac artifact names are `Lip v0.009.app` and
-`Lip-v0.009-macOS26-apple-silicon.zip`. Printing a name does not produce or release it.
+`Lip-v0.010-android16-arm64.apk`. No unsigned/stale-output fallback. The corresponding
+Mac artifact names are `Lip v0.010.app` and
+`Lip-v0.010-macOS26-apple-silicon.zip`. Printing a name does not produce or release it.
 The Mac install script checks a clean committed source and writes generated
 `Contents/Resources/LipBuildIdentity.json` before local signing. This generated
 receipt is not a tracked/self-referential source input or a notarization claim.
 
 **The actual published download remains build50003**, with its original
 `0.5.0-preview.3-offline` name,755MB APK, URL, certificate and compatibility.
-README/site links are not relabelled as v0.009. There is no new download in this PR.
+README/site links are not relabelled as v0.010. There is no new download in this PR.
 
 ## Allocation and post-commit binding
 
@@ -87,11 +87,11 @@ unchanged, never redirected to the public production package.
 python3 tools/release_identity.py --bind HEAD --output /outside/checkout/lip-source.json
 # Optional exact canonical artifact checksums are added with --artifact PATH.
 # A later distinct committed production feature, not docs/tests/packaging:
-python3 tools/release_identity.py --reserve stable-feature-key --expect-last 9 \
+python3 tools/release_identity.py --reserve stable-feature-key --expect-last 10 \
   --previous-binding /outside/checkout/lip-source.json
-python3 tools/release_identity.py --sync --expect-last 10
+python3 tools/release_identity.py --sync --expect-last 11
 # Rejected issued candidate, never reused:
-python3 tools/release_identity.py --fail stable-feature-key --expect-last 10 \
+python3 tools/release_identity.py --fail stable-feature-key --expect-last 11 \
   --reason 'Short concrete failure reason'
 ```
 

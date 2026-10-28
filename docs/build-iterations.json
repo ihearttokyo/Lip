@@ -77,6 +77,11 @@
       "ordinal": 9,
       "candidate": "portable-vocabulary-macos",
       "status": "reserved"
+    },
+    {
+      "ordinal": 10,
+      "candidate": "personal-neural-swipe",
+      "status": "reserved"
     }
   ]
 }

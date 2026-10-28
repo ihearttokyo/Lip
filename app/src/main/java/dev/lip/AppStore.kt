@@ -99,15 +99,21 @@ class AppStore(context: Context) {
             List(array.length()) { array.getString(it) }
         }
     @Synchronized fun saveDictionary(words: List<String>) {
-        secure.write("dictionary", JSONArray(words.map(String::trim).filter(String::isNotEmpty).distinct()).toString())
-        settings.edit().putString("dictionaryRevision", UUID.randomUUID().toString()).apply()
+        val mutation = dev.lip.keyboard.SwipeVocabularyEpoch.process.beginWrite()
+        try {
+            secure.write("dictionary", JSONArray(words.map(String::trim).filter(String::isNotEmpty).distinct()).toString())
+            settings.edit().putString("dictionaryRevision", UUID.randomUUID().toString()).apply()
+        } finally { mutation.finish() }
     }
     fun portableVocabularyEntries() = portableWords.snapshot().entries
     fun previewPortableVocabulary(incoming: List<dev.lip.vocabulary.PortableVocabulary.Entry>) = portableWords.preview(incoming)
     fun mergePortableVocabulary(incoming: List<dev.lip.vocabulary.PortableVocabulary.Entry>, admit: () -> Unit): dev.lip.vocabulary.PortableVocabularyStore.MergeResult {
-        val result = portableWords.merge(incoming, admit)
-        if (result.changed) settings.edit().putString("portableVocabularyRevision", result.revision).apply()
-        return result
+        val mutation = dev.lip.keyboard.SwipeVocabularyEpoch.process.beginWrite()
+        try {
+            val result = portableWords.merge(incoming, admit)
+            if (result.changed) settings.edit().putString("portableVocabularyRevision", result.revision).apply()
+            return result
+        } finally { mutation.finish() }
     }
     fun exportPortableVocabulary(): ByteArray = portableWords.export()
     /** Manual spelling wins; portable phrases/other languages remain stored but

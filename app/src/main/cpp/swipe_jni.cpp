@@ -14,6 +14,7 @@
 #include "swipekb/swipe_beam.hpp"
 namespace {
 constexpr const char* letters="qwertyuiopasdfghjklzxcvbnm";
+constexpr jsize maxLexiconEntries=350200; // 250k base + 100k portable + 200 manual.
 std::mutex registryMutex;
 size_t liveContexts=0;
 void require(bool ok){if(!ok)throw std::invalid_argument("Invalid neural swipe input");}
@@ -78,7 +79,7 @@ extern "C" JNIEXPORT jlong JNICALL Java_dev_lip_keyboard_SwipeNative_open(JNIEnv
     require(bytes&&e->GetArrayLength(bytes)==2115260&&words&&frequencies&&std::isfinite(aspect)&&aspect>=.01f&&aspect<=2.f);
     auto reserved=std::make_unique<Slot>(); // Refuse capacity before model/trie allocation.
     auto layout=readLayout(e,rects,aspect);
-    const auto count=e->GetArrayLength(words);require(count>=1&&count<=250000&&e->GetArrayLength(frequencies)==count);
+    const auto count=e->GetArrayLength(words);require(count>=1&&count<=maxLexiconEntries&&e->GetArrayLength(frequencies)==count);
     std::vector<jint> freq(count);e->GetIntArrayRegion(frequencies,0,count,freq.data());require(!e->ExceptionCheck());
     auto engine=std::make_shared<Engine>();engine->slot=std::move(reserved);engine->layout=std::move(layout);engine->aspect=aspect;
     std::vector<uint8_t> model(2115260);e->GetByteArrayRegion(bytes,0,model.size(),reinterpret_cast<jbyte*>(model.data()));require(!e->ExceptionCheck());

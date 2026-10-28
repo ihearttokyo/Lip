@@ -38,6 +38,7 @@ class SwipeGeometry(rectangles: FloatArray, val aspect: Float) {
 data class SwipePoint(val x: Float,val y: Float,val milliseconds: Float)
 
 object SwipeInputBounds {
+    const val MAX_LEXICON_ENTRIES = 350_200 // 250k base + 100k portable + 200 manual.
     fun pack(points: List<SwipePoint>): FloatArray {
         require(points.size in 2..4096)
         var previous=-1f
@@ -48,7 +49,7 @@ object SwipeInputBounds {
         };require(points.last().milliseconds>points.first().milliseconds) }
     }
     fun lexicon(words: List<String>, frequencies: IntArray) {
-        require(words.size in 1..250_000 && words.size==frequencies.size)
+        require(words.size in 1..MAX_LEXICON_ENTRIES && words.size==frequencies.size)
         val seen=HashSet<String>(words.size*4/3+1)
         for(index in words.indices){
             val word=words[index]
