@@ -3,10 +3,10 @@ package dev.lip.keyboard
 import org.junit.Assert.*
 import org.junit.Test
 
-/** Exact previous public acceptance predicate as an independent oracle, not an admitted-data bypass. */
+/** Previous grammar/path/frequency predicate, with the prospective350200 union capacity; not an admitted-data bypass. */
 class SwipeLexiconValidationTest {
     private fun legacy(words:List<String>,frequencies:IntArray):Boolean=runCatching{
-        require(words.size in 1..250000&&words.size==frequencies.size)
+        require(words.size in 1..SwipeInputBounds.MAX_LEXICON_ENTRIES&&words.size==frequencies.size)
         require(words.distinct().size==words.size)
         val grammar=Regex("[a-z]+(?:'[a-z]+)*")
         require(words.all{it.length in 1..48&&grammar.matches(it)})
@@ -33,7 +33,7 @@ class SwipeLexiconValidationTest {
     }
     @Test fun completeEntryCountBoundary(){
         fun word(i:Int)=buildString{append('a');var n=i;repeat(4){append('a'+n%26);n/=26}}
-        val words=List(250000,::word);same(words,IntArray(words.size){200})
+        val words=List(SwipeInputBounds.MAX_LEXICON_ENTRIES,::word);same(words,IntArray(words.size){200})
         same(words+"zzzzzz",IntArray(words.size+1){200})
     }
 }

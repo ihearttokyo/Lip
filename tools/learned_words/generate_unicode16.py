@@ -13,6 +13,7 @@ import unicodedata as u
 
 ROOT = Path(__file__).resolve().parents[2]
 TABLE = ROOT / 'desktop/Sources/LipLocal/VocabularyData/unicode16.json'
+ANDROID_TABLE = ROOT / 'app/src/main/resources/dev/lip/vocabulary/unicode16.json'
 VECTORS = ROOT / 'docs/contracts/learned-words/normalization-differential-v1.json'
 
 def packed(value):
@@ -67,7 +68,7 @@ def produce():
 def main():
     p = argparse.ArgumentParser(description=__doc__); p.add_argument('--write', action='store_true'); args = p.parse_args()
     table, vectors = produce()
-    for path, data in [(TABLE, table), (VECTORS, vectors)]:
+    for path, data in [(TABLE, table), (ANDROID_TABLE, table), (VECTORS, vectors)]:
         if args.write:
             path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(data)
         elif path.read_bytes() != data: raise SystemExit('Generated Unicode artifact differs; no file changed')

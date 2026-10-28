@@ -83,4 +83,6 @@
             android:theme="@android:style/Theme.Material.Light.NoActionBar" />
     </application>
     <instrumentation android:name="dev.lip.VocabularyPortableRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.PersonalSwipeNativeRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.PersonalSwipeSeedRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
 </manifest>

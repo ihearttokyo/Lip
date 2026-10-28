@@ -54,3 +54,8 @@ intended-use acceptance. Neither speech engine accepts dictionary hints today.
 
 Only the newly owned headless emulator was stopped afterward. The pre-existing
 emulator and physical phone were untouched. No installer/release was published.
+
+Subsequent source increment: [personal neural swipe](PERSONAL-NEURAL-SWIPE.md)
+adds eligible imported terms to the actual decoder and a shared pinned Unicode16
+adapter. Earlier scoped receipts above retain their original identities and limits;
+they are not retroactively upgraded to current-source or full-release acceptance.

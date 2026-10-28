@@ -10,7 +10,7 @@ import java.nio.charset.CodingErrorAction
 class VocabularyException internal constructor(message: String) : IllegalArgumentException(message)
 
 /** Pure interchange codec. No files, providers, history access, learning or model changes. */
-class PortableVocabulary(private val unicode: Unicode = AndroidUnicode16) {
+class PortableVocabulary(private val unicode: Unicode = PinnedUnicode16) {
     data class Entry(val term: String, val language: String = "en", val weight: Int = 1, val source: String = "manual")
 
     /** Injectable only to test parser/merge logic; compatibility requires real Unicode16 evidence. */

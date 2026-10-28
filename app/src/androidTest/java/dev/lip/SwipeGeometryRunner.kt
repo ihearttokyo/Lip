@@ -40,7 +40,11 @@ class SwipeGeometryRunner:Instrumentation(){
                     for((iteration,index) in listOf(0,1,2,0,1,2).withIndex()){
                         val s=shape(index);val latch=CountDownLatch(1);val got=AtomicReference<Result<List<String>>>()
                         val start=SystemClock.elapsedRealtimeNanos()
-                        runOnMainSync{worker.prepare(s);worker.decode(s,trace(s,"hello")){got.set(it);latch.countDown()}}
+                        runOnMainSync{
+                            val epoch=checkNotNull(SwipeVocabularyEpoch.process.snapshot())
+                            val access=SwipeVocabularyAccess() // Disposable emulator component only; not a real editor lease.
+                            worker.prepare(s,epoch,access);worker.decode(s,trace(s,"hello"),epoch,access){got.set(it);latch.countDown()}
+                        }
                         check(latch.await(15,TimeUnit.SECONDS)){"Existing15s geometry observer expired at $iteration"}
                         val elapsed=SystemClock.elapsedRealtimeNanos()-start
                         val candidates=checkNotNull(got.get()).getOrThrow();check("hello" in candidates)

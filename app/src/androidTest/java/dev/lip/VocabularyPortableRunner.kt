@@ -14,7 +14,7 @@ class VocabularyPortableRunner : Instrumentation() {
     override fun onCreate(arguments: Bundle?) { super.onCreate(arguments); start() }
     override fun onStart() {
         val report = JSONObject().put("passed", false).put("phone_tested", false)
-            .put("scope", "actual Android ICU16 and dedicated encrypted-store components; synthetic terms only")
+            .put("scope", "actual Android pinned Unicode16 and dedicated encrypted-store components; synthetic terms only")
         var phase = "admission"
         var checks = 0
         fun verify(value: Boolean) { check(value) { "Synthetic vocabulary component mismatch" }; checks++ }
@@ -22,6 +22,7 @@ class VocabularyPortableRunner : Instrumentation() {
             check(targetContext.packageName == "dev.lip.android.historyfixture")
             check(Build.HARDWARE in listOf("ranchu", "goldfish") && Build.PRODUCT.contains("sdk"))
             report.put("unicode_runtime", dev.lip.vocabulary.AndroidUnicode16.version)
+            report.put("pinned_unicode", dev.lip.vocabulary.PinnedUnicode16.version)
             phase = "unicode_vectors"
             val codec = PortableVocabulary()
             fun entry(term: String, weight: Int = 1) = PortableVocabulary.Entry(term, weight = weight)

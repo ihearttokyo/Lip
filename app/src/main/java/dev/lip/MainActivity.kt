@@ -403,7 +403,7 @@ class MainActivity : Activity() {
             localTask("Dictionary saved") { store.saveDictionary(value.lines()) }
         })
         page.addSpaced(label("Portable vocabulary", 22f, true), 24)
-        page.addSpaced(label("Import a prepared Lip vocabulary v1 JSON, then explicitly merge it. Existing manual lines above are separate and unchanged; portable export does not include them. English A–Z words with optional apostrophes (up to48 characters) protect Lip typing/autocorrect. Phrases and other languages remain stored, not activated. No speech biasing, swipe-model training, history scan or automatic backup.", 14f))
+        page.addSpaced(label("Import a prepared Lip vocabulary v1 JSON, then explicitly merge it. Existing manual lines above are separate and unchanged; portable export does not include them. English A–Z words with optional apostrophes (up to48 characters) protect Lip typing/autocorrect. Phrases and other languages remain stored, not activated. Supported words also enter neural swipe decoding when their collapsed key path has at most40 steps. This does not train model weights or add speech biasing, history scans or automatic backup.", 14f))
         val portableStatus = label("Checking encrypted portable vocabulary…", 13f)
         vocabularyStatus = portableStatus; page.addSpaced(portableStatus)
         Work.io.execute {
@@ -523,7 +523,7 @@ class MainActivity : Activity() {
         val sample = incoming.take(20).joinToString("\n") { "• ${it.term} [${it.language}]" }
         val remaining = (incoming.size - 20).coerceAtLeast(0)
         vocabularyDialog = AlertDialog.Builder(this).setTitle("Review vocabulary merge")
-            .setMessage("Selected: ${preview.incoming} entries\nExisting: ${preview.existing} · merged: ${preview.merged}\nNew: ${preview.added} · higher weights: ${preview.updated}\nActive English entries after merge: ${preview.activeEnglish}\n\n$sample${if (remaining > 0) "\n… $remaining more entries (not shown)" else ""}\n\nOnly the first20 terms are shown. Review the COMPLETE prepared JSON and exclude secrets/PII before merging; Lip cannot identify them reliably. Existing approved spelling/source wins and weight uses maximum, not sum. Other languages/phrases stay stored but do not activate keyboard support. No speech hints or swipe learning. Concurrent changes are reread/preserved at commit. Your manual draft above is untouched. An already-admitted merge may finish after closing.")
+            .setMessage("Selected: ${preview.incoming} entries\nExisting: ${preview.existing} · merged: ${preview.merged}\nNew: ${preview.added} · higher weights: ${preview.updated}\nActive English entries after merge: ${preview.activeEnglish}\n\n$sample${if (remaining > 0) "\n… $remaining more entries (not shown)" else ""}\n\nOnly the first20 terms are shown. Review the COMPLETE prepared JSON and exclude secrets/PII before merging; Lip cannot identify them reliably. Existing approved spelling/source wins and weight uses maximum, not sum. Other languages/phrases stay stored but do not activate keyboard support. Eligible English terms also join the neural swipe lexicon; no speech hints or model-weight training. Concurrent changes are reread/preserved at commit. Your manual draft above is untouched. An already-admitted merge may finish after closing.")
             .setNegativeButton("Cancel") { _, _ -> cancelVocabularyImport() }
             .setOnCancelListener { cancelVocabularyImport() }
             .setPositiveButton("Merge vocabulary") { _, _ ->

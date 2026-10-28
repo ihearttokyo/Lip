@@ -4,13 +4,16 @@
   "runtime": "resident CPython 3.14.6 / unicodedata16.0.0",
   "source_release": "https://www.python.org/downloads/release/python-3146/",
   "generator": "tools/learned_words/generate_unicode16.py",
-  "generator_sha256": "0ec445fabeaf1202884b6d0558485e4f64d672a278850ad594048ef6f6ea6448",
+  "generator_sha256": "0afacff645a4bbdfe8121bab971862a7fac8ff46798796ce0c8a8527e290f974",
   "table": "unicode16.json",
   "table_bytes": 387200,
   "table_sha256": "e0a6fe7b32371dff4a582331bdd3591d2854ef7df9e1527fd0b5e8e669f1615c",
   "oracle_vectors": "docs/contracts/learned-words/normalization-differential-v1.json",
   "oracle_vectors_sha256": "9a6945db8e6a418138b094ccd3f520ab41b9a0384b39fa040cd19588a4f29144",
-  "licenses": ["UNICODE-LICENSE.txt", "CPython-LICENSE.txt"],
+  "licenses": [
+    "UNICODE-LICENSE.txt",
+    "CPython-LICENSE.txt"
+  ],
   "license_source": "https://www.unicode.org/license.txt",
   "license_sha256": "e7a93b009565cfce55919a381437ac4db883e9da2126fa28b91d12732bc53d96",
   "derivation": "Selected L/C category ranges, default full casefold, canonical combining classes, canonical decompositions and NFC-valid composition pairs. Algorithmic Hangul is implemented in code, not expanded in the runtime table. No Python executable or private data is distributed.",
