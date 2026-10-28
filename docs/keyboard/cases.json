@@ -1,0 +1,1179 @@
+{
+  "schema_version": 1,
+  "language": "English",
+  "macos_editors": [
+    "native NSTextView",
+    "Chromium contenteditable",
+    "this chat composer (human verification; automation restrictions retained)"
+  ],
+  "android_editors": [
+    "native EditText",
+    "WebView contenteditable",
+    "Chrome contenteditable",
+    "terminal emulator",
+    "password/autofill fixture"
+  ],
+  "device_states": [
+    "cold/offline",
+    "warm",
+    "rotation/restart",
+    "low-memory/revoked-permission"
+  ],
+  "cases": [
+    {
+      "id": "MODEL-CLEAN-DEFAULT:macos",
+      "criterion": "AC-01",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of MODEL-CLEAN-DEFAULT must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "MODEL-CLEAN-DEFAULT"
+    },
+    {
+      "id": "MODEL-CLEAN-DEFAULT:android",
+      "criterion": "AC-01",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of MODEL-CLEAN-DEFAULT must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "MODEL-CLEAN-DEFAULT"
+    },
+    {
+      "id": "MODEL-PRO-OPTIONAL:macos",
+      "criterion": "AC-01",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of MODEL-PRO-OPTIONAL must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "MODEL-PRO-OPTIONAL"
+    },
+    {
+      "id": "MODEL-PRO-OPTIONAL:android",
+      "criterion": "AC-01",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of MODEL-PRO-OPTIONAL must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "MODEL-PRO-OPTIONAL"
+    },
+    {
+      "id": "MODEL-MISSING-NO-FALLBACK:macos",
+      "criterion": "AC-01",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of MODEL-MISSING-NO-FALLBACK must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "MODEL-MISSING-NO-FALLBACK"
+    },
+    {
+      "id": "MODEL-MISSING-NO-FALLBACK:android",
+      "criterion": "AC-01",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of MODEL-MISSING-NO-FALLBACK must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "MODEL-MISSING-NO-FALLBACK"
+    },
+    {
+      "id": "MODEL-PIN-CORRUPTION:macos",
+      "criterion": "AC-01",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of MODEL-PIN-CORRUPTION must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "MODEL-PIN-CORRUPTION"
+    },
+    {
+      "id": "MODEL-PIN-CORRUPTION:android",
+      "criterion": "AC-01",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of MODEL-PIN-CORRUPTION must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "MODEL-PIN-CORRUPTION"
+    },
+    {
+      "id": "MODEL-CANCEL-RETAIN:macos",
+      "criterion": "AC-01",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of MODEL-CANCEL-RETAIN must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "MODEL-CANCEL-RETAIN"
+    },
+    {
+      "id": "MODEL-CANCEL-RETAIN:android",
+      "criterion": "AC-01",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of MODEL-CANCEL-RETAIN must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "MODEL-CANCEL-RETAIN"
+    },
+    {
+      "id": "MODEL-SWITCH-SESSION:macos",
+      "criterion": "AC-01",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of MODEL-SWITCH-SESSION must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "MODEL-SWITCH-SESSION"
+    },
+    {
+      "id": "MODEL-SWITCH-SESSION:android",
+      "criterion": "AC-01",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of MODEL-SWITCH-SESSION must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "MODEL-SWITCH-SESSION"
+    },
+    {
+      "id": "REVIEW-RAW-OUTPUT:macos",
+      "criterion": "AC-01",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of REVIEW-RAW-OUTPUT must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "REVIEW-RAW-OUTPUT"
+    },
+    {
+      "id": "REVIEW-RAW-OUTPUT:android",
+      "criterion": "AC-01",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of REVIEW-RAW-OUTPUT must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "REVIEW-RAW-OUTPUT"
+    },
+    {
+      "id": "REVIEW-TIMINGS-NOT-ACCURACY:macos",
+      "criterion": "AC-01",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of REVIEW-TIMINGS-NOT-ACCURACY must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "REVIEW-TIMINGS-NOT-ACCURACY"
+    },
+    {
+      "id": "REVIEW-TIMINGS-NOT-ACCURACY:android",
+      "criterion": "AC-01",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of REVIEW-TIMINGS-NOT-ACCURACY must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "REVIEW-TIMINGS-NOT-ACCURACY"
+    },
+    {
+      "id": "SPEECH-PRO-VERBATIM:macos",
+      "criterion": "AC-01",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of SPEECH-PRO-VERBATIM must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "SPEECH-PRO-VERBATIM"
+    },
+    {
+      "id": "SPEECH-PRO-VERBATIM:android",
+      "criterion": "AC-01",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of SPEECH-PRO-VERBATIM must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "SPEECH-PRO-VERBATIM"
+    },
+    {
+      "id": "SPEECH-CLEAN-FILLERS:macos",
+      "criterion": "AC-01",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of SPEECH-CLEAN-FILLERS must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "SPEECH-CLEAN-FILLERS"
+    },
+    {
+      "id": "SPEECH-CLEAN-FILLERS:android",
+      "criterion": "AC-01",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of SPEECH-CLEAN-FILLERS must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "SPEECH-CLEAN-FILLERS"
+    },
+    {
+      "id": "SPEECH-FACT-ANCHORS:macos",
+      "criterion": "AC-01",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of SPEECH-FACT-ANCHORS must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "SPEECH-FACT-ANCHORS"
+    },
+    {
+      "id": "SPEECH-FACT-ANCHORS:android",
+      "criterion": "AC-01",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of SPEECH-FACT-ANCHORS must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "SPEECH-FACT-ANCHORS"
+    },
+    {
+      "id": "SPEECH-SILENCE:macos",
+      "criterion": "AC-01",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of SPEECH-SILENCE must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "SPEECH-SILENCE"
+    },
+    {
+      "id": "SPEECH-SILENCE:android",
+      "criterion": "AC-01",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of SPEECH-SILENCE must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "SPEECH-SILENCE"
+    },
+    {
+      "id": "INSERT-CARET-SURROUNDINGS:macos",
+      "criterion": "AC-02",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of INSERT-CARET-SURROUNDINGS must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "INSERT-CARET-SURROUNDINGS"
+    },
+    {
+      "id": "INSERT-CARET-SURROUNDINGS:android",
+      "criterion": "AC-02",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of INSERT-CARET-SURROUNDINGS must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "INSERT-CARET-SURROUNDINGS"
+    },
+    {
+      "id": "INSERT-CLIPBOARD-UNCHANGED:macos",
+      "criterion": "AC-02",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of INSERT-CLIPBOARD-UNCHANGED must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "INSERT-CLIPBOARD-UNCHANGED"
+    },
+    {
+      "id": "INSERT-CLIPBOARD-UNCHANGED:android",
+      "criterion": "AC-02",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of INSERT-CLIPBOARD-UNCHANGED must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "INSERT-CLIPBOARD-UNCHANGED"
+    },
+    {
+      "id": "INSERT-NO-AUTO-SEND:macos",
+      "criterion": "AC-02",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of INSERT-NO-AUTO-SEND must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "INSERT-NO-AUTO-SEND"
+    },
+    {
+      "id": "INSERT-NO-AUTO-SEND:android",
+      "criterion": "AC-02",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of INSERT-NO-AUTO-SEND must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "INSERT-NO-AUTO-SEND"
+    },
+    {
+      "id": "INSERT-MOVED-CARET:macos",
+      "criterion": "AC-02",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of INSERT-MOVED-CARET must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "INSERT-MOVED-CARET"
+    },
+    {
+      "id": "INSERT-MOVED-CARET:android",
+      "criterion": "AC-02",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of INSERT-MOVED-CARET must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "INSERT-MOVED-CARET"
+    },
+    {
+      "id": "INSERT-CHANGED-FIELD:macos",
+      "criterion": "AC-02",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of INSERT-CHANGED-FIELD must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "INSERT-CHANGED-FIELD"
+    },
+    {
+      "id": "INSERT-CHANGED-FIELD:android",
+      "criterion": "AC-02",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of INSERT-CHANGED-FIELD must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "INSERT-CHANGED-FIELD"
+    },
+    {
+      "id": "INSERT-CHANGED-CONTEXT:macos",
+      "criterion": "AC-02",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of INSERT-CHANGED-CONTEXT must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "INSERT-CHANGED-CONTEXT"
+    },
+    {
+      "id": "INSERT-CHANGED-CONTEXT:android",
+      "criterion": "AC-02",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of INSERT-CHANGED-CONTEXT must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "INSERT-CHANGED-CONTEXT"
+    },
+    {
+      "id": "INSERT-PROTECTED:macos",
+      "criterion": "AC-02",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of INSERT-PROTECTED must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "INSERT-PROTECTED"
+    },
+    {
+      "id": "INSERT-PROTECTED:android",
+      "criterion": "AC-02",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of INSERT-PROTECTED must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "INSERT-PROTECTED"
+    },
+    {
+      "id": "INSERT-AMBIGUOUS-NO-RETRY:macos",
+      "criterion": "AC-02",
+      "platform": "macos",
+      "negative_control": "A false/timeout commit causes a second dispatch",
+      "required_assertion": "INSERT-AMBIGUOUS-NO-RETRY"
+    },
+    {
+      "id": "INSERT-AMBIGUOUS-NO-RETRY:android",
+      "criterion": "AC-02",
+      "platform": "android",
+      "negative_control": "A false/timeout commit causes a second dispatch",
+      "required_assertion": "INSERT-AMBIGUOUS-NO-RETRY"
+    },
+    {
+      "id": "CAPTURE-HOLD-RELEASE:macos",
+      "criterion": "AC-02",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of CAPTURE-HOLD-RELEASE must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "CAPTURE-HOLD-RELEASE"
+    },
+    {
+      "id": "CAPTURE-HOLD-RELEASE:android",
+      "criterion": "AC-02",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of CAPTURE-HOLD-RELEASE must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "CAPTURE-HOLD-RELEASE"
+    },
+    {
+      "id": "CAPTURE-LOCKED-STOP:macos",
+      "criterion": "AC-02",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of CAPTURE-LOCKED-STOP must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "CAPTURE-LOCKED-STOP"
+    },
+    {
+      "id": "CAPTURE-LOCKED-STOP:android",
+      "criterion": "AC-02",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of CAPTURE-LOCKED-STOP must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "CAPTURE-LOCKED-STOP"
+    },
+    {
+      "id": "CAPTURE-CANCEL-LATE-CALLBACK:macos",
+      "criterion": "AC-02",
+      "platform": "macos",
+      "negative_control": "Cancelled prior result inserts or aborts a new capture",
+      "required_assertion": "CAPTURE-CANCEL-LATE-CALLBACK"
+    },
+    {
+      "id": "CAPTURE-CANCEL-LATE-CALLBACK:android",
+      "criterion": "AC-02",
+      "platform": "android",
+      "negative_control": "Cancelled prior result inserts or aborts a new capture",
+      "required_assertion": "CAPTURE-CANCEL-LATE-CALLBACK"
+    },
+    {
+      "id": "CAPTURE-SLEEP-LOCK:macos",
+      "criterion": "AC-02",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of CAPTURE-SLEEP-LOCK must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "CAPTURE-SLEEP-LOCK"
+    },
+    {
+      "id": "CAPTURE-SLEEP-LOCK:android",
+      "criterion": "AC-02",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of CAPTURE-SLEEP-LOCK must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "CAPTURE-SLEEP-LOCK"
+    },
+    {
+      "id": "CAPTURE-PERMISSION-REVOKE:macos",
+      "criterion": "AC-02",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of CAPTURE-PERMISSION-REVOKE must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "CAPTURE-PERMISSION-REVOKE"
+    },
+    {
+      "id": "CAPTURE-PERMISSION-REVOKE:android",
+      "criterion": "AC-02",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of CAPTURE-PERMISSION-REVOKE must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "CAPTURE-PERMISSION-REVOKE"
+    },
+    {
+      "id": "SETTINGS-ROUNDTRIP:macos",
+      "criterion": "AC-03",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of SETTINGS-ROUNDTRIP must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "SETTINGS-ROUNDTRIP"
+    },
+    {
+      "id": "SETTINGS-ROUNDTRIP:android",
+      "criterion": "AC-03",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of SETTINGS-ROUNDTRIP must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "SETTINGS-ROUNDTRIP"
+    },
+    {
+      "id": "DICT-UNSUPPORTED-HONEST:macos",
+      "criterion": "AC-03",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of DICT-UNSUPPORTED-HONEST must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "DICT-UNSUPPORTED-HONEST"
+    },
+    {
+      "id": "DICT-UNSUPPORTED-HONEST:android",
+      "criterion": "AC-03",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of DICT-UNSUPPORTED-HONEST must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "DICT-UNSUPPORTED-HONEST"
+    },
+    {
+      "id": "HISTORY-OFF-NO-SAVES:macos",
+      "criterion": "AC-03",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of HISTORY-OFF-NO-SAVES must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "HISTORY-OFF-NO-SAVES"
+    },
+    {
+      "id": "HISTORY-OFF-NO-SAVES:android",
+      "criterion": "AC-03",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of HISTORY-OFF-NO-SAVES must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "HISTORY-OFF-NO-SAVES"
+    },
+    {
+      "id": "HISTORY-ENCRYPTED-OPT-IN:macos",
+      "criterion": "AC-03",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of HISTORY-ENCRYPTED-OPT-IN must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "HISTORY-ENCRYPTED-OPT-IN"
+    },
+    {
+      "id": "HISTORY-ENCRYPTED-OPT-IN:android",
+      "criterion": "AC-03",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of HISTORY-ENCRYPTED-OPT-IN must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "HISTORY-ENCRYPTED-OPT-IN"
+    },
+    {
+      "id": "HISTORY-MIGRATION:macos",
+      "criterion": "AC-03",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of HISTORY-MIGRATION must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "HISTORY-MIGRATION"
+    },
+    {
+      "id": "HISTORY-MIGRATION:android",
+      "criterion": "AC-03",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of HISTORY-MIGRATION must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "HISTORY-MIGRATION"
+    },
+    {
+      "id": "HISTORY-EXPORT-EXPLICIT:macos",
+      "criterion": "AC-03",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of HISTORY-EXPORT-EXPLICIT must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "HISTORY-EXPORT-EXPLICIT"
+    },
+    {
+      "id": "HISTORY-EXPORT-EXPLICIT:android",
+      "criterion": "AC-03",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of HISTORY-EXPORT-EXPLICIT must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "HISTORY-EXPORT-EXPLICIT"
+    },
+    {
+      "id": "HISTORY-INCOGNITO-NO-SAVE:macos",
+      "criterion": "AC-03",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of HISTORY-INCOGNITO-NO-SAVE must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "HISTORY-INCOGNITO-NO-SAVE"
+    },
+    {
+      "id": "HISTORY-INCOGNITO-NO-SAVE:android",
+      "criterion": "AC-03",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of HISTORY-INCOGNITO-NO-SAVE must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "HISTORY-INCOGNITO-NO-SAVE"
+    },
+    {
+      "id": "IME-SYSTEM-REGISTRATION:android",
+      "criterion": "AC-04",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of IME-SYSTEM-REGISTRATION must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "IME-SYSTEM-REGISTRATION"
+    },
+    {
+      "id": "IME-TAP-ASCII:android",
+      "criterion": "AC-04",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of IME-TAP-ASCII must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "IME-TAP-ASCII"
+    },
+    {
+      "id": "IME-SHIFT-ONCE:android",
+      "criterion": "AC-04",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of IME-SHIFT-ONCE must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "IME-SHIFT-ONCE"
+    },
+    {
+      "id": "IME-CAPS-LOCK:android",
+      "criterion": "AC-04",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of IME-CAPS-LOCK must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "IME-CAPS-LOCK"
+    },
+    {
+      "id": "IME-SYMBOLS:android",
+      "criterion": "AC-04",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of IME-SYMBOLS must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "IME-SYMBOLS"
+    },
+    {
+      "id": "IME-NUMBER-PHONE:android",
+      "criterion": "AC-04",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of IME-NUMBER-PHONE must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "IME-NUMBER-PHONE"
+    },
+    {
+      "id": "IME-EMAIL-URL:android",
+      "criterion": "AC-04",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of IME-EMAIL-URL must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "IME-EMAIL-URL"
+    },
+    {
+      "id": "IME-DELETE-SELECTION:android",
+      "criterion": "AC-04",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of IME-DELETE-SELECTION must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "IME-DELETE-SELECTION"
+    },
+    {
+      "id": "IME-DELETE-EMOJI-ZWJ:android",
+      "criterion": "AC-04",
+      "platform": "android",
+      "negative_control": "Deleting one UTF16 code unit leaves a split surrogate or partial ZWJ cluster",
+      "required_assertion": "IME-DELETE-EMOJI-ZWJ"
+    },
+    {
+      "id": "IME-ACTION-EXPLICIT:android",
+      "criterion": "AC-04",
+      "platform": "android",
+      "negative_control": "An insertion/correction implicitly calls performEditorAction",
+      "required_assertion": "IME-ACTION-EXPLICIT"
+    },
+    {
+      "id": "IME-ROTATE-RESTART:android",
+      "criterion": "AC-04",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of IME-ROTATE-RESTART must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "IME-ROTATE-RESTART"
+    },
+    {
+      "id": "IME-SWITCH-KEYBOARD:android",
+      "criterion": "AC-04",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of IME-SWITCH-KEYBOARD must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "IME-SWITCH-KEYBOARD"
+    },
+    {
+      "id": "IME-AUTOFILL-COMPATIBLE:android",
+      "criterion": "AC-04",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of IME-AUTOFILL-COMPATIBLE must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "IME-AUTOFILL-COMPATIBLE"
+    },
+    {
+      "id": "SWIPE-MODEL-HASH:android",
+      "criterion": "AC-05",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of SWIPE-MODEL-HASH must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "SWIPE-MODEL-HASH"
+    },
+    {
+      "id": "SWIPE-LICENSE-DATA-ENGINE:android",
+      "criterion": "AC-05",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of SWIPE-LICENSE-DATA-ENGINE must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "SWIPE-LICENSE-DATA-ENGINE"
+    },
+    {
+      "id": "SWIPE-NORMALIZATION-GOLDEN:android",
+      "criterion": "AC-05",
+      "platform": "android",
+      "negative_control": "Incorrect aspect/key-width/time mapping changes known feature vectors",
+      "required_assertion": "SWIPE-NORMALIZATION-GOLDEN"
+    },
+    {
+      "id": "SWIPE-REAL-HOLDOUT:android",
+      "criterion": "AC-05",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of SWIPE-REAL-HOLDOUT must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "SWIPE-REAL-HOLDOUT"
+    },
+    {
+      "id": "SWIPE-OOV-FAILURE-DENOMINATOR:android",
+      "criterion": "AC-05",
+      "platform": "android",
+      "negative_control": "Unknown target or timeout silently omitted from accuracy",
+      "required_assertion": "SWIPE-OOV-FAILURE-DENOMINATOR"
+    },
+    {
+      "id": "SWIPE-NAN-OVERSIZE-REFUSE:android",
+      "criterion": "AC-05",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of SWIPE-NAN-OVERSIZE-REFUSE must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "SWIPE-NAN-OVERSIZE-REFUSE"
+    },
+    {
+      "id": "SWIPE-CANCEL-MULTITOUCH:android",
+      "criterion": "AC-05",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of SWIPE-CANCEL-MULTITOUCH must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "SWIPE-CANCEL-MULTITOUCH"
+    },
+    {
+      "id": "SWIPE-ASYNC-GENERATION:android",
+      "criterion": "AC-05",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of SWIPE-ASYNC-GENERATION must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "SWIPE-ASYNC-GENERATION"
+    },
+    {
+      "id": "SWIPE-NO-NEURAL-LABEL-WHEN-FAILED:android",
+      "criterion": "AC-05",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of SWIPE-NO-NEURAL-LABEL-WHEN-FAILED must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "SWIPE-NO-NEURAL-LABEL-WHEN-FAILED"
+    },
+    {
+      "id": "CANDIDATE-THREE:android",
+      "criterion": "AC-06",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of CANDIDATE-THREE must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "CANDIDATE-THREE"
+    },
+    {
+      "id": "CANDIDATE-OWNED-COMPOSING:android",
+      "criterion": "AC-06",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of CANDIDATE-OWNED-COMPOSING must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "CANDIDATE-OWNED-COMPOSING"
+    },
+    {
+      "id": "CANDIDATE-STALE-REFUSE:android",
+      "criterion": "AC-06",
+      "platform": "android",
+      "negative_control": "A candidate overwrites a moved cursor, another field, or a new composing owner",
+      "required_assertion": "CANDIDATE-STALE-REFUSE"
+    },
+    {
+      "id": "CANDIDATE-APOSTROPHE-REPEAT:android",
+      "criterion": "AC-06",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of CANDIDATE-APOSTROPHE-REPEAT must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "CANDIDATE-APOSTROPHE-REPEAT"
+    },
+    {
+      "id": "PREDICT-NEXT-WORD:android",
+      "criterion": "AC-06",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of PREDICT-NEXT-WORD must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "PREDICT-NEXT-WORD"
+    },
+    {
+      "id": "AUTOCORRECT-UNDO:android",
+      "criterion": "AC-06",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of AUTOCORRECT-UNDO must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "AUTOCORRECT-UNDO"
+    },
+    {
+      "id": "DICTIONARY-PERSONAL-OPT-IN:android",
+      "criterion": "AC-06",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of DICTIONARY-PERSONAL-OPT-IN must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "DICTIONARY-PERSONAL-OPT-IN"
+    },
+    {
+      "id": "PRIVATE-NO-PREDICT-LEARN-TRACE:android",
+      "criterion": "AC-06",
+      "platform": "android",
+      "negative_control": "A password/incognito trace or context reaches model/history/persistent learning",
+      "required_assertion": "PRIVATE-NO-PREDICT-LEARN-TRACE"
+    },
+    {
+      "id": "GESTURE-DELETE:android",
+      "criterion": "AC-07",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of GESTURE-DELETE must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "GESTURE-DELETE"
+    },
+    {
+      "id": "GESTURE-CURSOR-SPACEBAR:android",
+      "criterion": "AC-07",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of GESTURE-CURSOR-SPACEBAR must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "GESTURE-CURSOR-SPACEBAR"
+    },
+    {
+      "id": "KEY-LONGPRESS-PUNCTUATION:android",
+      "criterion": "AC-07",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of KEY-LONGPRESS-PUNCTUATION must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "KEY-LONGPRESS-PUNCTUATION"
+    },
+    {
+      "id": "KEY-REPEAT-DELETE:android",
+      "criterion": "AC-07",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of KEY-REPEAT-DELETE must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "KEY-REPEAT-DELETE"
+    },
+    {
+      "id": "EMOJI-SEARCH:android",
+      "criterion": "AC-07",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of EMOJI-SEARCH must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "EMOJI-SEARCH"
+    },
+    {
+      "id": "LAYOUT-ONEHAND:android",
+      "criterion": "AC-07",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of LAYOUT-ONEHAND must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "LAYOUT-ONEHAND"
+    },
+    {
+      "id": "LAYOUT-HEIGHT:android",
+      "criterion": "AC-07",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of LAYOUT-HEIGHT must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "LAYOUT-HEIGHT"
+    },
+    {
+      "id": "LAYOUT-THEME-CONTRAST:android",
+      "criterion": "AC-07",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of LAYOUT-THEME-CONTRAST must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "LAYOUT-THEME-CONTRAST"
+    },
+    {
+      "id": "LAYOUT-HAPTICS:android",
+      "criterion": "AC-07",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of LAYOUT-HAPTICS must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "LAYOUT-HAPTICS"
+    },
+    {
+      "id": "ACCESS-TALKBACK:android",
+      "criterion": "AC-07",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of ACCESS-TALKBACK must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "ACCESS-TALKBACK"
+    },
+    {
+      "id": "ACCESS-TOUCH-EXPLORATION:android",
+      "criterion": "AC-07",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of ACCESS-TOUCH-EXPLORATION must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "ACCESS-TOUCH-EXPLORATION"
+    },
+    {
+      "id": "EDIT-SELECTION-CONTROLS:android",
+      "criterion": "AC-07",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of EDIT-SELECTION-CONTROLS must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "EDIT-SELECTION-CONTROLS"
+    },
+    {
+      "id": "CLIPBOARD-EXPLICIT-COPY-PASTE:android",
+      "criterion": "AC-07",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of CLIPBOARD-EXPLICIT-COPY-PASTE must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "CLIPBOARD-EXPLICIT-COPY-PASTE"
+    },
+    {
+      "id": "CLIPBOARD-HISTORY-OPT-IN:android",
+      "criterion": "AC-07",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of CLIPBOARD-HISTORY-OPT-IN must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "CLIPBOARD-HISTORY-OPT-IN"
+    },
+    {
+      "id": "VOICE-IME-EXISTING-BARK:android",
+      "criterion": "AC-08",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of VOICE-IME-EXISTING-BARK must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "VOICE-IME-EXISTING-BARK"
+    },
+    {
+      "id": "VOICE-IME-SESSION-OWNERSHIP:android",
+      "criterion": "AC-08",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of VOICE-IME-SESSION-OWNERSHIP must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "VOICE-IME-SESSION-OWNERSHIP"
+    },
+    {
+      "id": "VOICE-IME-NO-AUTO-ACTION:android",
+      "criterion": "AC-08",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of VOICE-IME-NO-AUTO-ACTION must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "VOICE-IME-NO-AUTO-ACTION"
+    },
+    {
+      "id": "VOICE-IME-NO-CLIPBOARD:android",
+      "criterion": "AC-08",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of VOICE-IME-NO-CLIPBOARD must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "VOICE-IME-NO-CLIPBOARD"
+    },
+    {
+      "id": "VOICE-IME-PASSWORD-REFUSE:android",
+      "criterion": "AC-08",
+      "platform": "android",
+      "negative_control": "Password editor starts recorder or reads surrounding password text",
+      "required_assertion": "VOICE-IME-PASSWORD-REFUSE"
+    },
+    {
+      "id": "VOICE-IME-INCOGNITO-NO-HISTORY:android",
+      "criterion": "AC-08",
+      "platform": "android",
+      "negative_control": "No-personalized-learning session writes any history record",
+      "required_assertion": "VOICE-IME-INCOGNITO-NO-HISTORY"
+    },
+    {
+      "id": "VOICE-IME-CANCEL-NEW-FIELD:android",
+      "criterion": "AC-08",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of VOICE-IME-CANCEL-NEW-FIELD must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "VOICE-IME-CANCEL-NEW-FIELD"
+    },
+    {
+      "id": "NETWORK-OFFLINE-INFERENCE:macos",
+      "criterion": "AC-09",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of NETWORK-OFFLINE-INFERENCE must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "NETWORK-OFFLINE-INFERENCE"
+    },
+    {
+      "id": "NETWORK-OFFLINE-INFERENCE:android",
+      "criterion": "AC-09",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of NETWORK-OFFLINE-INFERENCE must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "NETWORK-OFFLINE-INFERENCE"
+    },
+    {
+      "id": "PRIVATE-NO-SECRETS-LOGS:macos",
+      "criterion": "AC-09",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of PRIVATE-NO-SECRETS-LOGS must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "PRIVATE-NO-SECRETS-LOGS"
+    },
+    {
+      "id": "PRIVATE-NO-SECRETS-LOGS:android",
+      "criterion": "AC-09",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of PRIVATE-NO-SECRETS-LOGS must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "PRIVATE-NO-SECRETS-LOGS"
+    },
+    {
+      "id": "MODEL-LICENSE-ATTRIBUTION:macos",
+      "criterion": "AC-09",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of MODEL-LICENSE-ATTRIBUTION must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "MODEL-LICENSE-ATTRIBUTION"
+    },
+    {
+      "id": "MODEL-LICENSE-ATTRIBUTION:android",
+      "criterion": "AC-09",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of MODEL-LICENSE-ATTRIBUTION must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "MODEL-LICENSE-ATTRIBUTION"
+    },
+    {
+      "id": "MODEL-CANCEL-CORRUPT-LOWSPACE:macos",
+      "criterion": "AC-09",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of MODEL-CANCEL-CORRUPT-LOWSPACE must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "MODEL-CANCEL-CORRUPT-LOWSPACE"
+    },
+    {
+      "id": "MODEL-CANCEL-CORRUPT-LOWSPACE:android",
+      "criterion": "AC-09",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of MODEL-CANCEL-CORRUPT-LOWSPACE must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "MODEL-CANCEL-CORRUPT-LOWSPACE"
+    },
+    {
+      "id": "DATA-UPDATE-ROLLBACK-PRESERVE:macos",
+      "criterion": "AC-09",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of DATA-UPDATE-ROLLBACK-PRESERVE must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "DATA-UPDATE-ROLLBACK-PRESERVE"
+    },
+    {
+      "id": "DATA-UPDATE-ROLLBACK-PRESERVE:android",
+      "criterion": "AC-09",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of DATA-UPDATE-ROLLBACK-PRESERVE must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "DATA-UPDATE-ROLLBACK-PRESERVE"
+    },
+    {
+      "id": "NO-PROPRIETARY-GBOARD-BINARY:macos",
+      "criterion": "AC-09",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of NO-PROPRIETARY-GBOARD-BINARY must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "NO-PROPRIETARY-GBOARD-BINARY"
+    },
+    {
+      "id": "NO-PROPRIETARY-GBOARD-BINARY:android",
+      "criterion": "AC-09",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of NO-PROPRIETARY-GBOARD-BINARY must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "NO-PROPRIETARY-GBOARD-BINARY"
+    },
+    {
+      "id": "COMPARE-REGISTERED-PARTICIPANTS:android",
+      "criterion": "AC-10",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of COMPARE-REGISTERED-PARTICIPANTS must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "COMPARE-REGISTERED-PARTICIPANTS"
+    },
+    {
+      "id": "COMPARE-GBOARD-IDENTITY:android",
+      "criterion": "AC-10",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of COMPARE-GBOARD-IDENTITY must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "COMPARE-GBOARD-IDENTITY"
+    },
+    {
+      "id": "COMPARE-FROZEN-PHRASEBANK:android",
+      "criterion": "AC-10",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of COMPARE-FROZEN-PHRASEBANK must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "COMPARE-FROZEN-PHRASEBANK"
+    },
+    {
+      "id": "COMPARE-WER-PRACTICAL-CI:android",
+      "criterion": "AC-10",
+      "platform": "android",
+      "negative_control": "Mean passes but confidence bound misses the practical margin",
+      "required_assertion": "COMPARE-WER-PRACTICAL-CI"
+    },
+    {
+      "id": "COMPARE-WPM-PRACTICAL-CI:android",
+      "criterion": "AC-10",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of COMPARE-WPM-PRACTICAL-CI must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "COMPARE-WPM-PRACTICAL-CI"
+    },
+    {
+      "id": "COMPARE-EXTERNAL-TIMING:android",
+      "criterion": "AC-10",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of COMPARE-EXTERNAL-TIMING must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "COMPARE-EXTERNAL-TIMING"
+    },
+    {
+      "id": "COMPARE-EXTERNAL-ENERGY:android",
+      "criterion": "AC-10",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of COMPARE-EXTERNAL-ENERGY must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "COMPARE-EXTERNAL-ENERGY"
+    },
+    {
+      "id": "REVIEW-DICTATION-9_2:macos",
+      "criterion": "AC-11",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of REVIEW-DICTATION-9_2 must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "REVIEW-DICTATION-9_2"
+    },
+    {
+      "id": "REVIEW-DICTATION-9_2:android",
+      "criterion": "AC-11",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of REVIEW-DICTATION-9_2 must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "REVIEW-DICTATION-9_2"
+    },
+    {
+      "id": "REVIEW-KEYBOARD-9_2:macos",
+      "criterion": "AC-11",
+      "platform": "macos",
+      "negative_control": "9.19 rounded to9.2, or missing dimension reweighted away",
+      "required_assertion": "REVIEW-KEYBOARD-9_2"
+    },
+    {
+      "id": "REVIEW-KEYBOARD-9_2:android",
+      "criterion": "AC-11",
+      "platform": "android",
+      "negative_control": "9.19 rounded to9.2, or missing dimension reweighted away",
+      "required_assertion": "REVIEW-KEYBOARD-9_2"
+    },
+    {
+      "id": "REVIEW-DELIVERY-9_2:macos",
+      "criterion": "AC-11",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of REVIEW-DELIVERY-9_2 must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "REVIEW-DELIVERY-9_2"
+    },
+    {
+      "id": "REVIEW-DELIVERY-9_2:android",
+      "criterion": "AC-11",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of REVIEW-DELIVERY-9_2 must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "REVIEW-DELIVERY-9_2"
+    },
+    {
+      "id": "REVIEW-NO-CRITICAL:macos",
+      "criterion": "AC-11",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of REVIEW-NO-CRITICAL must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "REVIEW-NO-CRITICAL"
+    },
+    {
+      "id": "REVIEW-NO-CRITICAL:android",
+      "criterion": "AC-11",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of REVIEW-NO-CRITICAL must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "REVIEW-NO-CRITICAL"
+    },
+    {
+      "id": "REVIEW-EXACT-IDENTITIES:macos",
+      "criterion": "AC-11",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of REVIEW-EXACT-IDENTITIES must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "REVIEW-EXACT-IDENTITIES"
+    },
+    {
+      "id": "REVIEW-EXACT-IDENTITIES:android",
+      "criterion": "AC-11",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of REVIEW-EXACT-IDENTITIES must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "REVIEW-EXACT-IDENTITIES"
+    },
+    {
+      "id": "INSTALL-EXACT-SOURCE-ARTIFACT:macos",
+      "criterion": "AC-12",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of INSTALL-EXACT-SOURCE-ARTIFACT must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "INSTALL-EXACT-SOURCE-ARTIFACT"
+    },
+    {
+      "id": "INSTALL-EXACT-SOURCE-ARTIFACT:android",
+      "criterion": "AC-12",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of INSTALL-EXACT-SOURCE-ARTIFACT must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "INSTALL-EXACT-SOURCE-ARTIFACT"
+    },
+    {
+      "id": "INSTALL-PRESERVE-DATA:macos",
+      "criterion": "AC-12",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of INSTALL-PRESERVE-DATA must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "INSTALL-PRESERVE-DATA"
+    },
+    {
+      "id": "INSTALL-PRESERVE-DATA:android",
+      "criterion": "AC-12",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of INSTALL-PRESERVE-DATA must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "INSTALL-PRESERVE-DATA"
+    },
+    {
+      "id": "INSTALL-ROLLBACK:macos",
+      "criterion": "AC-12",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of INSTALL-ROLLBACK must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "INSTALL-ROLLBACK"
+    },
+    {
+      "id": "INSTALL-ROLLBACK:android",
+      "criterion": "AC-12",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of INSTALL-ROLLBACK must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "INSTALL-ROLLBACK"
+    },
+    {
+      "id": "SETUP-SHORT-TRUE:macos",
+      "criterion": "AC-12",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of SETUP-SHORT-TRUE must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "SETUP-SHORT-TRUE"
+    },
+    {
+      "id": "SETUP-SHORT-TRUE:android",
+      "criterion": "AC-12",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of SETUP-SHORT-TRUE must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "SETUP-SHORT-TRUE"
+    },
+    {
+      "id": "FEATURE-DIVERGENCES-EXPLICIT:macos",
+      "criterion": "AC-12",
+      "platform": "macos",
+      "negative_control": "Known consumer-path violation of FEATURE-DIVERGENCES-EXPLICIT must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "FEATURE-DIVERGENCES-EXPLICIT"
+    },
+    {
+      "id": "FEATURE-DIVERGENCES-EXPLICIT:android",
+      "criterion": "AC-12",
+      "platform": "android",
+      "negative_control": "Known consumer-path violation of FEATURE-DIVERGENCES-EXPLICIT must fail; missing/stale evidence is insufficient by itself",
+      "required_assertion": "FEATURE-DIVERGENCES-EXPLICIT"
+    },
+    {
+      "id": "VISUAL-BLACK-BACKDROP:android",
+      "criterion": "AC-13",
+      "platform": "android",
+      "negative_control": "Off-white foreground, displaced/cropped key, glare-obscured character or unreviewed glass must fail VISUAL-BLACK-BACKDROP",
+      "required_assertion": "VISUAL-BLACK-BACKDROP"
+    },
+    {
+      "id": "VISUAL-GRAY-CAPS:android",
+      "criterion": "AC-13",
+      "platform": "android",
+      "negative_control": "Off-white foreground, displaced/cropped key, glare-obscured character or unreviewed glass must fail VISUAL-GRAY-CAPS",
+      "required_assertion": "VISUAL-GRAY-CAPS"
+    },
+    {
+      "id": "VISUAL-WHITE-GLYPHS:android",
+      "criterion": "AC-13",
+      "platform": "android",
+      "negative_control": "Off-white foreground, displaced/cropped key, glare-obscured character or unreviewed glass must fail VISUAL-WHITE-GLYPHS",
+      "required_assertion": "VISUAL-WHITE-GLYPHS"
+    },
+    {
+      "id": "VISUAL-REFERENCE-GEOMETRY:android",
+      "criterion": "AC-13",
+      "platform": "android",
+      "negative_control": "Off-white foreground, displaced/cropped key, glare-obscured character or unreviewed glass must fail VISUAL-REFERENCE-GEOMETRY",
+      "required_assertion": "VISUAL-REFERENCE-GEOMETRY"
+    },
+    {
+      "id": "VISUAL-HINTS-LONGPRESS:android",
+      "criterion": "AC-13",
+      "platform": "android",
+      "negative_control": "Off-white foreground, displaced/cropped key, glare-obscured character or unreviewed glass must fail VISUAL-HINTS-LONGPRESS",
+      "required_assertion": "VISUAL-HINTS-LONGPRESS"
+    },
+    {
+      "id": "VISUAL-GLASS-MATERIAL:android",
+      "criterion": "AC-13",
+      "platform": "android",
+      "negative_control": "Off-white foreground, displaced/cropped key, glare-obscured character or unreviewed glass must fail VISUAL-GLASS-MATERIAL",
+      "required_assertion": "VISUAL-GLASS-MATERIAL"
+    },
+    {
+      "id": "VISUAL-STATES-CONTRAST:android",
+      "criterion": "AC-13",
+      "platform": "android",
+      "negative_control": "Off-white foreground, displaced/cropped key, glare-obscured character or unreviewed glass must fail VISUAL-STATES-CONTRAST",
+      "required_assertion": "VISUAL-STATES-CONTRAST"
+    },
+    {
+      "id": "VISUAL-NAV-INSETS:android",
+      "criterion": "AC-13",
+      "platform": "android",
+      "negative_control": "Off-white foreground, displaced/cropped key, glare-obscured character or unreviewed glass must fail VISUAL-NAV-INSETS",
+      "required_assertion": "VISUAL-NAV-INSETS"
+    },
+    {
+      "id": "VISUAL-LARGE-TEXT:android",
+      "criterion": "AC-13",
+      "platform": "android",
+      "negative_control": "Off-white foreground, displaced/cropped key, glare-obscured character or unreviewed glass must fail VISUAL-LARGE-TEXT",
+      "required_assertion": "VISUAL-LARGE-TEXT"
+    },
+    {
+      "id": "VISUAL-ROTATION:android",
+      "criterion": "AC-13",
+      "platform": "android",
+      "negative_control": "Off-white foreground, displaced/cropped key, glare-obscured character or unreviewed glass must fail VISUAL-ROTATION",
+      "required_assertion": "VISUAL-ROTATION"
+    },
+    {
+      "id": "VISUAL-INDEPENDENT-9_2:android",
+      "criterion": "AC-13",
+      "platform": "android",
+      "negative_control": "Off-white foreground, displaced/cropped key, glare-obscured character or unreviewed glass must fail VISUAL-INDEPENDENT-9_2",
+      "required_assertion": "VISUAL-INDEPENDENT-9_2"
+    }
+  ]
+}

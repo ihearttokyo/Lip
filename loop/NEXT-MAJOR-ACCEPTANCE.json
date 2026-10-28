@@ -1,0 +1,136 @@
+{
+  "scope_version": "lip-next-major-v3-media-history-20261027",
+  "updated_date": "2026-10-27",
+  "release_order": "current parity release and site first; next-major afterward",
+  "baseline_basic_translation_gif_clipboard": "Superseded: translation deferred to future release; basic GIF/clipboard required in current parity release",
+  "publication_authority": "user authorized scoped PRs, gated origin/main merge, described releases and marketing Site; native confirmations/protections and phone hold remain",
+  "threshold": 9.2,
+  "dimension_minimum": 8.5,
+  "no_rounding": true,
+  "phone_hold": true,
+  "criteria": [
+    {
+      "id": "NEXT-VOCAB",
+      "status": "OPEN",
+      "verifier": "NOT_IMPLEMENTED",
+      "evidence": null
+    },
+    {
+      "id": "NEXT-UNDO",
+      "status": "OPEN",
+      "verifier": "NOT_IMPLEMENTED",
+      "evidence": null
+    },
+    {
+      "id": "NEXT-TRANSLATE-JA",
+      "status": "OPEN",
+      "verifier": "NOT_IMPLEMENTED",
+      "evidence": null
+    },
+    {
+      "id": "NEXT-TRANSLATE-ZH",
+      "status": "OPEN",
+      "verifier": "NOT_IMPLEMENTED",
+      "evidence": null
+    },
+    {
+      "id": "NEXT-TRANSLATE-ES",
+      "status": "OPEN",
+      "verifier": "NOT_IMPLEMENTED",
+      "evidence": null
+    },
+    {
+      "id": "NEXT-HANDOFF-ANDROID",
+      "status": "OPEN",
+      "verifier": "NOT_IMPLEMENTED",
+      "evidence": null
+    },
+    {
+      "id": "NEXT-HANDOFF-MAC",
+      "status": "OPEN",
+      "verifier": "NOT_IMPLEMENTED",
+      "evidence": null
+    },
+    {
+      "id": "NEXT-CLIPBOARD",
+      "status": "OPEN",
+      "verifier": "NOT_IMPLEMENTED",
+      "evidence": null
+    },
+    {
+      "id": "NEXT-GIF",
+      "status": "OPEN",
+      "verifier": "NOT_IMPLEMENTED",
+      "evidence": null
+    },
+    {
+      "id": "NEXT-SITE",
+      "status": "OPEN",
+      "verifier": "NOT_IMPLEMENTED",
+      "evidence": null
+    },
+    {
+      "id": "NEXT-RELEASE",
+      "status": "OPEN",
+      "verifier": "NOT_IMPLEMENTED",
+      "evidence": null
+    },
+    {
+      "id": "NEXT-TRANSLATE-CHATGPT-JA",
+      "status": "OPEN",
+      "verifier": "NOT_IMPLEMENTED",
+      "evidence": null
+    },
+    {
+      "id": "NEXT-TRANSLATE-CHATGPT-ZH",
+      "status": "OPEN",
+      "verifier": "NOT_IMPLEMENTED",
+      "evidence": null
+    },
+    {
+      "id": "NEXT-TRANSLATE-CHATGPT-ES",
+      "status": "OPEN",
+      "verifier": "NOT_IMPLEMENTED",
+      "evidence": null
+    },
+    {
+      "id": "NEXT-WECHAT-ASSETS",
+      "status": "OPEN",
+      "verifier": "NOT_IMPLEMENTED",
+      "evidence": null
+    },
+    {
+      "id": "NEXT-STICKER-PACKS",
+      "status": "OPEN",
+      "verifier": "NOT_IMPLEMENTED",
+      "evidence": null
+    },
+    {
+      "id": "NEXT-STICKER-RECEIVE",
+      "status": "OPEN",
+      "verifier": "NOT_IMPLEMENTED",
+      "evidence": null
+    },
+    {
+      "id": "NEXT-HISTORY-LOCAL",
+      "status": "OPEN",
+      "verifier": "NOT_IMPLEMENTED",
+      "evidence": null
+    },
+    {
+      "id": "NEXT-HISTORY-SYNC",
+      "status": "OPEN",
+      "verifier": "NOT_IMPLEMENTED",
+      "evidence": null
+    }
+  ],
+  "baseline_translation": "future release only",
+  "baseline_basic_gif_clipboard": "required in current parity release",
+  "translation_backends": [
+    "on-device",
+    "optional ChatGPT online"
+  ],
+  "translation_scope_authority": "Jared response annotation,27October2026: defer translation; add optional future ChatGPT backend",
+  "media_history_scope": "docs/MAJOR-MEDIA-HISTORY-2026-10-27.md",
+  "history_authority": "Design investigation only; no activation, account connection, capture or upload consent"
+}

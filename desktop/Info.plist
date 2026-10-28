@@ -5,9 +5,9 @@
 <key>CFBundleName</key><string>Lip Local</string>
 <key>CFBundleExecutable</key><string>LipLocal</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleDisplayName</key><string>Lip v0.011</string>
-<key>CFBundleShortVersionString</key><string>0.011</string>
-<key>CFBundleVersion</key><string>15</string>
+<key>CFBundleDisplayName</key><string>Lip v0.012</string>
+<key>CFBundleShortVersionString</key><string>0.012</string>
+<key>CFBundleVersion</key><string>16</string>
 <key>LSMinimumSystemVersion</key><string>26.0</string>
 <key>LSUIElement</key><true/>
 <key>NSMicrophoneUsageDescription</key><string>Lip records only when you hold Fn, double-tap Fn, or start recording from its menu. Audio is transcribed locally with Bark Pro.</string>

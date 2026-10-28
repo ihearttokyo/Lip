@@ -21,6 +21,10 @@ let modelRoot = FileManager.default.homeDirectoryForCurrentUser
     var audioURL: URL?
     var recordingDeadline: Timer?
     var gesture = FnGesture()
+    var agentChord = FnAgentChord()
+    let agentSettings = MacAgentPreferencesStore.shared
+    lazy var agentCoordinator = MacAgentCoordinator(settings: agentSettings) // No production route/extra AX observer is admitted.
+    var agentAttempt: MacAgentCoordinator.Attempt?
     var modelReady = false
     var lastPermissionCheck = 0.0
     var lastDiagnostics: Data?
@@ -129,10 +133,16 @@ let modelRoot = FileManager.default.homeDirectoryForCurrentUser
                 guard let context else { return Unmanaged.passUnretained(event) }
                 let app = Unmanaged<LipApp>.fromOpaque(context).takeUnretainedValue()
                 if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-                    DispatchQueue.main.async { app.gesture.reset(); app.cancelRecording(); if let tap = app.tap { CGEvent.tapEnable(tap: tap, enable: true) } }
-                } else if type == .flagsChanged && event.getIntegerValueField(.keyboardEventKeycode) == 63 {
-                    let down = event.flags.contains(.maskSecondaryFn)
-                    DispatchQueue.main.async { app.fnEvents += 1; app.perform(app.gesture.key(down: down, at: ProcessInfo.processInfo.systemUptime)); app.writeDiagnostics() }
+                    DispatchQueue.main.async { app.gesture.reset(); app.agentChord.reset(); app.cancelRecording(); if let tap = app.tap { CGEvent.tapEnable(tap: tap, enable: true) } }
+                } else if type == .flagsChanged {
+                    let fn = event.flags.contains(.maskSecondaryFn), option = event.flags.contains(.maskAlternate)
+                    let code = event.getIntegerValueField(.keyboardEventKeycode)
+                    let isFn = code == 63, isOption = code == 58 || code == 61
+                    DispatchQueue.main.async {
+                        if isFn { app.fnEvents += 1 }
+                        app.handleFnFlags(fn: fn, option: option, fnEvent: isFn, optionEvent: isOption)
+                        if isFn { app.writeDiagnostics() }
+                    }
                 }
                 return Unmanaged.passUnretained(event)
             }, userInfo: Unmanaged.passUnretained(self).toOpaque())
@@ -147,9 +157,10 @@ let modelRoot = FileManager.default.homeDirectoryForCurrentUser
     func refreshControls(forceStatus: Bool = false) {
         refreshHistoryPreference()
         let allowed = CGPreflightListenEventAccess()
+        if !allowed || AVCaptureDevice.authorizationStatus(for: .audio) != .authorized { agentCoordinator.revoke() }
         if !allowed, let oldTap = tap {
             // Revocation must not leave a recording locked on without a stop key.
-            gesture.reset(); cancelRecording()
+            gesture.reset(); agentChord.reset(); cancelRecording()
             if let source = tapSource { CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes) }
             CFMachPortInvalidate(oldTap); tap = nil; tapSource = nil
         }
@@ -198,6 +209,18 @@ let modelRoot = FileManager.default.homeDirectoryForCurrentUser
         _ = AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary)
         refreshControls(forceStatus: true)
     }
+    func handleFnFlags(fn: Bool, option: Bool, fnEvent: Bool, optionEvent: Bool) {
+        let action = agentChord.flags(fn: fn, option: option, enabled: agentSettings.snapshot().value.optionFn,
+            recording: recorder != nil, preparing: historyFlow.pending, working: working, fnEvent: fnEvent, optionEvent: optionEvent)
+        switch action {
+        case .ordinary(let down): perform(gesture.key(down: down, at: ProcessInfo.processInfo.systemUptime))
+        case .finishAgent: gesture.reset(); finishRecording(forAgent: true)
+        case .cancelPreparing:
+            gesture.reset(); cancelRecording(); setStatus("Agent finish canceled before recording started; nothing sent.")
+        case .unavailable: gesture.reset(); setStatus("Option+Fn only finishes an existing recording; nothing recorded or sent.")
+        case .none: break
+        }
+    }
     func perform(_ actions: [FnGesture.Action]) {
         for action in actions {
             switch action { case .start: startRecording(); case .stop: finishRecording(); case .cancel: cancelRecording() }
@@ -219,6 +242,7 @@ let modelRoot = FileManager.default.homeDirectoryForCurrentUser
         writeDiagnostics()
     }
     func startRecording(manual: Bool = false) {
+        agentCoordinator.revoke(); agentAttempt = nil // Even a refused new start never revives an older query.
         guard !working, recorder == nil, !historyFlow.pending else { return }
         guard modelReady else { setStatus("Selected model not ready · download/verify in Settings"); return }
         guard AVCaptureDevice.authorizationStatus(for: .audio) == .authorized else { setStatus("Enable microphone from Lip menu first"); return }
@@ -269,6 +293,7 @@ let modelRoot = FileManager.default.homeDirectoryForCurrentUser
                 AVLinearPCMIsFloatKey: false, AVLinearPCMIsBigEndianKey: false])
             guard value.prepareToRecord() else { throw Failure("Microphone could not prepare") }
             try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+            agentAttempt = agentCoordinator.begin(language: "en", modelID: activeProfile.rawValue)
             guard value.record(forDuration: BarkAudioBudget.seconds) else { throw Failure("Microphone could not start") }
             operation &+= 1
             recorder = value; audioURL = url
@@ -278,9 +303,9 @@ let modelRoot = FileManager.default.homeDirectoryForCurrentUser
             item.button?.title = "Lip ●"; setStatus("Recording locally · release hold / tap to finish locked mode")
             recordingDeadline = Timer.scheduledTimer(withTimeInterval: BarkAudioBudget.seconds, repeats: false) { [weak self] _ in MainActor.assumeIsolated { self?.gesture.reset(); self?.finishRecording() } }
             if let recordingDeadline { RunLoop.main.add(recordingDeadline, forMode: .common) }
-        } catch { cancelHistoryCapture(); gesture.reset(); setStatus("Recording failed · \(error)") }
+        } catch { agentCoordinator.revoke(); agentAttempt = nil; cancelHistoryCapture(); gesture.reset(); setStatus("Recording failed · \(error)") }
     }
-    func finishRecording() {
+    func finishRecording(forAgent: Bool = false) {
         if historyFlow.pending {
             cancelHistoryCapture(); setStatus("Canceled before audio started · history check did not finish"); return
         }
@@ -294,7 +319,10 @@ let modelRoot = FileManager.default.homeDirectoryForCurrentUser
         let recordedAt = historyRecordedAt
         let target = sessionTarget
         let targetIssue = sessionTargetIssue
-        let wantsInsertion = sessionAutoInsert
+        let wantsInsertion = !forAgent && sessionAutoInsert
+        let completedOwner = agentAttempt
+        let handoff = forAgent ? completedOwner.flatMap { agentCoordinator.finishForAgent($0) } : nil
+        if forAgent { lastInsertionStatus = "agent_finish_no_cursor_insertion" }
         working = true; item.button?.title = "Lip …"; setStatus("Transcribing locally…")
         Task { [self] in
             var historySaveQueued = false
@@ -319,12 +347,14 @@ let modelRoot = FileManager.default.homeDirectoryForCurrentUser
                 let native = try await engine.transcribeDetailed(url, allowRecorderPacketOverrun: true)
                 let raw = native.text
                 guard generation == operation else { return }
-                if raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { setStatus("No speech detected · previous transcript kept") }
+                if raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { agentCoordinator.revoke(); setStatus("No speech detected · previous transcript kept") }
                 else {
                     transcribed = true
                     sourceWasLimited = (native.sourceAudioSeconds ?? native.audioSeconds) > native.audioSeconds
                     rawTranscript = raw; lastModelDetails = native.details
                     applyCleanup(sessionCleanup)
+                    if let completedOwner, !sourceWasLimited { _ = agentCoordinator.complete(completedOwner, text: transcript) }
+                    else { agentCoordinator.revoke() } // Never hand off a partial/truncated recording.
                     if let capture, let ticket {
                         let record = HistoryRecord(id: UUID(), created: recordedAt, profile: profile, original: raw, output: transcript, modelDetails: native.details)
                         if historyFlow.bind(record: record.id, capture: capture) {
@@ -337,7 +367,10 @@ let modelRoot = FileManager.default.homeDirectoryForCurrentUser
                             }
                         }
                     } else { historyObservation?.cancel(); historyObservation = nil }
-                    if wantsInsertion {
+                    if forAgent {
+                        let outcome = handoff.map { agentCoordinator.dispatch($0) } ?? .unavailable
+                        setStatus(outcome.message) // No ordinary insertion or fallback, even when unavailable/stale.
+                    } else if wantsInsertion {
                         if let target {
                             inserting = true; setStatus("Inserting at original cursor…"); writeDiagnostics()
                             let outcome = await CursorInsertion.insert(transcript, into: target) { [self] in
@@ -350,7 +383,7 @@ let modelRoot = FileManager.default.homeDirectoryForCurrentUser
                         } else { lastInsertionStatus = "no_start_cursor"; setStatus("Not inserted · \(targetIssue) Transcript kept in Review.") }
                     }
                 }
-            } catch { setStatus("Transcription failed · previous transcript kept · \(error)") }
+            } catch { agentCoordinator.revoke(); setStatus("Transcription failed · previous transcript kept · \(error)") }
         }
     }
     private func retainRecoveryRecording(_ url: URL,
@@ -375,6 +408,7 @@ let modelRoot = FileManager.default.homeDirectoryForCurrentUser
         historyStatus?.title = "History: capture canceled / no new save confirmed"
     }
     @objc func cancelRecording() {
+        agentCoordinator.revoke(); agentAttempt = nil
         cancelHistoryCapture()
         operation &+= 1; sessionTarget = nil
         recorder?.stop(); recorder = nil
@@ -383,7 +417,7 @@ let modelRoot = FileManager.default.homeDirectoryForCurrentUser
         if !working { item.button?.title = "Lip"; setStatus("Canceled · hold Fn or double-tap Fn") }
         else { setStatus(inserting ? "Insertion canceled; a prefix may already be present. Check the field before retrying." : "Canceled · local decoding finishing; no automatic insertion") }
     }
-    @objc func sleeping() { gesture.reset(); cancelRecording() }
+    @objc func sleeping() { gesture.reset(); agentChord.reset(); cancelRecording() }
     @objc func copyTranscript() {
         guard !transcript.isEmpty else { return }
         NSPasteboard.general.clearContents(); NSPasteboard.general.setString(transcript, forType: .string)
@@ -424,6 +458,7 @@ let modelRoot = FileManager.default.homeDirectoryForCurrentUser
                 guard let self else { return false }; return !self.working && self.recorder == nil && !self.historyFlow.pending
             }) { [weak self] in
                 guard let self else { return }
+                self.agentCoordinator.revoke() // Any settings ABA invalidates late agent work, not Review/raw text.
                 // An in-flight recording keeps its start-time settings snapshot.
                 if !self.working && self.recorder == nil && !self.historyFlow.pending {
                     self.applyCleanup(self.cleanupSettings.options)
@@ -445,7 +480,17 @@ let modelRoot = FileManager.default.homeDirectoryForCurrentUser
     @objc func quit() { cancelRecording(); NSApp.terminate(nil) }
 }
 
-if CommandLine.arguments.contains("--test-portable-vocabulary") {
+if CommandLine.arguments.contains("--test-mac-agent-shortcut") {
+    guard CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--test-mac-agent-shortcut" else {
+        fputs("Expected the public agent UI contract fixture.\n", stderr); exit(64)
+    }
+    do {
+        let contract = try VocabularyFiles.snapshot(URL(fileURLWithPath: CommandLine.arguments[2]), lease: VocabularyLease())
+        guard contract.count <= 64 * 1024 else { fputs("Agent UI contract exceeds 64 KiB.\n", stderr); exit(64) }
+        testMacAgentShortcut(contract: contract)
+    }
+    catch { fputs("Agent contract fixture unavailable.\n", stderr); exit(1) }
+} else if CommandLine.arguments.contains("--test-portable-vocabulary") {
     guard CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--test-portable-vocabulary" else {
         fputs("Expected one explicit synthetic normalization-vector file.\n", stderr); exit(64)
     }
