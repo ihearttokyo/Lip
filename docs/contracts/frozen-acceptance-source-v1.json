@@ -1,0 +1,21 @@
+{
+  "schema": "lip-frozen-acceptance-source-copy-v1",
+  "scope": "Byte-identical retained requirement snapshots, not new scores or current implementation status. Explicit later user authority controls scope/platform/release policy. No raw private evidence or reviewer ratings included.",
+  "sha256": {
+    "loop/RUBRIC.md": "c059450c01317a8a8d1528add02e650a8e0eb3161af8c2f7b7ef0256835ac94a",
+    "docs/keyboard/BENCHMARK.md": "5a7bd8458130be34eee9602892a115b46e34305a6c9f2a5f1237fb09e0cb3b75",
+    "docs/keyboard/SPEECH-CONTRACT.md": "e6ce7bfb584ff5592411f618f7022e763136e575aa62c9960d7a115cef0277a1",
+    "docs/keyboard/PARITY-MATRIX.md": "4955c3010f2fb533cd491653bdad9067ca4c4629da141bbc398d0c1b0f0c1694",
+    "docs/keyboard/cases.json": "5b1bd6ecc851a9becf2212371cf95b157ab99c118ed0fee82d7b97b9f3a4da41",
+    "docs/keyboard/VISUAL-CONTRACT.md": "b2125d8a30a919c3aec9191cea121435bd3380f826c4989f93a1e5fc5dd50559",
+    "docs/keyboard/GBOARD-GAP-INVENTORY-2026-10-27.md": "811145274083caa13d682f8c06ad4a135cdc871777298efb90a489660f36a6cf",
+    "docs/keyboard/RELEASE-SCOPE-ADDENDUM-2026-10-27.md": "c4ccd8974b7332b7b3795ba921c6691399f2a4e24ece89f85632bb17db330789",
+    "docs/MAJOR-UPGRADE-PLAN-2026-10-26.md": "6fb14785d6cb6bbd589c7104aae588705b83eeb4a9daad6105efef53a88c8ae0",
+    "docs/MAJOR-UPGRADE-PLAN-POST-PARITY-2026-10-26.md": "1267d50d6af01e290ca90e874d0e682b2d506fe2c98a0630a37172a164c69bcb",
+    "docs/MAJOR-MEDIA-HISTORY-2026-10-27.md": "63b56b5afa9685997d673d3cb5adb600461fdbb6a3b938ab28c193d7cc34e076",
+    "loop/NEXT-MAJOR-ACCEPTANCE.json": "d6b1f36bc4e35de2f5ecfc1e08337efcbc51c7516d0e3bbbb79d534630350865",
+    "loop/KEYBOARD-EXTENSION-ACCEPTANCE-20261027.json": "0b6e5bee582298ae6c9f05784146a79178c5ce818842dda519a64ca9f57b14fe",
+    "design/keyboard/OBSIDIAN-ETCHED-2026-10-27.md": "a1fa2c6510c7d9c66ce9e65d0c93603111624741729bb984b0ab3097ca2eff00",
+    "docs/AGENT-HANDOFF-EXTENSION-2026-10-27.md": "b23d0fd56905546fe6f7a2baca071223c501f0c13216cb02693e75f4071a8303"
+  }
+}

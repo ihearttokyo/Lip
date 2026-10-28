@@ -1,0 +1,15 @@
+{
+  "schema": "lip-agent-desired-ui-modes-v1",
+  "meaning": "Desired labels only; not provider parameters, route admission, auth or send authority.",
+  "defaultRoute": "NONE",
+  "defaultEffort": "MEDIUM",
+  "routes": ["NONE", "CHATGPT_APP", "CLAUDE_APP", "PAIRED_CODEX"],
+  "efforts": [
+    {"id": "INSTANT", "label": "Instant"},
+    {"id": "MEDIUM", "label": "Medium"},
+    {"id": "HIGH", "label": "High"},
+    {"id": "EXTRA_HIGH", "label": "Extra High"},
+    {"id": "PRO", "label": "Pro"}
+  ],
+  "productionAdmittedRoutes": []
+}

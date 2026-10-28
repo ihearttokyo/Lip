@@ -16,19 +16,24 @@ import ApplicationServices
     private let period = NSButton(checkboxWithTitle: "Optional app rule: add a final period", target: nil, action: nil)
     private let hesitation = NSButton(checkboxWithTitle: "Optional app rule: remove um/uh/erm (filler mode only)", target: nil, action: nil)
     private let preview = NSTextField(wrappingLabelWithString: "")
+    private let agentSettings: MacAgentPreferencesStore
+    private let agentRoute = NSPopUpButton()
+    private let agentEffort = NSPopUpButton()
+    private let agentShortcut = NSButton(checkboxWithTitle: "Option+Fn finishes current recording for the chosen agent", target: nil, action: nil)
+    private let agentStatus = NSTextField(wrappingLabelWithString: "")
 
-    init(settings: CleanupSettings, canChangeModel: @escaping () -> Bool = { true }, changed: @escaping () -> Void) {
-        self.settings = settings; self.changed = changed; self.canChangeModel = canChangeModel
+    init(settings: CleanupSettings, agentSettings: MacAgentPreferencesStore = .shared, canChangeModel: @escaping () -> Bool = { true }, changed: @escaping () -> Void) {
+        self.settings = settings; self.agentSettings = agentSettings; self.changed = changed; self.canChangeModel = canChangeModel
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 580, height: 620),
             styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = "Lip Settings · Bark Native Features"; window.isReleasedWhenClosed = false
         super.init(window: window)
         // A fixed document in a scroll view avoids content-view/stack sizing cycles.
-        let document = NSView(frame: NSRect(x: 0, y: 0, width: 580, height: 1160))
+        let document = NSView(frame: NSRect(x: 0, y: 0, width: 580, height: 1460))
         let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: 580, height: 620))
         scroll.hasVerticalScroller = true; scroll.documentView = document
         window.contentView = scroll
-        var top: CGFloat = 1138
+        var top: CGFloat = 1438
         func place(_ view: NSView, _ height: CGFloat) {
             view.frame = NSRect(x: 24, y: top - height, width: 526, height: height)
             document.addSubview(view); top -= height + 10
@@ -68,6 +73,15 @@ import ApplicationServices
         place(NSButton(title: "Enable Accessibility for direct insertion…", target: self, action: #selector(requestAccessibility)), 30)
         place(NSButton(title: "Portable vocabulary: import / export…", target: self, action: #selector(openVocabulary)), 30)
         label("Prepared JSON only. Encrypted locally; affects Lip Review spell checking, not speech recognition or other apps. Export is plaintext and explicit.", height: 40)
+        label("Completed dictation → chosen agent", height: 26, heading: true)
+        agentShortcut.target = self; agentShortcut.action = #selector(updateAgent); place(agentShortcut, 24)
+        agentRoute.addItems(withTitles: MacAgentRoute.allCases.map(\.title)); agentRoute.setAccessibilityLabel("Desired agent provider; all routes currently unavailable")
+        agentRoute.target = self; agentRoute.action = #selector(updateAgent); place(agentRoute, 28)
+        agentEffort.addItems(withTitles: MacAgentEffort.allCases.map(\.title)); agentEffort.setAccessibilityLabel("Desired agent effort; not a provider parameter")
+        agentEffort.target = self; agentEffort.action = #selector(updateAgent); place(agentEffort, 28)
+        label("Finish only: hold Option and press Fn, or press Option while Fn is held. Never starts idle recording. Local transcription stays in Review; it is NOT inserted at the cursor. No route is admitted: nothing is sent, opened or copied. Desired modes are not supported provider parameters; Pro is not universally an effort level.", height: 90)
+        agentStatus.font = .systemFont(ofSize: 12); agentStatus.textColor = .secondaryLabelColor; place(agentStatus, 34)
+        refreshAgent()
         let options = settings.options
         mode.selectItem(at: CleanupMode.allCases.firstIndex(of: options.mode)!)
         capital.state = options.capitalizeFirstWord ? .on : .off
@@ -77,6 +91,20 @@ import ApplicationServices
         precondition(top >= 0, "Settings document is too short")
     }
     required init?(coder: NSCoder) { fatalError("Not supported") }
+    private func refreshAgent() {
+        let value = agentSettings.snapshot().value
+        agentRoute.selectItem(at: MacAgentRoute.allCases.firstIndex(of: value.route)!)
+        agentEffort.selectItem(at: MacAgentEffort.allCases.firstIndex(of: value.effort)!)
+        agentShortcut.state = value.optionFn ? .on : .off
+        agentStatus.stringValue = "No supported direct/background route is connected. No login, API, draft substitute or automatic retry."
+    }
+    @objc private func updateAgent() {
+        let desired = MacAgentPreferences(route: MacAgentRoute.allCases[agentRoute.indexOfSelectedItem],
+            effort: MacAgentEffort.allCases[agentEffort.indexOfSelectedItem], optionFn: agentShortcut.state == .on)
+        let saved = agentSettings.save(desired)
+        refreshAgent()
+        if !saved { agentStatus.stringValue = "Preference save unconfirmed; last confirmed desired settings kept. Nothing sent." }
+    }
     private func refreshModelStatus() {
         let profile = BarkProfile.selected()
         let present = FileManager.default.fileExists(atPath: profile.root.appendingPathComponent(profile.vocabularyFile).path)

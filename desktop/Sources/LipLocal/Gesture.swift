@@ -96,3 +96,25 @@ func testManualRecordingGestures() {
     precondition(g.key(down: false, at: 103) == [.stop], "Next hold release must transcribe normally")
     print("Menu-start/Fn-stop tests passed (6 assertions).")
 }
+
+/// Option+Fn is a distinct FINISH action, never a recording start or old-result
+/// send. Observe both flags so Option pressed during an already-held Fn works.
+struct FnAgentChord {
+    enum Action: Equatable { case ordinary(Bool), finishAgent, cancelPreparing, unavailable, none }
+    private var fn = false, option = false, consumed = false
+    mutating func flags(fn down: Bool, option alternate: Bool, enabled: Bool, recording: Bool, preparing: Bool, working: Bool, fnEvent: Bool = true, optionEvent: Bool = true) -> Action {
+        let changed = down != fn
+        fn = down; option = alternate
+        if consumed {
+            if !down && !alternate { consumed = false }
+            return .none // Neither release can become ordinary insertion/start.
+        }
+        if enabled && down && alternate && (fnEvent || optionEvent) {
+            consumed = true
+            if recording && !working { return .finishAgent }
+            return preparing ? .cancelPreparing : .unavailable
+        }
+        return changed && fnEvent ? .ordinary(down) : .none
+    }
+    mutating func reset() { self = FnAgentChord() }
+}

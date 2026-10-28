@@ -1,0 +1,64 @@
+{
+  "scope": "additive27Octoberuserfeature/customization/agent/material request; existing full goal and contracts retained",
+  "authority": "Jared27October2026 latestmessage",
+  "threshold": 9.2,
+  "dimension_minimum": 8.5,
+  "no_rounding": true,
+  "full_base_contract_sha256": "e3b42e13f236f650deeccab93dad4df6c976261fc41dd3510b16eb9655005f13",
+  "source_specs": [
+    "design/keyboard/OBSIDIAN-ETCHED-2026-10-27.md",
+    "docs/keyboard/GBOARD-GAP-INVENTORY-2026-10-27.md",
+    "docs/AGENT-HANDOFF-EXTENSION-2026-10-27.md"
+  ],
+  "physical_phone_hold": true,
+  "criteria": [
+    {
+      "id": "KBX-KEY-SIZE",
+      "requirement": "Independent key-label scale, legacy settings/failure confirmation, pure-white labels and stable hit/swipe geometry; actual portrait/narrow/one-hand/compact-landscape large-system-font fit and accessibility.",
+      "status": "OPEN",
+      "evidence": null
+    },
+    {
+      "id": "KBX-EMOJI-SIZE",
+      "requirement": "Independent emoji preview scale; real grid/tone-cell reflow and scroll/accessibility, chosen Unicode unchanged; no recipient-size claim.",
+      "status": "OPEN",
+      "evidence": null
+    },
+    {
+      "id": "KBX-STICKER-SIZE",
+      "requirement": "Independent sticker preview scale on actual installed pack picker; adaptive cells/bounded decode/receiver image unchanged.",
+      "status": "OPEN",
+      "evidence": null
+    },
+    {
+      "id": "KBX-TOOLBAR",
+      "requirement": "Optional configurable/pinnable chosen-agent shortcut without sacrificing familiar controls; longpress/menu and narrow-layout reachability.",
+      "status": "OPEN",
+      "evidence": null
+    },
+    {
+      "id": "KBX-LAST-DICTATION",
+      "requirement": "Explicit exact last completed Lip dictation handoff; no field/clipboard/history scraping, stale/missing/canceled result and account/lifecycle fences; actual supported destination route and unambiguous acceptance evidence.",
+      "status": "OPEN",
+      "evidence": null
+    },
+    {
+      "id": "KBX-EFFORT",
+      "requirement": "Settings default and native longpress animated/reduced-motion accessible menu:Instant/Medium/High/Extra High/Pro, provider capability honesty/no invented effort parameters/no silent fallback or send on opening/default change.",
+      "status": "OPEN",
+      "evidence": null
+    },
+    {
+      "id": "KBX-MATERIAL",
+      "requirement": "Opaque black90\u2013100% backdrop, darkgray rounded etched purewhite legible caps, controlled45degree offscreen highlight; source art material benchmark plus actual independently reviewed native portrait/landscape/narrow/large-font pixels at9.2+.",
+      "status": "OPEN",
+      "evidence": null
+    },
+    {
+      "id": "KBX-GBOARD-INVENTORY",
+      "requirement": "Pinned legitimate APK plus current official/allowed-observed feature inventory; every observed missing feature tracked and implemented/tested or only explicitly user-approved unworkable deferral; not universal parity from staticstrings or old APK.",
+      "status": "OPEN",
+      "evidence": null
+    }
+  ]
+}
