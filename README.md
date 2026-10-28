@@ -35,13 +35,13 @@ macOS Fn dictation is in development. No matching public macOS installer is offe
 
 Future APKs and macOS installers will **not bundle Clean or Pro weights**. Both models will be explicit in-app download choices, with sizes disclosed before consent. No automatic speech-model download on installation/start/update. Keep already downloaded verified models across updates.
 
-New release identities will follow **Lip v0.xxx**, consistently across the app, package, release notes and site. A production-source iteration ledger will allocate numbers; test runs, PRs and identical packaging retries will not inflate them. The source-history audit and ledger tooling are implemented; **Lip v0.007 is reserved source, not a published release**. See [release identity](docs/RELEASE-IDENTITY.md). Existing release names, URLs and rollback packages stay unchanged.
+New release identities will follow **Lip v0.xxx**, consistently across the app, package, release notes and site. A production-source iteration ledger will allocate numbers; test runs, PRs and identical packaging retries will not inflate them. The source-history audit and ledger tooling are implemented; **Lip v0.008 is reserved source, not a published release**. See [release identity](docs/RELEASE-IDENTITY.md). Existing release names, URLs and rollback packages stay unchanged.
 
 ## Source and release identity
 
 Source reconciliation PRs **17 and 18 are merged** at `13d87e4439d38811a4c82a8bab747f1d7443d88c`. Current source includes the Android IME, checked local Bark, macOS app and automatic Android Vulkan route. New builds target **Android 16+/ARM64** and **macOS 26+/Apple Silicon**; GPU/NPU efficiency and physical-device acceptance remain unqualified. These are current-source targets, not new properties of build 50003.
 
-**The post-release merged source is not established as an exact reproducible source match for the historical build 50003 APK.** GitHub's automatic archives are not retroactive source/artifact attestations. The reserved v0.007 candidate has no new public download. See [source delivery and remaining gates](docs/SOURCE-DELIVERY.md).
+**The post-release merged source is not established as an exact reproducible source match for the historical build 50003 APK.** GitHub's automatic archives are not retroactive source/artifact attestations. The reserved v0.008 candidate has no new public download. Android source adds [portable vocabulary import/export](docs/PORTABLE-VOCABULARY-ANDROID.md), encrypted local merge and typed-word protection; macOS/swipe integration and full acceptance remain open. See [source delivery and remaining gates](docs/SOURCE-DELIVERY.md).
 
 Older releases remain available under [Releases](https://github.com/ihearttokyo/Lip/releases) for recovery. Do not uninstall or clear data to downgrade without checking data-format compatibility.
 

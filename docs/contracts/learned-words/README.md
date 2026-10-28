@@ -1,8 +1,9 @@
 # Portable learned-word format, version1 candidate
 
-This is a future-major-release foundation, not an enabled Android/Mac importer,
-a trained model, an automatic history scan, or9.2 acceptance. No private histories
-were read. The example contains synthetic/public-language test terms only.
+The Android source now includes an explicit JSON import/preview/merge and export
+path in Dictionary. This is not a trained model, automatic history scan, macOS
+importer or9.2 acceptance. No private histories were read during implementation.
+The example contains synthetic/public-language test terms only.
 
 `schema-v1.json` documents structure. The reference runtime codec additionally
 requires valid UTF-8, Unicode16.0.0 NFC terms/default casefold identity, no duplicate
@@ -45,8 +46,9 @@ imports do not inflate counts. The tool only reads the exact two selected files.
 It never opens Gmail/Outlook/WhatsApp or sends data anywhere. New output is written
 with owner-only permissions and exclusive same-directory publication; existing
 backups/symlinks are never overwritten. A provider lacking hard links is refused,
-not claimed compatible. Android DocumentProvider and Swift UI integration remain
-future work; the CLI is not proof of Google Drive support.
+not claimed compatible. Android source uses an explicitly selected DocumentProvider; the CLI itself is
+not proof of Android or Google Drive support. macOS UI integration and physical
+Google Drive backup/restore qualification remain open.
 
 ## Pinned Unicode compatibility
 
@@ -64,3 +66,31 @@ A future Unicode contract uses an explicit version and previewed migration, not
 reinterpretation of existing spellings/identities. Pre-review prototype files
 without this property were never released; they are refused rather than guessed.
 The pre-score schema revision is recorded in the next-major lock history.
+
+## Android consumer scope
+
+Import a prepared **v1 JSON** file from Dictionary; inspect the preview before
+choosing Merge. Import does not open email, WhatsApp, contacts or other histories.
+The original selected file and existing manual dictionary remain unchanged.
+Portable entries use a dedicated Keystore-authenticated encrypted atomic store,
+excluded from automatic backup. Unsupported Unicode runtimes refuse rather than
+reinterpret a file. Reimporting does not inflate weights or duplicate identities.
+
+English/undetermined A–Z words with optional apostrophes, up to48characters, feed
+actual typed suggestions and autocorrect protection. The personal prefix index
+supports the contract's100,000 entries without scanning the entire personal list
+on every keystroke. Other approved entries are retained for export, but phrases,
+other scripts and imported weights are not yet supported by the typing ranker.
+This does **not** add personal terms to neural swipe decoding or Bark recognition.
+If portable storage cannot be read, base/manual suggestions remain available but
+automatic correction is disabled until personal protection is available again.
+Returning to the keyboard reloads vocabulary; protected/no-learning fields do not
+schedule personal-vocabulary loading and never receive stale suggestion results.
+
+Export is deliberately initiated and produces **plaintext JSON** at the selected
+provider. It can contain sensitive names or secret-looking words; this format is
+not a PII detector. It does not silently upload/synchronize, promise encrypted
+cloud storage, or establish Google Drive compatibility. The UI distinguishes the
+portable list from the retained legacy manual dictionary. Keep a private backup;
+preview changes before merging a restore. Local JVM parser/merge tests are not
+real Android ICU, DocumentProvider, Keystore, editor or physical-device evidence.

@@ -82,4 +82,5 @@
         <activity android:name="dev.lip.EditorFixtureActivity" android:exported="true"
             android:theme="@android:style/Theme.Material.Light.NoActionBar" />
     </application>
+    <instrumentation android:name="dev.lip.VocabularyPortableRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
 </manifest>

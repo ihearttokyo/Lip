@@ -67,6 +67,11 @@
       "ordinal": 7,
       "candidate": "canonical-release-identity",
       "status": "reserved"
+    },
+    {
+      "ordinal": 8,
+      "candidate": "portable-vocabulary-android",
+      "status": "reserved"
     }
   ]
 }

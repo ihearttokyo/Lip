@@ -19,7 +19,11 @@ exec(compile(SCRIPT.read_bytes(), str(SCRIPT), 'exec'), r.__dict__)
 
 class ReleaseIdentityTest(unittest.TestCase):
     def setUp(self):
-        self.data = r.read_json(ROOT / r.LEDGER)
+        self.actual = r.read_json(ROOT / r.LEDGER)
+        # Pure allocation controls retain their fixed bootstrap7 fixture even as
+        # real feature candidates advance the authoritative production ledger.
+        self.data = copy.deepcopy(self.actual)
+        self.data['allocations'] = self.data['allocations'][:1]
 
     def test_actual_reachable_anchor_audit_is_reproducible(self):
         audit = r.audit(ROOT)
@@ -79,9 +83,9 @@ class ReleaseIdentityTest(unittest.TestCase):
         self.assertEqual(r.identity(next_value)['ordinal'], 8)
 
     def test_current_metadata_and_installer_match_ledger(self):
-        for path, desired in r.metadata(ROOT, self.data).items(): self.assertEqual(path.read_text(), desired)
+        for path, desired in r.metadata(ROOT, self.actual).items(): self.assertEqual(path.read_text(), desired)
         plist = plistlib.loads((ROOT / 'desktop/Info.plist').read_bytes())
-        self.assertEqual(plist['CFBundleDisplayName'], 'Lip v0.007')
+        self.assertEqual(plist['CFBundleDisplayName'], r.identity(self.actual)['display_name'])
         install = (ROOT / 'desktop/scripts/install.sh').read_text()
         self.assertIn('--check --check-source --field display_name', install)
         self.assertIn('--stamp-app "$DEST"', install)
@@ -120,9 +124,9 @@ class ReleaseIdentityTest(unittest.TestCase):
                 target.write_bytes((ROOT / name).read_bytes())
             git('add', '.'); git('commit', '-qm', 'synthetic committed source')
             commit = git('rev-parse', 'HEAD')
-            info = r.identity(self.data)
+            info = r.identity(self.actual)
             artifact = owned / info['android_apk']; artifact.write_bytes(b'PUBLIC_SYNTHETIC_BINDING_BYTES_NOT_AN_APK')
-            binding = r.build_binding(root, self.data, commit, [artifact])
+            binding = r.build_binding(root, self.actual, commit, [artifact])
             self.assertEqual(binding['source_commit'], commit)
             self.assertEqual(binding['production_state_sha256'], r.source_identity(root, commit))
             self.assertEqual(binding['artifacts'][0]['name'], info['android_apk'])
@@ -146,7 +150,7 @@ class ReleaseIdentityTest(unittest.TestCase):
             # This path is not part of the explicit main production projection.
             (root / 'app/src/main').mkdir(parents=True)
             (root / 'app/src/main/Injected.kt').write_text('PUBLIC_SYNTHETIC')
-            with self.assertRaises(ValueError): r.build_binding(root, self.data, commit)
+            with self.assertRaises(ValueError): r.build_binding(root, self.actual, commit)
 
     def test_mutators_read_ledger_only_after_exclusive_lock(self):
         # Deterministic interleaving: B reaches lock acquisition; A has just

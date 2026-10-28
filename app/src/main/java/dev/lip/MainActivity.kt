@@ -17,6 +17,10 @@ import android.view.WindowInsets
 import android.widget.*
 import dev.lip.core.EditorGuard
 import dev.lip.core.EditorSnapshot
+import dev.lip.vocabulary.PortableVocabulary
+import dev.lip.vocabulary.PortableVocabularyStore
+import dev.lip.vocabulary.VocabularyDocumentTransfer
+import dev.lip.vocabulary.VocabularyMergeLease
 import java.text.DateFormat
 import java.util.Date
 
@@ -52,6 +56,17 @@ class MainActivity : Activity() {
     private var scratchStart = 0
     private var scratchEnd = 0
     private var dictionaryDraft: String? = null
+    private class VocabularyOperation {
+        val lease = VocabularyMergeLease()
+        val cancellation = android.os.CancellationSignal()
+        var awaitingPicker = false
+        var confirmed = false
+        var exportBytes: ByteArray? = null
+    }
+    private var vocabularyImport: VocabularyOperation? = null
+    private var vocabularyExport: VocabularyOperation? = null
+    private var vocabularyDialog: AlertDialog? = null
+    private var vocabularyStatus: TextView? = null
     private var renderHistoryPreference: (() -> Unit)? = null
     private val historyObserver: () -> Unit = { renderHistoryPreference?.invoke() }
     private val observer: () -> Unit = {
@@ -101,13 +116,20 @@ class MainActivity : Activity() {
         inAppRecording = false
         super.onPause()
     }
+    override fun onStop() {
+        if (vocabularyImport?.awaitingPicker != true) cancelVocabularyImport()
+        if (vocabularyExport?.awaitingPicker != true) cancelVocabularyExport()
+        super.onStop()
+    }
     override fun onDestroy() {
+        cancelVocabularyImport(); cancelVocabularyExport()
         cancelHistoryImport()
         cancelModelSetup?.invoke(); cancelModelSetup = null
         super.onDestroy()
     }
 
     private fun render() {
+        cancelVocabularyImport(); cancelVocabularyExport(); vocabularyStatus = null
         cancelHistoryImport()
         renderHistoryPreference = null
         saveScratch()
@@ -380,6 +402,20 @@ class MainActivity : Activity() {
             }
             localTask("Dictionary saved") { store.saveDictionary(value.lines()) }
         })
+        page.addSpaced(label("Portable vocabulary", 22f, true), 24)
+        page.addSpaced(label("Import a prepared Lip vocabulary v1 JSON, then explicitly merge it. Existing manual lines above are separate and unchanged; portable export does not include them. English A–Z words with optional apostrophes (up to48 characters) protect Lip typing/autocorrect. Phrases and other languages remain stored, not activated. No speech biasing, swipe-model training, history scan or automatic backup.", 14f))
+        val portableStatus = label("Checking encrypted portable vocabulary…", 13f)
+        vocabularyStatus = portableStatus; page.addSpaced(portableStatus)
+        Work.io.execute {
+            val count = runCatching { store.portableVocabularyEntries().size }
+            runOnUiThread {
+                if (vocabularyStatus === portableStatus && tab == "Dictionary" && !isDestroyed)
+                    portableStatus.text = if (count.isSuccess) "${count.getOrThrow()} portable entries · encrypted on this device, excluded from Android backup"
+                        else "Portable vocabulary unavailable. Existing encrypted data is preserved; Unicode16 compatibility is required."
+            }
+        }
+        page.addSpaced(action("Import vocabulary JSON…") { chooseVocabularyImport() })
+        page.addSpaced(action("Export portable vocabulary…") { chooseVocabularyExport() })
     }
 
     private fun settings() {
@@ -430,6 +466,131 @@ class MainActivity : Activity() {
         })
         page.addSpaced(action("Privacy & source code") { open("https://ihearttokyo.github.io/Lip/privacy.html") })
         page.addSpaced(label("Lip local-only development build\nOriginal open-source project inspired by Wispr Flow. Not affiliated with Wispr or OpenAI. No cloud audio, always-on recording or automatic message sending.", 12f), 0)
+    }
+
+    private fun vocabularyCurrent(operation: VocabularyOperation, exporting: Boolean = false): Boolean =
+        (if (exporting) vocabularyExport else vocabularyImport) === operation && !isFinishing && !isDestroyed && tab == "Dictionary"
+    private fun cancelVocabularyImport() {
+        val operation = vocabularyImport; vocabularyImport = null
+        operation?.lease?.cancel(); operation?.cancellation?.cancel()
+        val dialog = vocabularyDialog; vocabularyDialog = null; dialog?.dismiss()
+    }
+    private fun cancelVocabularyExport() {
+        val operation = vocabularyExport; vocabularyExport = null
+        operation?.lease?.cancel(); operation?.cancellation?.cancel(); operation?.exportBytes = null
+    }
+    private fun chooseVocabularyImport() {
+        if (vocabularyImport != null || vocabularyExport != null) return
+        val operation = VocabularyOperation(); vocabularyImport = operation
+        vocabularyDialog = AlertDialog.Builder(this).setTitle("Choose prepared vocabulary JSON?")
+            .setMessage("Read one selected Lip vocabulary v1 file (up to16MiB/100,000 entries), then review before merging. Lip will not scan Gmail, Outlook, WhatsApp or other histories. It is NOT a secret/PII detector: review and exclude private terms before importing. Original file and manual dictionary are unchanged. Only regular local documents are qualified; cloud-provider transports may be refused.")
+            .setNegativeButton("Cancel") { _, _ -> cancelVocabularyImport() }
+            .setOnCancelListener { cancelVocabularyImport() }
+            .setPositiveButton("Choose JSON…") { _, _ ->
+                if (vocabularyCurrent(operation)) {
+                    vocabularyDialog = null; operation.awaitingPicker = true
+                    try { startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                        .setType("application/json").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), 6101) }
+                    catch (_: Exception) { cancelVocabularyImport(); toast("No document picker; nothing imported.") }
+                }
+            }.show()
+    }
+    private fun receiveVocabularyImport(resultCode: Int, uri: Uri?) {
+        val operation = vocabularyImport ?: return
+        if (!operation.awaitingPicker) return
+        operation.awaitingPicker = false
+        if (!vocabularyCurrent(operation) || resultCode != RESULT_OK || uri == null) { cancelVocabularyImport(); return }
+        Work.io.execute {
+            val result = runCatching {
+                val incoming = PortableVocabulary().decode(VocabularyDocumentTransfer.read(contentResolver, uri, operation.cancellation))
+                operation.cancellation.throwIfCanceled()
+                incoming to store.previewPortableVocabulary(incoming)
+            }
+            runOnUiThread {
+                if (vocabularyCurrent(operation)) {
+                    if (result.isFailure) {
+                        cancelVocabularyImport(); toast("Vocabulary could not be validated. Unicode16 and a supported regular JSON file are required. Original file and encrypted store were preserved.")
+                    } else {
+                        val (incoming, preview) = result.getOrThrow()
+                        showVocabularyPreview(operation, incoming, preview)
+                    }
+                }
+            }
+        }
+    }
+    private fun showVocabularyPreview(operation: VocabularyOperation, incoming: List<PortableVocabulary.Entry>, preview: PortableVocabularyStore.Preview) {
+        if (!vocabularyCurrent(operation)) return
+        val sample = incoming.take(20).joinToString("\n") { "• ${it.term} [${it.language}]" }
+        val remaining = (incoming.size - 20).coerceAtLeast(0)
+        vocabularyDialog = AlertDialog.Builder(this).setTitle("Review vocabulary merge")
+            .setMessage("Selected: ${preview.incoming} entries\nExisting: ${preview.existing} · merged: ${preview.merged}\nNew: ${preview.added} · higher weights: ${preview.updated}\nActive English entries after merge: ${preview.activeEnglish}\n\n$sample${if (remaining > 0) "\n… $remaining more entries (not shown)" else ""}\n\nOnly the first20 terms are shown. Review the COMPLETE prepared JSON and exclude secrets/PII before merging; Lip cannot identify them reliably. Existing approved spelling/source wins and weight uses maximum, not sum. Other languages/phrases stay stored but do not activate keyboard support. No speech hints or swipe learning. Concurrent changes are reread/preserved at commit. Your manual draft above is untouched. An already-admitted merge may finish after closing.")
+            .setNegativeButton("Cancel") { _, _ -> cancelVocabularyImport() }
+            .setOnCancelListener { cancelVocabularyImport() }
+            .setPositiveButton("Merge vocabulary") { _, _ ->
+                if (vocabularyCurrent(operation) && !operation.confirmed) {
+                    operation.confirmed = true; vocabularyDialog = null
+                    Work.io.execute {
+                        val saved = runCatching { store.mergePortableVocabulary(incoming, operation.lease::claim) }
+                        runOnUiThread {
+                            if (vocabularyCurrent(operation)) {
+                                vocabularyImport = null
+                                if (saved.isSuccess) {
+                                    val actual = saved.getOrThrow()
+                                    vocabularyStatus?.text = "${actual.preview.merged} portable entries · ${actual.preview.activeEnglish} active English typing words"
+                                    toast(if (actual.changed) "Vocabulary merged locally. Manual draft preserved." else "Already present; nothing changed.")
+                                } else {
+                                    operation.lease.cancel()
+                                    toast("Merge unconfirmed. Original JSON/manual dictionary were preserved; check Vocabulary before retrying.")
+                                }
+                            }
+                        }
+                    }
+                }
+            }.show()
+    }
+    private fun chooseVocabularyExport() {
+        if (vocabularyImport != null || vocabularyExport != null) return
+        val operation = VocabularyOperation(); vocabularyExport = operation
+        vocabularyDialog = AlertDialog.Builder(this).setTitle("Export readable vocabulary JSON?")
+            .setMessage("Portable terms/languages/weights/coarse source categories will be PLAINTEXT, not an encrypted backup. Names can be private. Anyone with access to the chosen provider may read them. No manual dictionary, messages, history or credentials are included. Choose a NEW empty regular file. No automatic Drive upload/sync or provider compatibility is promised. An admitted write can finish after closing; failure can leave partial plaintext.")
+            .setNegativeButton("Cancel") { _, _ -> cancelVocabularyExport() }
+            .setOnCancelListener { cancelVocabularyExport() }
+            .setPositiveButton("Choose new file…") { _, _ ->
+                if (vocabularyCurrent(operation, true)) {
+                    vocabularyDialog = null
+                    Work.io.execute {
+                        val snapshot = runCatching { store.exportPortableVocabulary() }
+                        runOnUiThread {
+                            if (vocabularyCurrent(operation, true)) {
+                                if (snapshot.isFailure) { cancelVocabularyExport(); toast("Vocabulary export unavailable. Existing data was preserved.") }
+                                else {
+                                    operation.exportBytes = snapshot.getOrThrow(); operation.awaitingPicker = true
+                                    try { startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                                        .setType("application/json").putExtra(Intent.EXTRA_TITLE, "Lip-vocabulary-${java.util.UUID.randomUUID()}.json"), 6102) }
+                                    catch (_: Exception) { cancelVocabularyExport(); toast("No document picker; nothing exported.") }
+                                }
+                            }
+                        }
+                    }
+                }
+            }.show()
+    }
+    private fun receiveVocabularyExport(resultCode: Int, uri: Uri?) {
+        val operation = vocabularyExport ?: return
+        if (!operation.awaitingPicker) return
+        operation.awaitingPicker = false
+        val bytes = operation.exportBytes; operation.exportBytes = null
+        if (!vocabularyCurrent(operation, true) || resultCode != RESULT_OK || uri == null || bytes == null) { cancelVocabularyExport(); return }
+        Work.io.execute {
+            val written = runCatching { VocabularyDocumentTransfer.write(contentResolver, uri, bytes, operation.cancellation, operation.lease::claim) }
+            runOnUiThread {
+                if (vocabularyCurrent(operation, true)) {
+                    vocabularyExport = null
+                    toast(if (written.isSuccess) "Portable vocabulary exported as readable JSON. No automatic sync is enabled."
+                        else "Export unconfirmed. Check the selected file: it may contain partial plaintext. Local vocabulary was preserved; no retry was made.")
+                }
+            }
+        }
     }
 
     private fun cancelHistoryImport() {
@@ -523,6 +684,8 @@ class MainActivity : Activity() {
     @Deprecated("Uses system document picker result; no retained URI permission")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode,resultCode,data)
+        if (requestCode == 6101) { receiveVocabularyImport(resultCode, data?.data); return }
+        if (requestCode == 6102) { receiveVocabularyExport(resultCode, data?.data); return }
         if (requestCode == 4103) { receiveHistoryImport(resultCode,data?.data); return }
         if (requestCode != 4102) return
         val entry = selectedHistoryExport; selectedHistoryExport = null
