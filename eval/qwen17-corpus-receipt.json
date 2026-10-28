@@ -1,0 +1,413 @@
+{
+  "schema_version": 1,
+  "outcome": "rejected_for_quality_not_promoted",
+  "scope": "Frozen 18-case read-speech hosted CPU research, not spontaneous dictation, warm latency, Android or authenticated formatting evidence.",
+  "source_commit": "f31448bcadb001c4e7684f8bf0c5ec116f40dbb8",
+  "run_url": "https://github.com/ihearttokyo/Lip/actions/runs/37828311384",
+  "artifact_id": 11573195966,
+  "artifact_sha256": "01a107f2697f4fbd40ebc86d5faab736985b0f2e5f040ee1e6f1ce7339f71886",
+  "source_manifest_sha256": "46b5595291997beda8b5648541400640a80b458a411c2572bd9d4f83f49c01ef",
+  "admitted_manifest_sha256": "8b6c4ff4675606c10df799af83b80d876f7b724f75e29c7d4e7f233fe823e31c",
+  "scorer_version": 2,
+  "scorer_sha256": "a681b82e4c444756bda0f3440a84c0ef3df47819e9da0af5628f6f4db4621e76",
+  "runtime_revision": "71ad0590f4808b6202f9213d166913858c73b1bc",
+  "weight_sha256": [
+    "58e22d0532d4eacaf034cfac17a6fed159f37c41390c710186783be439d1fc57",
+    "46c1d533af3f354ceb37ce855dbceff7da7fa7cf1e6a523df3b13440bd164c0d"
+  ],
+  "cpu_threads": 4,
+  "host_cpu": "AMD EPYC 7763; four logical CPUs on the standard GitHub-hosted runner",
+  "passed": false,
+  "passed_cases": 11,
+  "total_cases": 18,
+  "complete_natural_eos_cases": 18,
+  "pools": {
+    "en": {
+      "passed": 4,
+      "cases": 6,
+      "errors": 2,
+      "reference_units": 109,
+      "pooled_error_rate": 0.01834862385321101
+    },
+    "ja": {
+      "passed": 4,
+      "cases": 6,
+      "errors": 6,
+      "reference_units": 207,
+      "pooled_error_rate": 0.028985507246376812
+    },
+    "zh": {
+      "passed": 3,
+      "cases": 6,
+      "errors": 15,
+      "reference_units": 187,
+      "pooled_error_rate": 0.08021390374331551
+    }
+  },
+  "server_peak_rss_bytes": 3300151296,
+  "request_seconds_range": [
+    3.227595146999988,
+    8.588207828000066
+  ],
+  "outer_seconds_range": [
+    6.184129690000077,
+    11.554403623000042
+  ],
+  "execution_order": [
+    "fleurs-en-013",
+    "fleurs-zh-001",
+    "fleurs-zh-008",
+    "fleurs-zh-011",
+    "fleurs-zh-020",
+    "fleurs-zh-022",
+    "fleurs-zh-034",
+    "fleurs-en-000",
+    "fleurs-en-003",
+    "fleurs-en-011",
+    "fleurs-en-017",
+    "fleurs-en-021",
+    "fleurs-ja-002",
+    "fleurs-ja-010",
+    "fleurs-ja-013",
+    "fleurs-ja-025",
+    "fleurs-ja-030",
+    "fleurs-ja-034"
+  ],
+  "cases": [
+    {
+      "id": "fleurs-en-013",
+      "language": "en",
+      "passed": true,
+      "raw_errors": 0,
+      "raw_error_rate": 0.0,
+      "checks": [
+        {
+          "name": "negation",
+          "target": "raw",
+          "matching_view": "narrative_whitespace",
+          "passed": true
+        },
+        {
+          "name": "count",
+          "target": "raw",
+          "matching_view": "narrative_whitespace",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "fleurs-zh-001",
+      "language": "zh",
+      "passed": false,
+      "raw_errors": 2,
+      "raw_error_rate": 0.05714285714285714,
+      "checks": [
+        {
+          "name": "negation",
+          "target": "raw",
+          "matching_view": "narrative_whitespace",
+          "passed": true
+        }
+      ],
+      "raw": "因为远离大陆，哺乳动物无法长途跋涉而来，使得巨龟成为克隆群岛主主要的食草动物。",
+      "reference": "因为远离大陆，哺乳动物无法长途跋涉而来，使得巨龟成为科隆群岛主要的食草动物。"
+    },
+    {
+      "id": "fleurs-zh-008",
+      "language": "zh",
+      "passed": true,
+      "raw_errors": 0,
+      "raw_error_rate": 0.0,
+      "checks": [
+        {
+          "name": "score",
+          "target": "raw",
+          "matching_view": "narrative_whitespace",
+          "passed": true
+        },
+        {
+          "name": "streak",
+          "target": "raw",
+          "matching_view": "narrative_whitespace",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "fleurs-zh-011",
+      "language": "zh",
+      "passed": true,
+      "raw_errors": 0,
+      "raw_error_rate": 0.0,
+      "checks": [
+        {
+          "name": "term",
+          "target": "raw",
+          "matching_view": "narrative_whitespace",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "fleurs-zh-020",
+      "language": "zh",
+      "passed": false,
+      "raw_errors": 12,
+      "raw_error_rate": 0.20689655172413793,
+      "checks": [
+        {
+          "name": "year",
+          "target": "raw",
+          "matching_view": "narrative_whitespace",
+          "passed": true
+        },
+        {
+          "name": "stamp count",
+          "target": "raw",
+          "matching_view": "narrative_whitespace",
+          "passed": true
+        },
+        {
+          "name": "name",
+          "target": "raw",
+          "matching_view": "narrative_whitespace",
+          "passed": false
+        }
+      ],
+      "raw": "他在两千年制作的第一千张邮票取材于大卫·克罗克·艾伦斯特尔的名画《瑞典国王的伟大功绩》，并因此入选《吉尼斯世界纪录大全》。",
+      "reference": "“他在 2000 年制作的第 1000 张邮票取材自大卫·克洛克·埃伦斯特拉尔的名画《瑞典国王的伟大功绩》，并因此入选《吉尼斯世界纪录大全》。”"
+    },
+    {
+      "id": "fleurs-zh-022",
+      "language": "zh",
+      "passed": true,
+      "raw_errors": 0,
+      "raw_error_rate": 0.0,
+      "checks": [
+        {
+          "name": "negation",
+          "target": "raw",
+          "matching_view": "narrative_whitespace",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "fleurs-zh-034",
+      "language": "zh",
+      "passed": false,
+      "raw_errors": 1,
+      "raw_error_rate": 0.07692307692307693,
+      "checks": [
+        {
+          "name": "name",
+          "target": "raw",
+          "matching_view": "narrative_whitespace",
+          "passed": true
+        }
+      ],
+      "raw": "然后，拉卡辛格带头唱了半赞歌。",
+      "reference": "然后，拉卡·辛格带头唱了拜赞歌。"
+    },
+    {
+      "id": "fleurs-en-000",
+      "language": "en",
+      "passed": true,
+      "raw_errors": 0,
+      "raw_error_rate": 0.0,
+      "checks": [
+        {
+          "name": "satellite",
+          "target": "raw",
+          "matching_view": "narrative_whitespace",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "fleurs-en-003",
+      "language": "en",
+      "passed": false,
+      "raw_errors": 1,
+      "raw_error_rate": 0.1,
+      "checks": [
+        {
+          "name": "name",
+          "target": "raw",
+          "matching_view": "narrative_whitespace",
+          "passed": false
+        }
+      ],
+      "raw": "Then Lakha Singh took the lead in singing the bhajans.",
+      "reference": "Then, Lakkha Singh took the lead in singing the bhajans."
+    },
+    {
+      "id": "fleurs-en-011",
+      "language": "en",
+      "passed": true,
+      "raw_errors": 0,
+      "raw_error_rate": 0.0,
+      "checks": [
+        {
+          "name": "negation",
+          "target": "raw",
+          "matching_view": "narrative_whitespace",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "fleurs-en-017",
+      "language": "en",
+      "passed": false,
+      "raw_errors": 1,
+      "raw_error_rate": 0.058823529411764705,
+      "checks": [
+        {
+          "name": "year",
+          "target": "raw",
+          "matching_view": "narrative_whitespace",
+          "passed": true
+        }
+      ],
+      "raw": "Eventually, wooden wheels were replaced by iron wheels, and in 1767, the first full iron rails were introduced.",
+      "reference": "Eventually, wooden wheels were replaced by iron wheels. In 1767, the first full-iron rails were introduced."
+    },
+    {
+      "id": "fleurs-en-021",
+      "language": "en",
+      "passed": true,
+      "raw_errors": 0,
+      "raw_error_rate": 0.0,
+      "checks": [
+        {
+          "name": "counts",
+          "target": "raw",
+          "matching_view": "narrative_whitespace",
+          "passed": true
+        },
+        {
+          "name": "injured",
+          "target": "raw",
+          "matching_view": "narrative_whitespace",
+          "passed": true
+        },
+        {
+          "name": "uncertainty",
+          "target": "raw",
+          "matching_view": "narrative_whitespace",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "fleurs-ja-002",
+      "language": "ja",
+      "passed": true,
+      "raw_errors": 0,
+      "raw_error_rate": 0.0,
+      "checks": [
+        {
+          "name": "duration",
+          "target": "raw",
+          "matching_view": "narrative_whitespace",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "fleurs-ja-010",
+      "language": "ja",
+      "passed": false,
+      "raw_errors": 3,
+      "raw_error_rate": 0.1,
+      "checks": [
+        {
+          "name": "count",
+          "target": "raw",
+          "matching_view": "narrative_whitespace",
+          "passed": true
+        },
+        {
+          "name": "negation",
+          "target": "raw",
+          "matching_view": "narrative_whitespace",
+          "passed": false
+        }
+      ],
+      "raw": "車の衝突時には3人が家の中にいましたが、けが人はいませんでした。",
+      "reference": "車の衝突時には３人が家の中にいましたが、怪我人はいませんでした。"
+    },
+    {
+      "id": "fleurs-ja-013",
+      "language": "ja",
+      "passed": false,
+      "raw_errors": 3,
+      "raw_error_rate": 0.07317073170731707,
+      "checks": [
+        {
+          "name": "name",
+          "target": "raw",
+          "matching_view": "narrative_whitespace",
+          "passed": false
+        }
+      ],
+      "raw": "何千年も前にアリストテレスという学者が、太陽系は太陽の周りを移動していると言いました。",
+      "reference": "何千年も前に、アリスタルコスという学者が、太陽系は太陽の周りを移動していると言いました。"
+    },
+    {
+      "id": "fleurs-ja-025",
+      "language": "ja",
+      "passed": true,
+      "raw_errors": 0,
+      "raw_error_rate": 0.0,
+      "checks": [
+        {
+          "name": "unchanged",
+          "target": "raw",
+          "matching_view": "narrative_whitespace",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "fleurs-ja-030",
+      "language": "ja",
+      "passed": true,
+      "raw_errors": 0,
+      "raw_error_rate": 0.0,
+      "checks": [
+        {
+          "name": "score",
+          "target": "raw",
+          "matching_view": "narrative_whitespace",
+          "passed": true
+        },
+        {
+          "name": "streak",
+          "target": "raw",
+          "matching_view": "narrative_whitespace",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "fleurs-ja-034",
+      "language": "ja",
+      "passed": true,
+      "raw_errors": 0,
+      "raw_error_rate": 0.0,
+      "checks": [
+        {
+          "name": "width",
+          "target": "raw",
+          "matching_view": "narrative_whitespace",
+          "passed": true
+        }
+      ]
+    }
+  ],
+  "interpretation": "Some strict failures are orthographic or number-rendering differences, but actual proper-name substitutions remain. JA010 retains いませんでした and the three-person count; its check labelled negation fails the required injury-word spelling, not demonstrated negation loss. No reference, alias, normalizer, threshold or input audio changed.",
+  "decision": "Retain all failures; do not integrate, redistribute or promote this Qwen candidate. Selected Whisper turbo remains15/18 and also does not meet parity. Physical Android/microphone/cancellation and user OpenAI authorization gates remain unresolved.",
+  "attribution": "Original FLEURS references and recordings are CC-BY-4.0; attribution in eval/README.md and NOTICE.md."
+}

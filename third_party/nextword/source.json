@@ -1,0 +1,54 @@
+{
+  "revision": "e66fe7098922de3bf81915cf93a63d2da7dbf634",
+  "repository": "https://github.com/wasi-master/wmkeyboard-data",
+  "files": {
+    "data/README.md": {
+      "url": "https://raw.githubusercontent.com/wasi-master/wmkeyboard-data/e66fe7098922de3bf81915cf93a63d2da7dbf634/data/README.md",
+      "file": "upstream-README.md",
+      "bytes": 43649,
+      "sha256": "571aec25439d821e0d24a79d554f719d8743f41e6883ce5c795afb11adeb553f"
+    },
+    "LICENSE": {
+      "url": "https://raw.githubusercontent.com/wasi-master/wmkeyboard-data/e66fe7098922de3bf81915cf93a63d2da7dbf634/LICENSE",
+      "file": "upstream-LICENSE",
+      "bytes": 1068,
+      "sha256": "546660fbf66e930b4eef9528309460d971640825b6af2cae84b8afd105be398b"
+    },
+    "scripts/import_leipzig_ngrams.py": {
+      "url": "https://raw.githubusercontent.com/wasi-master/wmkeyboard-data/e66fe7098922de3bf81915cf93a63d2da7dbf634/scripts/import_leipzig_ngrams.py",
+      "file": "upstream-import.py",
+      "bytes": 26399,
+      "sha256": "cf1a35f5f8014e538a4f6b5db2a19ce31b909fd452c00a197821da2e1736c982"
+    },
+    "data/en/en_bigrams.txt.gz": {
+      "url": "https://raw.githubusercontent.com/wasi-master/wmkeyboard-data/e66fe7098922de3bf81915cf93a63d2da7dbf634/data/en/en_bigrams.txt.gz",
+      "file": "en_bigrams.txt.gz",
+      "bytes": 800528,
+      "sha256": "35a0e3b862cea849ae4a0140e3057953e96bd7376921dab5f4890f4e96392064"
+    },
+    "data/en/en_trigrams.txt.gz": {
+      "url": "https://raw.githubusercontent.com/wasi-master/wmkeyboard-data/e66fe7098922de3bf81915cf93a63d2da7dbf634/data/en/en_trigrams.txt.gz",
+      "file": "en_trigrams.txt.gz",
+      "bytes": 444517,
+      "sha256": "c74991ac133f6601421d9214e905da493d485e8154001c6d6f66eea23ab3e779"
+    },
+    "upstream-import-tatoeba.py": {
+      "url": "https://raw.githubusercontent.com/wasi-master/wmkeyboard-data/e66fe7098922de3bf81915cf93a63d2da7dbf634/scripts/import_tatoeba_ngrams.py",
+      "file": "upstream-import-tatoeba.py",
+      "bytes": 27245,
+      "sha256": "e02bb25fdb9adc43e837b7e55fbe7ae30b1fd3766f13bde2940afcb06052df1d"
+    },
+    "blend-commit.json": {
+      "url": "https://api.github.com/repos/wasi-master/wmkeyboard-data/commits/cf34a4225f023c6f0ecf3fac6a070455551d9466",
+      "file": "blend-commit.json",
+      "bytes": 196697,
+      "sha256": "6429debdc27865eb7cd18e5ac38d7a628fefe02de73fb333cf157a7b5da71b6e"
+    },
+    "tatoeba-faq.html": {
+      "url": "https://en.wiki.tatoeba.org/articles/show/faq",
+      "file": "tatoeba-faq.html",
+      "bytes": 15584,
+      "sha256": "bc54d8fe2de97614bf21c794e8706da3a637e03c3e4a20b2a1bcf16013a6c4fb"
+    }
+  }
+}

@@ -58,11 +58,12 @@ class AuthProtocolTest {
 
     @Test fun streamRequiresCompletedAndRejectsFailedOrTruncatedOutput() {
         val delta = "data: {\"type\":\"response.output_text.delta\",\"delta\":\"こんにちは\\n世界\"}\n\n"
-        val completed = "data: {\"type\":\"response.completed\",\"response\":{\"status\":\"completed\"}}\n\n"
+        val completed = "data: {\"type\":\"response.completed\",\"response\":{\"status\":\"completed\",\"output\":[" +
+            "{\"type\":\"message\",\"content\":[{\"type\":\"output_text\",\"text\":\"こんにちは\\n世界\"}]}]}}\n\n"
         assertEquals("こんにちは\n世界", ResponseStream.read(StringReader(delta + completed)))
         assertEquals("こんにちは\n世界", ResponseStream.read(StringReader((delta + completed).replace("\n", "\r\n"))))
         assertEquals("x", ResponseStream.read(StringReader(": comment\n\ndata: {\"type\":\"response.output_text.delta\",\n" +
-            "data: \"delta\":\"x\"}\n\n" + completed)))
+            "data: \"delta\":\"x\"}\n\n" + completed.replace("こんにちは\\n世界", "x"))))
         rejects { ResponseStream.read(StringReader(delta)) }
         rejects { ResponseStream.read(StringReader(delta + "data: [DONE]\n\n")) }
         rejects { ResponseStream.read(StringReader(delta + "data: {\"type\":\"response.failed\"}\n\n")) }
@@ -70,6 +71,36 @@ class AuthProtocolTest {
         rejects { ResponseStream.read(StringReader(delta + "data: {\"type\":\"error\"}\n\n")) }
         rejects { ResponseStream.read(StringReader(delta + "data: {\"type\":\"response.completed\",\"response\":{\"status\":\"incomplete\"}}\n\n")) }
         rejects { ResponseStream.read(StringReader(delta + completed), maxChars = 20) }
+    }
+
+    @Test fun completedTextWithRefusalIsNotUsableCleanup() {
+        val delta = "data: {\"type\":\"response.output_text.delta\",\"delta\":\"Partial text\"}\n\n"
+        val completed = "data: {\"type\":\"response.completed\",\"response\":{\"status\":\"completed\",\"output\":[" +
+            "{\"type\":\"message\",\"content\":[{\"type\":\"output_text\",\"text\":\"Partial text\"}," +
+            "{\"type\":\"refusal\",\"refusal\":\"Cannot complete cleanup\"}]}]}}\n\n"
+        rejects { ResponseStream.read(StringReader(delta + completed)) }
+    }
+
+    @Test fun completedTextMustMatchStreamedText() {
+        val delta = "data: {\"type\":\"response.output_text.delta\",\"delta\":\"Streamed text\"}\n\n"
+        val completed = "data: {\"type\":\"response.completed\",\"response\":{\"status\":\"completed\",\"output\":[" +
+            "{\"type\":\"message\",\"content\":[{\"type\":\"output_text\",\"text\":\"Different text\"}]}]}}\n\n"
+        rejects { ResponseStream.read(StringReader(delta + completed)) }
+        assertEquals("Streamed text", ResponseStream.read(StringReader(delta + completed.replace("Different text", "Streamed text"))))
+    }
+
+    @Test fun refusalEventsRejectPreviouslyStreamedText() {
+        val delta = "data: {\"type\":\"response.output_text.delta\",\"delta\":\"Partial text\"}\n\n"
+        val completed = "data: {\"type\":\"response.completed\",\"response\":{\"status\":\"completed\",\"output\":[" +
+            "{\"type\":\"message\",\"content\":[{\"type\":\"output_text\",\"text\":\"Partial text\"}]}]}}\n\n"
+        for (type in listOf("response.refusal.delta", "response.refusal.done"))
+            rejects { ResponseStream.read(StringReader(delta + "data: {\"type\":\"$type\",\"delta\":\"Declined\"}\n\n" + completed)) }
+    }
+
+    @Test fun completedResponseWithoutTerminalOutputIsRejected() {
+        val delta = "data: {\"type\":\"response.output_text.delta\",\"delta\":\"Unverified text\"}\n\n"
+        val completed = "data: {\"type\":\"response.completed\",\"response\":{\"status\":\"completed\"}}\n\n"
+        rejects { ResponseStream.read(StringReader(delta + completed)) }
     }
 
     @Test fun signedIdentityChecksNonceAudienceExpiryAndReturningAccount() {

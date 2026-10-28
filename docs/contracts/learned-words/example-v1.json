@@ -1,0 +1,37 @@
+{
+  "format": "lip.learned-words",
+  "version": 1,
+  "unicode_version": "16.0.0",
+  "entries": [
+    {
+      "term": "Ada Rivers",
+      "language": "en",
+      "weight": 1,
+      "source": "manual"
+    },
+    {
+      "term": "Sampleton",
+      "language": "en",
+      "weight": 1,
+      "source": "manual"
+    },
+    {
+      "term": "mañana",
+      "language": "es",
+      "weight": 1,
+      "source": "manual"
+    },
+    {
+      "term": "東京",
+      "language": "ja",
+      "weight": 1,
+      "source": "manual"
+    },
+    {
+      "term": "中文",
+      "language": "zh",
+      "weight": 1,
+      "source": "manual"
+    }
+  ]
+}

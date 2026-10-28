@@ -1,0 +1,43 @@
+{
+  "version": "site-preview-v1-20261027",
+  "scope": "Local site source and headless-browser preview; not hosted/public release qualification",
+  "frozen_before_independent_scoring": true,
+  "acceptance_threshold": 9.2,
+  "rounding_permitted": false,
+  "dimension_floor": 8.5,
+  "dimensions": {
+    "visual_design_and_native_screenshot_presentation": 0.30,
+    "product_truth_scope_and_provenance": 0.25,
+    "clarity_navigation_and_concise_copy": 0.20,
+    "responsive_keyboard_accessibility": 0.15,
+    "local_integrity_privacy_and_resource_discipline": 0.10
+  },
+  "required_local_cases": [
+    "actual 1440px desktop and 390px mobile captures; no mockup mislabeled native",
+    "320/390/768/1440 widths no horizontal overflow; decoded images",
+    "gallery native radio control; full original image links; no-JS readable fallback",
+    "dialog close/escape/tab/shift-tab and restored opener focus",
+    "reduced-motion disables automatic smooth scrolling; visible keyboard focus",
+    "privacy/credits and all local href targets resolve; no browser errors",
+    "no form, login, microphone, clipboard, storage or external request from page",
+    "visible development status and no unqualified release CTA",
+    "English-only speech and Android CPU/Mac CoreML limitations stated",
+    "history defaults/platform differences and future-only translation/media/history services stated",
+    "image hashes match native artifacts and correct source evidence",
+    "initial local HTML/CSS/JS/icon/hero assets below 1MiB; no external font/runtime dependency"
+  ],
+  "critical_failures": [
+    "unauthorized publication/upload/account/permission/data collection",
+    "false release/device/Gboard-superiority/acceleration/insertion claim",
+    "unlicensed image/artwork or absent attribution",
+    "unsupported mockup represented as actual app",
+    "broken primary navigation or inaccessible close operation"
+  ],
+  "release_only_open_gates": [
+    "qualified product release and truthful downloadable artifacts",
+    "explicit hosting/publication authority and final-host privacy/link/security review",
+    "hosted performance on representative network/device",
+    "human accessibility and native/editor/device evidence required by full product rubric"
+  ],
+  "review_policy": "Independent hidden assessment; public concrete defects or scoped PASS only. Missing release evidence is OPEN, never N/A or synthetic acceptance."
+}

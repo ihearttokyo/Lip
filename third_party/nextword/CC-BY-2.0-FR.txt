@@ -1,0 +1,8 @@
+Creative Commons Attribution 2.0 France (CC BY 2.0 FR)
+
+License URI: https://creativecommons.org/licenses/by/2.0/fr/
+Legal code URI: https://creativecommons.org/licenses/by/2.0/fr/legalcode
+
+This file supplies the applicable license URI, not a substitute license or a
+purported copy of the full legal code. See NOTICE.md for authors, source,
+adaptations and attribution rationale. No change to the original terms is made.

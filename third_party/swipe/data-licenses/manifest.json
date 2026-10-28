@@ -1,0 +1,43 @@
+{
+  "source_revision": "f48099755cd1ebeb3f3a9e40f680a683ccc95b2b",
+  "aosp_revision": "127336e9f29d69607eab55982324b210279ae8c5",
+  "aosp_notice_base64_sha256": "2d5279ec018d50b4b191389f53c12e55c9e5f777634aece58022ea78cd031e06",
+  "files": {
+    "AOSP-NOTICE.txt": {
+      "bytes": 10752,
+      "sha256": "d04394c729fc9fda050d5733d8ee11663fb54fe54d94532de968cf85c1cc42fb"
+    },
+    "Apache-2.0.txt": {
+      "bytes": 10280,
+      "sha256": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff"
+    },
+    "FUTO-SWIPE-DATA-LICENSE.txt": {
+      "bytes": 1060,
+      "sha256": "60968505ce2909b45997d104b678eb42474d47174924338cd0fa652abe0fff60"
+    },
+    "LANGUAGE-FILES-NOTICE.md": {
+      "bytes": 2538,
+      "sha256": "9561ea4af9eabdf643b12a48ee44fb38dba6a229fa8061e9a6e940d7d26ffcf0"
+    },
+    "MODELS-NOTICE.md": {
+      "bytes": 4302,
+      "sha256": "9f7e77c6f5f41a47f50923e631f878c5a51059159f5d671efeae1c7cf6a20125"
+    },
+    "ODC-By-1.0.txt": {
+      "bytes": 19808,
+      "sha256": "b1c4de4bf91c95eec945ea7cbe0575fd52e7ee8fa430acb01d323d8214b1c482"
+    },
+    "README.md": {
+      "bytes": 1576,
+      "sha256": "53a3a471759f7f3f8fd98fe5e72afff17759a3694ab1d5f7f86555980064f64f"
+    },
+    "TATOEBA-CC-BY-2.0-FR.txt": {
+      "bytes": 894,
+      "sha256": "32bbf7b725f098dd6c63a822684583dc7784b8a15ff929598ac10d7e13a6dce1"
+    },
+    "en-CONTRIBUTORS.txt": {
+      "bytes": 61496,
+      "sha256": "f866d5b34a34222dae4566f931cb5b50d09bf60e82c7d05225ba67b0a4dbd5be"
+    }
+  }
+}

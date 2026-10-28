@@ -9,3 +9,17 @@ local.properties
 artifacts/
 validation/
 .env*
+**/.cxx/
+
+# Local Mac build/model artifacts
+desktop/.build/
+
+# Generated local Python bytecode, never release inputs
+__pycache__/
+*.py[cod]
+
+# Private/local control evidence and browser snapshots, not application source
+.playwright-cli/
+loop/
+# Historical local audio fixture: provenance pending, never silently publish
+app/src/androidTest/assets/offline-preview-test.wav

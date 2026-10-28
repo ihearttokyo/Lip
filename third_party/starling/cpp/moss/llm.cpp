@@ -1,0 +1,79 @@
+// llm.cpp — MOSS (Qwen3-style) text decoder on the Starling ggml runtime.
+//
+// The decode stack (whole-model prefill/decode graphs, device-resident KV,
+// K-step greedy) is the shared lib/qwen_decode stack; this file binds it to
+// MossModel through the spec below.
+//
+// Correctness contract: byte-exact bf16 vs the Transformers golden path on
+// CUDA. CPU bf16 GEMMs are not bit-identical to cuBLAS and are a fallback
+// only.
+
+#include "llm.hpp"
+
+#include "lib/qwen_decode.hpp"
+
+#include <string>
+
+namespace starling::ggml::moss {
+namespace {
+
+// Qwen3 trunk: bias-free q/k/v over full weight names + per-head q_norm /
+// k_norm. Env surface: STARLING_MOSS_{L0_STAGE,STAGE_DIR,DUMP_LAYERS,PERHEAD,
+// FULLCAP,KSTEP,NOKSTEP,TIMING,DUMP_LOGITS,DUMP_IDS}. L0-probe stage files are
+// named moss_stage_<stage>.f32.
+const lib::QwenDecodeSpec kSpec = {
+    /*qkv_bias=*/false,
+    /*env=*/"STARLING_MOSS",
+    /*label=*/"MOSS",
+    /*stage_prefix=*/"moss_stage_",
+    /*qk_norm=*/true,
+    /*tied_lm_head=*/true,
+    /*attention_scale=*/0.0f,
+    /*embedding_multiplier=*/1.0f,
+    /*residual_multiplier=*/1.0f,
+    /*logits_scaling=*/1.0f,
+    /*argmax_low_ties=*/false,
+    /*f32_acts=*/true,
+    /*kstep_bucket=*/true,
+};
+
+lib::QwenDecodeCtx decode_ctx(const MossModel& m) {
+    const auto& lc = m.config.llm;
+    return lib::QwenDecodeCtx{kSpec, m.loader,
+                              {lc.n_layers, lc.hidden, lc.n_heads, lc.n_kv_heads,
+                               lc.head_dim, lc.max_cache, lc.rope_theta,
+                               lc.rms_norm_eps}};
+}
+
+} // namespace
+
+bool llm_prefill(const MossModel& m, const InputsEmbeds& i, int32_t maxc,
+                 PrefillResult& o, std::string& e) {
+    return lib::llm_prefill(decode_ctx(m), i, maxc, o, e);
+}
+
+bool greedy_generate(const MossModel& m, const InputsEmbeds& i,
+                     const GenerateOptions& op, GenerateResult& o, std::string& e) {
+    // Single-stop contract (S03): no secondary EOS — eos2 stays -1 — and the
+    // shared stack honors a first-token PRIMARY EOS for MOSS like any other
+    // engine; o.stop_reason carries the truthful completion reason out.
+    const lib::GenerateParams p{op.max_new_tokens, op.max_cache_len, op.eos_token_id};
+    return lib::greedy_generate(decode_ctx(m), i, p, o, e);
+}
+
+bool speculative_generate(const MossModel& m, const InputsEmbeds& i,
+                          const GenerateOptions& op, int max_k,
+                          const lib::DraftProposer& proposer,
+                          const lib::CancelCheck& cancelled,
+                          GenerateResult& o, lib::SpeculativeStats& stats,
+                          std::string& e) {
+    const lib::GenerateParams p{op.max_new_tokens, op.max_cache_len, op.eos_token_id};
+    return lib::speculative_generate(decode_ctx(m), i, p, max_k, proposer,
+                                     cancelled, o, stats, e);
+}
+
+size_t prefill_replay_cache_size(const MossModel& model) {
+    return lib::prefill_replay_cache_size(model.loader);
+}
+
+} // namespace starling::ggml::moss

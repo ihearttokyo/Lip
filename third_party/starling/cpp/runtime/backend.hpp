@@ -1,0 +1,342 @@
+// backend.hpp — the ggml backend abstraction + the ReplayGraph capture/replay
+// primitive for Starling's ggml engine.
+//
+// This is the GENERIC, model-agnostic engine infrastructure shared by every
+// model implementation (parakeet, moss). It mirrors the proven architecture of
+// parakeet.cpp's Backend/ReplayGraph (one good way to wrap ggml for an
+// inference engine that relies on CUDA-graph capture/replay), written here as
+// Starling-owned first-party code.
+//
+// Two compute paths:
+//   - Backend::compute : build + run a ONE-SHOT graph (allocate, run, read back,
+//     free the ggml context). Used by tests and one-off graph builds.
+//   - ReplayGraph      : build ONCE, replay many times with fresh inputs.
+//     Keeps the ggml context + cgraph alive across calls so ggml-cuda can key
+//     its CUDA-graph capture on the (stable) first-node pointer and actually
+//     warm up the capture. This is the per-shape graph-capture primitive the
+//     encoder, mel, and K-step decode all cache on.
+//
+// Critical invariants (load-bearing for correctness + perf):
+//   - no_alloc=true build context: tensor ->data is NULL until gallocr alloc,
+//     so host inputs MUST be pushed AFTER alloc (register_input defers them).
+//   - persistent gallocr reused across calls (never backend_sched on the fast
+//     path: sched re-plans every call and regressed CUDA 7-23% in parakeet.cpp).
+//   - private gallocr PER ReplayGraph (sharing one invalidates coexisting
+//     graphs' device pointers when a larger graph reallocs the shared buffer).
+//   - stable cgraph uid: skips ggml-cuda's O(n_nodes) per-replay memcmp.
+//   - async set_input + async readback + SINGLE sync per replay.
+
+#pragma once
+
+#include <atomic>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
+
+struct ggml_context;
+struct ggml_tensor;
+struct ggml_cgraph;
+struct ggml_backend;
+typedef struct ggml_backend* ggml_backend_t;
+// Same tag spelling as ggml-backend.h (which declares it non-opaquely).
+struct ggml_backend_device;
+typedef struct ggml_backend_device* ggml_backend_dev_t;
+struct ggml_gallocr;
+typedef struct ggml_gallocr* ggml_gallocr_t;
+
+namespace starling::ggml {
+
+class ModelLoader;
+
+// A persistent compute backend (CPU or a GPU via ggml's device registry) with a
+// reusable graph allocator. Constructed once per process (see global_backend)
+// and shared by every model.
+class Backend {
+    struct HealthState { std::atomic<bool> healthy{true}; };
+public:
+    enum class DevicePolicy { LegacyEnvironment, Automatic, CPU };
+    explicit Backend(int n_threads = 8);
+    Backend(int n_threads, DevicePolicy policy);
+    ~Backend();
+
+    Backend(const Backend&) = delete;
+    Backend& operator=(const Backend&) = delete;
+
+    void set_n_threads(int n_threads);
+    int  n_threads() const { return n_threads_; }
+
+    // Name of the selected device ("cpu", or the GPU's registry name e.g.
+    // "CUDA0"). Driven by the STARLING_GGML_DEVICE env var or auto-detected.
+    const char* device_name() const { return device_name_.c_str(); }
+
+    // True iff a GPU backend is active (the replay optimisations only help on
+    // GPU, where launch overhead dominates; callers gate on this).
+    bool is_gpu() const;
+
+    // Complete outstanding work before caller-owned staging/model memory dies.
+    // This is a synchronization boundary, not a measured GPU health guarantee.
+    void synchronize();
+    bool healthy() const noexcept;
+    // Irreversible uncertainty marker for model/cache release boundaries.
+    // It neither synchronizes nor frees resources, and has no reset operation.
+    void mark_unhealthy() noexcept;
+    void require_healthy() const;
+    // Drain and actually destroy all backend resources exactly once. Throws on
+    // uncertainty; ownership remains retained and health becomes sticky-false.
+    // Success leaves Impl empty, so later destruction performs no second sync.
+    void release_checked();
+    size_t replay_cache_default() const { return replay_cache_default_; }
+
+    // Device free memory in bytes, re-queried from the device on each call;
+    // -1 when the selected device cannot report it (never fabricated). Used
+    // by the STARLING_TRACE cache records; not a hot path.
+    long long device_memory_free() const;
+
+    // The underlying ggml backend handle. Exposed so the loader can place
+    // weight tensors in a buffer on the SAME backend graphs run on.
+    ggml_backend_t handle() const;
+
+    // Build + run a one-shot graph: `build(ctx)` constructs the graph in a
+    // no_alloc=true context (register host inputs via add_graph_input; reference
+    // loader weights directly as leaves), Backend allocates it on the persistent
+    // gallocr, pushes the registered inputs, runs it, and reads the output
+    // tensor's f32 contents into `out`. Returns true on success. Throws
+    // std::runtime_error (from cpu_repack::prepare_graph) when a CPU graph
+    // reads a repacked weight other than through MUL_MAT; the C API entry
+    // points turn that into an error result like any other exception.
+    bool compute(const std::function<ggml_tensor*(ggml_context*)>& build,
+                 std::vector<float>& out);
+
+    // Allocation plan for a run of one-shot graphs that share one topology
+    // and whose tensors only grow up to a bound (the exact-width decode step:
+    // only the attention width changes from token to token). The shared
+    // gallocr would re-plan every such graph, and regrow its buffer, because
+    // some node got larger. Instead the caller reserves the plan once for a
+    // worst-case build (reserve_steps) and runs the real steps against it
+    // (compute_step), which then only assigns the planned offsets. Owned by
+    // the caller; free it before the Backend.
+    class StepAlloc {
+    public:
+        StepAlloc() = default;
+        ~StepAlloc();
+        StepAlloc(const StepAlloc&) = delete;
+        StepAlloc& operator=(const StepAlloc&) = delete;
+        // Caller-defined size key of the reserved worst case (-1: none yet).
+        int64_t reserved = -1;
+    private:
+        friend class Backend;
+        ggml_gallocr_t galloc_ = nullptr;
+        Backend* owner_ = nullptr; // caller contract: StepAlloc dies first
+        std::shared_ptr<HealthState> health_;
+    };
+    // Plan `sa` for the graph `build` constructs (nothing runs; inputs are not
+    // read) and set sa.reserved = key. A later compute_step graph must have
+    // the same node/leaf structure and no tensor larger than this one.
+    bool reserve_steps(StepAlloc& sa, int64_t key,
+                       const std::function<ggml_tensor*(ggml_context*)>& build);
+    // compute() on sa's plan. A graph that does not fit the plan is re-planned
+    // by the gallocr like compute() would (correct, just not cheap).
+    bool compute_step(StepAlloc& sa,
+                      const std::function<ggml_tensor*(ggml_context*)>& build,
+                      std::vector<float>& out);
+
+    // Internal hook used by add_graph_input / capture_graph_output (routed via
+    // a thread-local pointer to the Backend driving the current compute).
+    void register_input(ggml_tensor* t, const void* host, size_t nbytes);
+    void register_capture(ggml_tensor* t, std::vector<float>* dst);
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
+    std::shared_ptr<HealthState> health_ = std::make_shared<HealthState>();
+    bool compute_impl(const std::function<ggml_tensor*(ggml_context*)>& build,
+                      std::vector<float>& out, StepAlloc* sa);
+    size_t replay_cache_default_ = 16; // set from actual selected device
+    int   n_threads_ = 1;
+    std::string device_name_ = "cpu";
+    // The selected registry device (null when only the CPU fallback engaged);
+    // retained for the trace-only memory queries.
+    ggml_backend_dev_t dev_ = nullptr;
+
+    friend class ReplayGraph;
+    friend struct RuntimeSafetyTestPeer;
+};
+
+// Register a host-backed graph input for the currently-active Backend::compute
+// or ReplayGraph build. Marks `t` as a graph input and records an H2D copy of
+// `nbytes` from `host` to perform AFTER allocation. Must be called from inside
+// a build lambda (routes via thread-local). Bytes are snapshotted at registration;
+// ReplayGraph::input_host still exposes the ORIGINAL identity for stable mutable
+// GraphInputPool callers, whose own host pointer must remain valid when reused.
+void add_graph_input(ggml_tensor* t, const void* host, size_t nbytes);
+
+// Create a graph input tensor in `ctx` and register its host backing in one
+// call (the common case). Returns the new tensor.
+ggml_tensor* graph_input_tensor(ggml_context* ctx, int type, int n_dims,
+                                const int64_t* ne, const void* host,
+                                size_t nbytes);
+
+// Capture an intermediate tensor for readback after compute. `*dst` is resized
+// and filled with the tensor's f32 contents once the graph has run. Must be
+// called from inside a build lambda.
+void capture_graph_output(ggml_tensor* t, std::vector<float>* dst);
+
+// Mark `t` as a graph node that MUST execute as a side effect but is NOT read
+// back to host. The Wave D decode-state write-back uses this: the K-step graph
+// cpy's its final (h/c/cc/frame/last_token) state into persistent device
+// buffers (graph leaves) so the next replay reads it in-graph with no host
+// round-trip; those cpy nodes are unreachable from the output/captures, so they
+// must be registered as expansion roots. Must be called from inside a build
+// lambda; the node is expanded into the cgraph alongside the output + captures.
+void add_graph_root(ggml_tensor* t);
+
+// [starling pos-cache] Mark a graph input (registered via graph_input_tensor)
+// as PERSISTENT: it is uploaded once on the first replay and its device
+// buffer contents are kept across replays (the caller must NOT rely on
+// set_input refreshing it). Must be called from inside a build lambda.
+void mark_graph_input_persistent(ggml_tensor* t);
+
+// Reference a loader weight DIRECTLY as a graph leaf (zero per-call copy). The
+// loader gives every weight a backend buffer once (realize_weights); with
+// ->data set, the gallocr treats the weight as already-allocated and never
+// touches it. Allowlisted linears may be f16/q8_0 (ggml_mul_mat dequantizes).
+// clone_weight asserts the name is present; clone_weight_opt returns nullptr.
+ggml_tensor* clone_weight(ggml_context* ctx, const ModelLoader& ml,
+                          const char* name);
+ggml_tensor* clone_weight_opt(ggml_context* ctx, const ModelLoader& ml,
+                              const char* name);
+
+// Ensure the loader's weights have a backend buffer (zero-copy) on the
+// process-global Backend. Idempotent.
+void ensure_weights_realized(const ModelLoader& ml);
+
+// Copy a weight's f32 contents to `out` on the host (for host-side math like
+// batch-norm folding). NOT for graph leaves (use clone_weight).
+void weight_to_host_f32(const ModelLoader& ml, const char* name,
+                        std::vector<float>& out);
+
+// One captured-graph node an accelerator backend rejected (issue #184), with
+// the details the STARLING_SCHED_DEBUG report prints — kept as data so the
+// enumeration can be unit-tested without a GPU backend.
+struct UnsupportedGraphNode {
+    int         node_index;  // index into the cgraph's node list
+    std::string op;          // ggml_op_name of the node (e.g. "UNARY")
+    std::string dst_type;    // ggml_type_name of the node's own type
+    std::string srcs;        // "src0=f32(VIEW,STRIDED) src1=f32(MUL_MAT,cont)"
+};
+
+// Enumerate EVERY cgraph node for which `supports` returns false. Used by
+// ReplayGraph::alloc_internal with ggml_backend_supports_op; tests inject a
+// fake predicate. Never stops at the first rejection: the parakeet CUDA graph
+// of issue #184 had one rejected node per conformer layer, and naming only
+// the first hid the pattern. Null node slots are skipped. (The pinned ggml's
+// graph accessors are non-const, so the parameter is too.)
+std::vector<UnsupportedGraphNode> enumerate_unsupported_graph_nodes(
+    ggml_cgraph* gf,
+    const std::function<bool(const ggml_tensor*)>& supports);
+
+// One sched-dbg report line for an entry, e.g.
+//   "node 96/1845: op=UNARY dst=f32 src0=f32(VIEW,STRIDED)"
+std::string format_unsupported_graph_node(const UnsupportedGraphNode& node,
+                                          int n_nodes);
+
+// The build-time guard ReplayGraph::alloc_internal runs on every GPU-routed
+// captured graph (issue #184): enumerate every node `supports` rejects and
+// throw a std::runtime_error naming them (device, rejected/total counts, up
+// to 16 sched-dbg node lines, and the actionable tail pointing at #184 and
+// STARLING_SCHED_DEBUG, which also echoes the FULL enumeration to stderr when
+// set to 1). The exception rides the engine's normal error path (capi's
+// g_last_error -> HTTP 500); without it the captured graph would take the
+// ggml_backend_sched route, whose buffers abort ReplayGraph's first async
+// input upload inside ggml. Predicate-taking so tests drive it with fakes —
+// no GPU backend needed. No-op when every node passes `supports`.
+void check_no_unsupported_graph_nodes(
+    ggml_cgraph* gf,
+    const std::function<bool(const ggml_tensor*)>& supports,
+    const char* device_name);
+
+// A graph built once and replayed many times, keeping the same ggml context +
+// cgraph alive so ggml-cuda can capture + replay it. Callers feed fresh input
+// data each call via set_input.
+class ReplayGraph {
+public:
+    // Construction can throw std::runtime_error if a captured CPU graph reads
+    // an already-repacked weight through an unsupported operation.
+    ReplayGraph(Backend& backend,
+                const std::function<ggml_tensor*(ggml_context*)>& build);
+    ~ReplayGraph();
+
+    ReplayGraph(const ReplayGraph&) = delete;
+    ReplayGraph& operator=(const ReplayGraph&) = delete;
+
+    // Feed `nbytes` from `host` into input #`i` (registration-order). Copies
+    // into graph-owned staging BEFORE async submission; caller may then mutate
+    // or release its source. Repeated input replacement drains prior submissions.
+    void set_input(size_t i, const void* host, size_t nbytes);
+
+    // Recompute + read the output tensor's f32 contents into `out`.
+    bool compute(std::vector<float>& out);
+
+    // Let a cancelled call (call_abort.hpp) stop this graph between slices
+    // (issue #357). Only for graphs whose caller treats a false compute()
+    // as "cancelled" when call_abort_requested() is set, never as a reason
+    // to fall back to another path (the TDT multistep decoder does).
+    void set_abortable(bool on) { abortable_ = on; }
+
+    // Recompute + read the output AND every capture registered during build
+    // (into the caller's stable dst vectors). Used by the decode loop to pull
+    // new per-layer state out of each replayed step.
+    bool compute_with_captures(std::vector<float>& out);
+
+    size_t n_inputs() const { return inputs_.size(); }
+    size_t input_nbytes(size_t i) const;
+    const void* input_host(size_t i) const;
+    bool input_persistent(size_t i) const {
+        return i < persistent_.size() && persistent_[i];
+    }
+
+    // Tracked-bytes figure for byte-aware cache budgets (S02 / issue #177):
+    // the size of this graph's PRIVATE gallocr buffer — exactly the device
+    // memory freeing this ReplayGraph reclaims. Covers the graph's input
+    // tensors + intermediates; loader weights are counted once by their owner,
+    // never here. 0 when the graph was scheduled through ggml_backend_sched
+    // (no private buffer to account — the entry then tracks as zero bytes;
+    // CUDA-graph exec/driver allocations are not exposed by ggml and stay
+    // deliberately untracked).
+    size_t device_alloc_bytes() const;
+
+private:
+    struct InputStorage {
+        std::vector<std::shared_ptr<std::vector<uint8_t>>> initial;
+        std::vector<bool> uploaded;
+        std::vector<std::shared_ptr<std::vector<uint8_t>>> pending;
+        size_t pending_bytes = 0;
+        size_t pending_budget = 0;
+    };
+    std::unique_ptr<InputStorage> input_storage_;
+    Backend& backend_;
+    ggml_context* ctx_ = nullptr;
+    ggml_cgraph*  gf_  = nullptr;
+    ggml_tensor*  out_ = nullptr;
+    std::vector<ggml_tensor*> inputs_;
+    std::vector<bool> persistent_;  // [starling] see mark_graph_input_persistent
+    std::vector<const void*> input_hosts_;
+    std::vector<std::pair<ggml_tensor*, std::vector<float>*>> captures_;
+    bool need_sched_ = false;
+    bool abortable_ = false;
+    ggml_gallocr_t galloc_ = nullptr;
+
+    bool alloc_internal();
+    void clear_drained_inputs();
+    void queue_owned_input(size_t i, std::shared_ptr<std::vector<uint8_t>> bytes);
+    void readback_async_then_sync(struct Backend::Impl* impl,
+                                  ggml_tensor* out_t,
+                                  std::vector<float>& out);
+    friend struct RuntimeSafetyTestPeer;
+};
+
+} // namespace starling::ggml

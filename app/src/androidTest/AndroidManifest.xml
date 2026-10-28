@@ -1,5 +1,84 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- AGP rewrites the first instrumentation entry to the configured default runner. -->
+    <instrumentation android:name="dev.lip.LipSmokeRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.HistoryConsentRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.CompletedDictationRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.AgentEffortMenuRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.HistoryTransferRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.HistorySettingsRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.HistorySafRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.PresentationStateRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.SwipeGeometryRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.KeyboardPreferencesRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.EmojiVariantsRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.EmojiPressureRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.WordDeleteBoundaryRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.NextWordWriterRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.AudioInjectionRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.LocalAsrRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.LipAuthRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.LipCloudCleanupRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.MicTailRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.LocalFlowRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.PcmToneRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.PlatformSpeechProbe" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.PlatformSpeechDownloadRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.PlatformSpeechPipeRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.PlatformSpeechMicRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.PhoneUiRunner" android:targetPackage="${lipInstrumentationTestTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.PhoneMicRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.LipImeRunner" android:targetPackage="${lipInstrumentationTestTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.SwipeNativeRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.BundledSwipeRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.SwipePressureRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.ClipboardHistoryRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.GifPressureRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.TypingVoiceWriterRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.TypingStoreRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.WebImeRunner" android:targetPackage="${lipInstrumentationTestTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.HistoryImportRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.HistoryImportAdmissionRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.HistoryPortableInteropRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.KeyboardSizingRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.SizingFixtureStateRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.SizingConsumerDriver" android:targetPackage="${lipInstrumentationTestTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.SizingVisibilityRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.GifLayoutDriver" android:targetPackage="${lipInstrumentationTestTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.GifLayoutComponentRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.StickerDecodeRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.StickerTransactionRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.StickerFixtureStateRunner" android:targetPackage="${lipInstrumentationTestTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.StickerImportUiRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.StickerBrowserStateRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.StickerBrowserDriver" android:targetPackage="${lipInstrumentationTestTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.StickerPanelLifecycleRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.StickerTransportRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.StickerImeActionDriver" android:targetPackage="${lipInstrumentationTestTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.StickerReadBarrierRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
     <application>
+        <activity android:name="dev.lip.StickerEditorFixtureActivity" android:enabled="${stickerFixtureEnabled}"
+            android:exported="true" android:windowSoftInputMode="adjustResize|stateAlwaysVisible"
+            android:configChanges="orientation|screenSize|keyboardHidden" android:theme="@android:style/Theme.Material.NoActionBar" />
+        <service android:name="dev.lip.testing.StickerReceiverService" android:process=":sticker_receiver"
+            android:enabled="${stickerFixtureEnabled}" android:exported="true" />
+        <service android:name="dev.lip.testing.StickerReceiverService$Isolated" android:process=":sticker_wronguid"
+            android:isolatedProcess="true" android:enabled="${stickerFixtureEnabled}" android:exported="true" />
+        <provider android:name="dev.lip.testing.StickerFixtureDocuments"
+            android:authorities="${applicationId}.stickerfixtures" android:enabled="${stickerFixtureEnabled}"
+            android:exported="true" android:permission="android.permission.MANAGE_DOCUMENTS" android:grantUriPermissions="true">
+            <intent-filter><action android:name="android.content.action.DOCUMENTS_PROVIDER" /></intent-filter>
+        </provider>
+        <provider android:name="dev.lip.testing.HistoryImportDocuments"
+            android:authorities="${applicationId}.historyfixtures"
+            android:enabled="${historyFixtureEnabled}" android:exported="true"
+            android:permission="android.permission.MANAGE_DOCUMENTS" android:grantUriPermissions="true">
+            <intent-filter><action android:name="android.content.action.DOCUMENTS_PROVIDER" /></intent-filter>
+        </provider>
+        <activity android:name="dev.lip.WebImeFixtureActivity" android:exported="true" android:windowSoftInputMode="adjustResize" android:hardwareAccelerated="true" android:theme="@android:style/Theme.Material.Light.NoActionBar" />
+        <activity android:name="dev.lip.KeyboardSizingEditorActivity" android:exported="true" android:windowSoftInputMode="adjustResize|stateAlwaysVisible" android:configChanges="orientation|screenSize|keyboardHidden" android:theme="@android:style/Theme.Material.NoActionBar" />
+        <activity android:name="dev.lip.ImeFixtureActivity" android:exported="true"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar" />
         <activity android:name="dev.lip.EditorFixtureActivity" android:exported="true"
             android:theme="@android:style/Theme.Material.Light.NoActionBar" />
     </application>

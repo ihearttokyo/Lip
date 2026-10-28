@@ -1,0 +1,21 @@
+{
+  "format": "lip-nextword-en-v1",
+  "source_revision": "e66fe7098922de3bf81915cf93a63d2da7dbf634",
+  "bytes": 1093594,
+  "sha256": "299cc1ba59c1bcc67b9151fc2f7360a6f5b9077e3e2d2ece3533aa5c603c31b7",
+  "source_counts": {
+    "en_bigrams.txt.gz": {
+      "input": 150000,
+      "admitted": 149342
+    },
+    "en_trigrams.txt.gz": {
+      "input": 75000,
+      "admitted": 74908
+    }
+  },
+  "contexts": 36095,
+  "shipped_rows": 63035,
+  "lexicon_sha256": "658112c11991a779917e6e0b1e28a89aeaa27f24abde1f058c8224101f565dfd",
+  "license": "CC-BY-4.0 AND CC-BY-2.0-FR; see NOTICE.md",
+  "transform": "admitted nonoffensive ASCII English lexicon intersection; top3/count-desc/lexical ties per one/two-word context; no private data"
+}

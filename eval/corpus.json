@@ -1,0 +1,782 @@
+{
+  "schema_version": 1,
+  "id": "lip-human-read-speech-v1-candidate",
+  "status": "complete_set_verified_no_engine_results",
+  "selection_rule": "Six validation recordings per language selected for names, negation and numbers, with both source gender labels. No engine output was consulted. Parent froze max_error_rate at 0.05 before any inference on 2026-10-08.",
+  "scope": "Read-speech baseline only; not Android microphone, spontaneous dictation, cleanup-model or Wispr parity evidence.",
+  "license": "CC-BY-4.0",
+  "attribution": "FLEURS (2022), Alexis Conneau, Min Ma, Simran Khanuja, Yu Zhang, Vera Axelrod, Siddharth Dalmia, Jason Riesa, Clara Rivera and Ankur Bapna; Google dataset distribution.",
+  "source_card": "https://huggingface.co/datasets/google/fleurs",
+  "paper": "https://arxiv.org/abs/2205.12446",
+  "source_revision": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+  "license_url": "https://creativecommons.org/licenses/by/4.0/",
+  "download_size_bytes": 9615124,
+  "duration_seconds": 150.22,
+  "cases": [
+    {
+      "id": "fleurs-zh-001",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio": "audio/fleurs-zh-001.wav",
+      "sha256": "577a635c2261680c61dda5fecbc4f83bff6f37f453665b8d9d1a68f210f57c0a",
+      "size_bytes": 476218,
+      "expected_sample_rate": 16000,
+      "expected_num_samples": 119040,
+      "reference_raw": "因为远离大陆，哺乳动物无法长途跋涉而来，使得巨龟成为科隆群岛主要的食草动物。",
+      "max_error_rate": 0.05,
+      "checks": [
+        {
+          "name": "negation",
+          "target": "raw",
+          "required": [
+            "无法长途跋涉"
+          ]
+        }
+      ],
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+        "config": "cmn_hans_cn",
+        "split": "validation",
+        "row_index": 1,
+        "utterance_id": 1605,
+        "source_file": "10149760684641961155.wav",
+        "source_raw_transcription": "因为远离大陆，哺乳动物无法长途跋涉而来，使得巨龟成为科隆群岛主要的食草动物。",
+        "source_asr_transcription": "因 为 远 离 大 陆 哺 乳 动 物 无 法 长 途 跋 涉 而 来 使 得 巨 龟 成 为 科 隆 群 岛 主 要 的 食 草 动 物",
+        "gender_label": "female",
+        "num_samples": 119040,
+        "rows_url": "https://datasets-server.huggingface.co/rows?dataset=google/fleurs&config=cmn_hans_cn&split=validation&offset=0&length=35",
+        "cached_audio_size_bytes": 476218,
+        "cached_audio_etag": "\"082c11a24092c650226a29ced3ffc582\""
+      },
+      "license": "CC-BY-4.0",
+      "admission": "downloaded_and_verified"
+    },
+    {
+      "id": "fleurs-zh-008",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio": "audio/fleurs-zh-008.wav",
+      "sha256": "602f0fc4a334f4927b221b836f1735a09888f017956d02e1aaf97526a10cc964",
+      "size_bytes": 733498,
+      "expected_sample_rate": 16000,
+      "expected_num_samples": 183360,
+      "reference_raw": "最后结果是一分险胜，比分为 21 比 20，结束了全黑队连胜 15 场的局面。",
+      "max_error_rate": 0.05,
+      "checks": [
+        {
+          "name": "score",
+          "target": "raw",
+          "required": [
+            "(?:21|二十一)\\s*比\\s*(?:20|二十)"
+          ]
+        },
+        {
+          "name": "streak",
+          "target": "raw",
+          "required": [
+            "(?:15|十五)\\s*场"
+          ]
+        }
+      ],
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+        "config": "cmn_hans_cn",
+        "split": "validation",
+        "row_index": 8,
+        "utterance_id": 1523,
+        "source_file": "10399860241838146540.wav",
+        "source_raw_transcription": "最后结果是一分险胜，比分为 21 比 20，结束了全黑队连胜 15 场的局面。",
+        "source_asr_transcription": "最 后 结 果 是 一 分 险 胜 比 分 为 21 比 20 结 束 了 全 黑 队 连 胜 15 场 的 局 面",
+        "gender_label": "male",
+        "num_samples": 183360,
+        "rows_url": "https://datasets-server.huggingface.co/rows?dataset=google/fleurs&config=cmn_hans_cn&split=validation&offset=0&length=35",
+        "cached_audio_size_bytes": 733498,
+        "cached_audio_etag": "\"a047fd0c8f84592077f5e147249be80a\""
+      },
+      "license": "CC-BY-4.0",
+      "admission": "downloaded_and_verified"
+    },
+    {
+      "id": "fleurs-zh-011",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio": "audio/fleurs-zh-011.wav",
+      "sha256": "740b099bcbe2ef18d0605505bdf34494086b2422ce9677b4ab92bc056780aeff",
+      "size_bytes": 357178,
+      "expected_sample_rate": 16000,
+      "expected_num_samples": 89280,
+      "reference_raw": "他称，他制作了一个 WiFi 门铃。",
+      "max_error_rate": 0.05,
+      "checks": [
+        {
+          "name": "term",
+          "target": "raw",
+          "required": [
+            "(?i)WiFi"
+          ]
+        }
+      ],
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+        "config": "cmn_hans_cn",
+        "split": "validation",
+        "row_index": 11,
+        "utterance_id": 1554,
+        "source_file": "10519077850963840950.wav",
+        "source_raw_transcription": "他称，他制作了一个 WiFi 门铃。",
+        "source_asr_transcription": "他 称 他 制 作 了 一 个 wifi 门 铃",
+        "gender_label": "male",
+        "num_samples": 89280,
+        "rows_url": "https://datasets-server.huggingface.co/rows?dataset=google/fleurs&config=cmn_hans_cn&split=validation&offset=0&length=35",
+        "cached_audio_size_bytes": 357178,
+        "cached_audio_etag": "\"fc5406e7707e92a405777c41d20c38d5\""
+      },
+      "license": "CC-BY-4.0",
+      "admission": "downloaded_and_verified"
+    },
+    {
+      "id": "fleurs-zh-020",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio": "audio/fleurs-zh-020.wav",
+      "sha256": "46a8db323b5e51dcbb06813f5ebb303d7688326b6cc51ba6e609296c75973f59",
+      "size_bytes": 825658,
+      "expected_sample_rate": 16000,
+      "expected_num_samples": 206400,
+      "reference_raw": "“他在 2000 年制作的第 1000 张邮票取材自大卫·克洛克·埃伦斯特拉尔的名画《瑞典国王的伟大功绩》，并因此入选《吉尼斯世界纪录大全》。”",
+      "max_error_rate": 0.05,
+      "checks": [
+        {
+          "name": "year",
+          "target": "raw",
+          "required": [
+            "(?:2000|二〇〇〇|二零零零|两千|二千)\\s*年"
+          ]
+        },
+        {
+          "name": "stamp count",
+          "target": "raw",
+          "required": [
+            "第\\s*(?:1000|一千)\\s*张"
+          ]
+        },
+        {
+          "name": "name",
+          "target": "raw",
+          "required": [
+            "埃伦斯特拉尔"
+          ]
+        }
+      ],
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+        "config": "cmn_hans_cn",
+        "split": "validation",
+        "row_index": 20,
+        "utterance_id": 1556,
+        "source_file": "11020483842678099546.wav",
+        "source_raw_transcription": "“他在 2000 年制作的第 1000 张邮票取材自大卫·克洛克·埃伦斯特拉尔的名画《瑞典国王的伟大功绩》，并因此入选《吉尼斯世界纪录大全》。”",
+        "source_asr_transcription": "他 在 2000 年 制 作 的 第 1000 张 邮 票 取 材 自 大 卫 克 洛 克 埃 伦 斯 特 拉 尔 的 名 画 瑞 典 国 王 的 伟 大 功 绩 并 因 此 入 选 吉 尼 斯 世 界 纪 录 大 全",
+        "gender_label": "female",
+        "num_samples": 206400,
+        "rows_url": "https://datasets-server.huggingface.co/rows?dataset=google/fleurs&config=cmn_hans_cn&split=validation&offset=0&length=35",
+        "cached_audio_size_bytes": 825658,
+        "cached_audio_etag": "\"79dcc7375d380ffb147cd3aeb90eb6c9\""
+      },
+      "license": "CC-BY-4.0",
+      "admission": "downloaded_and_verified"
+    },
+    {
+      "id": "fleurs-zh-022",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio": "audio/fleurs-zh-022.wav",
+      "sha256": "7cda86aca73eac3283e3e12a90a550b3eb2c3ac33d6c202d7c0759eea384f7b4",
+      "size_bytes": 533818,
+      "expected_sample_rate": 16000,
+      "expected_num_samples": 133440,
+      "reference_raw": "一般来说，卫星电话不能取代移动电话，因为只有在卫星信号畅通的室外，才能进行通话。",
+      "max_error_rate": 0.05,
+      "checks": [
+        {
+          "name": "negation",
+          "target": "raw",
+          "required": [
+            "不能取代移动电话"
+          ]
+        }
+      ],
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+        "config": "cmn_hans_cn",
+        "split": "validation",
+        "row_index": 22,
+        "utterance_id": 1573,
+        "source_file": "11138309825590803862.wav",
+        "source_raw_transcription": "一般来说，卫星电话不能取代移动电话，因为只有在卫星信号畅通的室外，才能进行通话。",
+        "source_asr_transcription": "一 般 来 说 卫 星 电 话 不 能 取 代 移 动 电 话 因 为 只 有 在 卫 星 信 号 畅 通 的 室 外 才 能 进 行 通 话",
+        "gender_label": "female",
+        "num_samples": 133440,
+        "rows_url": "https://datasets-server.huggingface.co/rows?dataset=google/fleurs&config=cmn_hans_cn&split=validation&offset=0&length=35",
+        "cached_audio_size_bytes": 533818,
+        "cached_audio_etag": "\"0980ea16bbf08590ea8790a14fb2934b\""
+      },
+      "license": "CC-BY-4.0",
+      "admission": "downloaded_and_verified"
+    },
+    {
+      "id": "fleurs-zh-034",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio": "audio/fleurs-zh-034.wav",
+      "sha256": "eba0b68aa12dd62c40f78ea201be03e51f790c1811c8f6b5a646c17a1a9691ed",
+      "size_bytes": 318778,
+      "expected_sample_rate": 16000,
+      "expected_num_samples": 79680,
+      "reference_raw": "然后，拉卡·辛格带头唱了拜赞歌。",
+      "max_error_rate": 0.05,
+      "checks": [
+        {
+          "name": "name",
+          "target": "raw",
+          "required": [
+            "拉卡[·・\\s]*辛格"
+          ]
+        }
+      ],
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+        "config": "cmn_hans_cn",
+        "split": "validation",
+        "row_index": 34,
+        "utterance_id": 1578,
+        "source_file": "11883900098453826298.wav",
+        "source_raw_transcription": "然后，拉卡·辛格带头唱了拜赞歌。",
+        "source_asr_transcription": "然 后 拉 卡 辛 格 带 头 唱 了 拜 赞 歌",
+        "gender_label": "female",
+        "num_samples": 79680,
+        "rows_url": "https://datasets-server.huggingface.co/rows?dataset=google/fleurs&config=cmn_hans_cn&split=validation&offset=0&length=35",
+        "cached_audio_size_bytes": 318778,
+        "cached_audio_etag": "\"5163f9e4cbe89b44d1bae7d78cb73441\""
+      },
+      "license": "CC-BY-4.0",
+      "admission": "downloaded_and_verified"
+    },
+    {
+      "id": "fleurs-en-000",
+      "language": "en",
+      "origin": "human_recording",
+      "audio": "audio/fleurs-en-000.wav",
+      "sha256": "048169439c0328b758349af74aeb54a82a7a476e309709eb791dced06db25d48",
+      "size_bytes": 418618,
+      "expected_sample_rate": 16000,
+      "expected_num_samples": 104640,
+      "reference_raw": "When you call someone who is thousands of miles away, you are using a satellite.",
+      "max_error_rate": 0.05,
+      "checks": [
+        {
+          "name": "satellite",
+          "target": "raw",
+          "required": [
+            "(?i)\\bsatellite\\b"
+          ]
+        }
+      ],
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+        "config": "en_us",
+        "split": "validation",
+        "row_index": 0,
+        "utterance_id": 1548,
+        "source_file": "10010138729160973689.wav",
+        "source_raw_transcription": "When you call someone who is thousands of miles away, you are using a satellite.",
+        "source_asr_transcription": "when you call someone who is thousands of miles away you are using a satellite",
+        "gender_label": "male",
+        "num_samples": 104640,
+        "rows_url": "https://datasets-server.huggingface.co/rows?dataset=google/fleurs&config=en_us&split=validation&offset=0&length=36",
+        "cached_audio_size_bytes": 418618,
+        "size_evidence": "previous HEAD matched frame count *4 +58",
+        "cached_audio_etag": "\"e88fd275b7fc998dd2865e8e82db1f85\""
+      },
+      "license": "CC-BY-4.0",
+      "admission": "downloaded_and_verified"
+    },
+    {
+      "id": "fleurs-en-003",
+      "language": "en",
+      "origin": "human_recording",
+      "audio": "audio/fleurs-en-003.wav",
+      "sha256": "7172cc6e8a7b006a8175c57df13bb69db0c6249dc09d7b015c98722d5af9734c",
+      "size_bytes": 265018,
+      "expected_sample_rate": 16000,
+      "expected_num_samples": 66240,
+      "reference_raw": "Then, Lakkha Singh took the lead in singing the bhajans.",
+      "max_error_rate": 0.05,
+      "checks": [
+        {
+          "name": "name",
+          "target": "raw",
+          "required": [
+            "(?i)\\bLakkha Singh\\b"
+          ]
+        }
+      ],
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+        "config": "en_us",
+        "split": "validation",
+        "row_index": 3,
+        "utterance_id": 1578,
+        "source_file": "10098964113747380446.wav",
+        "source_raw_transcription": "Then, Lakkha Singh took the lead in singing the bhajans.",
+        "source_asr_transcription": "then lakkha singh took the lead in singing the bhajans",
+        "gender_label": "female",
+        "num_samples": 66240,
+        "rows_url": "https://datasets-server.huggingface.co/rows?dataset=google/fleurs&config=en_us&split=validation&offset=0&length=36",
+        "cached_audio_size_bytes": 265018,
+        "size_evidence": "previous HEAD matched frame count *4 +58",
+        "cached_audio_etag": "\"57ec34294483290698d02dc8e1806123\""
+      },
+      "license": "CC-BY-4.0",
+      "admission": "downloaded_and_verified"
+    },
+    {
+      "id": "fleurs-en-011",
+      "language": "en",
+      "origin": "human_recording",
+      "audio": "audio/fleurs-en-011.wav",
+      "sha256": "409c1b0f2e86fbc7996c1122e8ccbd0ff30bae145395b456e4ffa6b8c8279c12",
+      "size_bytes": 522298,
+      "expected_sample_rate": 16000,
+      "expected_num_samples": 130560,
+      "reference_raw": "Local authorities are warning residents in the vicinity of the plant to stay indoors, turn off air-conditioners and not to drink tap water.",
+      "max_error_rate": 0.05,
+      "checks": [
+        {
+          "name": "negation",
+          "target": "raw",
+          "required": [
+            "(?i)\\bnot to drink tap water\\b"
+          ]
+        }
+      ],
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+        "config": "en_us",
+        "split": "validation",
+        "row_index": 11,
+        "utterance_id": 1536,
+        "source_file": "10408474834696432538.wav",
+        "source_raw_transcription": "Local authorities are warning residents in the vicinity of the plant to stay indoors, turn off air-conditioners and not to drink tap water.",
+        "source_asr_transcription": "local authorities are warning residents in the vicinity of the plant to stay indoors turn off air-conditioners and not to drink tap water",
+        "gender_label": "female",
+        "num_samples": 130560,
+        "rows_url": "https://datasets-server.huggingface.co/rows?dataset=google/fleurs&config=en_us&split=validation&offset=0&length=36",
+        "cached_audio_size_bytes": 522298,
+        "size_evidence": "previous HEAD matched frame count *4 +58",
+        "cached_audio_etag": "\"91c5ad045db914aae90a971ef441e81d\""
+      },
+      "license": "CC-BY-4.0",
+      "admission": "downloaded_and_verified"
+    },
+    {
+      "id": "fleurs-en-013",
+      "language": "en",
+      "origin": "human_recording",
+      "audio": "audio/fleurs-en-013.wav",
+      "sha256": "431d013d01d25cbf8d42587f4a14df57d09dbe9cbc2af4ea91ba93f9bd290ec4",
+      "size_bytes": 482618,
+      "expected_sample_rate": 16000,
+      "expected_num_samples": 120640,
+      "reference_raw": "Although three people were inside the house when the car impacted it, none of them were hurt.",
+      "max_error_rate": 0.05,
+      "checks": [
+        {
+          "name": "negation",
+          "target": "raw",
+          "required": [
+            "(?i)\\bnone of them were hurt\\b"
+          ]
+        },
+        {
+          "name": "count",
+          "target": "raw",
+          "required": [
+            "(?i)\\b(?:three|3) people\\b"
+          ]
+        }
+      ],
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+        "config": "en_us",
+        "split": "validation",
+        "row_index": 13,
+        "utterance_id": 1598,
+        "source_file": "10461636001046553742.wav",
+        "source_raw_transcription": "Although three people were inside the house when the car impacted it, none of them were hurt.",
+        "source_asr_transcription": "although three people were inside the house when the car impacted it none of them were hurt",
+        "gender_label": "male",
+        "num_samples": 120640,
+        "rows_url": "https://datasets-server.huggingface.co/rows?dataset=google/fleurs&config=en_us&split=validation&offset=0&length=36",
+        "cached_audio_size_bytes": 482618,
+        "size_evidence": "previous HEAD matched frame count *4 +58",
+        "cached_audio_etag": "\"0e996ec1827b6816583569339e26b6d3\""
+      },
+      "license": "CC-BY-4.0",
+      "admission": "downloaded_and_verified"
+    },
+    {
+      "id": "fleurs-en-017",
+      "language": "en",
+      "origin": "human_recording",
+      "audio": "audio/fleurs-en-017.wav",
+      "sha256": "952145e2808bf8ea6354ec0ea656652a0eeff61438a466fa4f0f3568f89c23a3",
+      "size_bytes": 545338,
+      "expected_sample_rate": 16000,
+      "expected_num_samples": 136320,
+      "reference_raw": "Eventually, wooden wheels were replaced by iron wheels. In 1767, the first full-iron rails were introduced.",
+      "max_error_rate": 0.05,
+      "checks": [
+        {
+          "name": "year",
+          "target": "raw",
+          "required": [
+            "\\b1767\\b"
+          ]
+        }
+      ],
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+        "config": "en_us",
+        "split": "validation",
+        "row_index": 17,
+        "utterance_id": 1593,
+        "source_file": "10567709020684252271.wav",
+        "source_raw_transcription": "Eventually, wooden wheels were replaced by iron wheels. In 1767, the first full-iron rails were introduced.",
+        "source_asr_transcription": "eventually wooden wheels were replaced by iron wheels in 1767 the first full-iron rails were introduced",
+        "gender_label": "female",
+        "num_samples": 136320,
+        "rows_url": "https://datasets-server.huggingface.co/rows?dataset=google/fleurs&config=en_us&split=validation&offset=0&length=36",
+        "cached_audio_size_bytes": 545338,
+        "size_evidence": "previous HEAD matched frame count *4 +58",
+        "cached_audio_etag": "\"2489deeb57f9d7064d993edbac4c7ffe\""
+      },
+      "license": "CC-BY-4.0",
+      "admission": "downloaded_and_verified"
+    },
+    {
+      "id": "fleurs-en-021",
+      "language": "en",
+      "origin": "human_recording",
+      "audio": "audio/fleurs-en-021.wav",
+      "sha256": "df7a78f49dc92468b8e79a2ffb98d78622ead12f70f567eca0ac472a81ba21b6",
+      "size_bytes": 522298,
+      "expected_sample_rate": 16000,
+      "expected_num_samples": 130560,
+      "reference_raw": "Some reports put the official death toll at eight, and official reports confirm that up to 30 were injured; but final numbers are not yet known.",
+      "max_error_rate": 0.05,
+      "checks": [
+        {
+          "name": "counts",
+          "target": "raw",
+          "required": [
+            "(?i)\\b(?:eight|8)\\b"
+          ]
+        },
+        {
+          "name": "injured",
+          "target": "raw",
+          "required": [
+            "(?i)\\b(?:30|thirty)\\b"
+          ]
+        },
+        {
+          "name": "uncertainty",
+          "target": "raw",
+          "required": [
+            "(?i)\\bnot yet known\\b"
+          ]
+        }
+      ],
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+        "config": "en_us",
+        "split": "validation",
+        "row_index": 21,
+        "utterance_id": 1629,
+        "source_file": "10630374883688952860.wav",
+        "source_raw_transcription": "Some reports put the official death toll at eight, and official reports confirm that up to 30 were injured; but final numbers are not yet known.",
+        "source_asr_transcription": "some reports put the official death toll at eight and official reports confirm that up to 30 were injured but final numbers are not yet known",
+        "gender_label": "female",
+        "num_samples": 130560,
+        "rows_url": "https://datasets-server.huggingface.co/rows?dataset=google/fleurs&config=en_us&split=validation&offset=0&length=36",
+        "cached_audio_size_bytes": 522298,
+        "size_evidence": "previous HEAD matched frame count *4 +58",
+        "cached_audio_etag": "\"12aa8c744804915234fa8a9b217fb25a\""
+      },
+      "license": "CC-BY-4.0",
+      "admission": "downloaded_and_verified"
+    },
+    {
+      "id": "fleurs-ja-002",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio": "audio/fleurs-ja-002.wav",
+      "sha256": "88391f365cdecc51a56ef5f9322c441c0107ab8d0c6f7a3a09f2334ffe8c56ff",
+      "size_bytes": 510778,
+      "expected_sample_rate": 16000,
+      "expected_num_samples": 127680,
+      "reference_raw": "興味をそそられる村を30分ほど散策するのは価値があります。",
+      "max_error_rate": 0.05,
+      "checks": [
+        {
+          "name": "duration",
+          "target": "raw",
+          "required": [
+            "(?:30|３０|三十)分"
+          ]
+        }
+      ],
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+        "config": "ja_jp",
+        "split": "validation",
+        "row_index": 2,
+        "utterance_id": 1607,
+        "source_file": "10339149383603832153.wav",
+        "source_raw_transcription": "興味をそそられる村を30分ほど散策するのは価値があります。",
+        "source_asr_transcription": "興味をそそられる村を30分ほど散策するのは価値があります",
+        "gender_label": "male",
+        "num_samples": 127680,
+        "rows_url": "https://datasets-server.huggingface.co/rows?dataset=google/fleurs&config=ja_jp&split=validation&offset=0&length=35",
+        "cached_audio_size_bytes": 510778,
+        "cached_audio_etag": "\"c83a6eb1b57a40e3208599fb8ff78118\""
+      },
+      "license": "CC-BY-4.0",
+      "admission": "downloaded_and_verified"
+    },
+    {
+      "id": "fleurs-ja-010",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio": "audio/fleurs-ja-010.wav",
+      "sha256": "79f4e7148a35d78e986911d939c1664737209e33c4e46dae944e28bb624afdfb",
+      "size_bytes": 591418,
+      "expected_sample_rate": 16000,
+      "expected_num_samples": 147840,
+      "reference_raw": "車の衝突時には３人が家の中にいましたが、怪我人はいませんでした。",
+      "max_error_rate": 0.05,
+      "checks": [
+        {
+          "name": "count",
+          "target": "raw",
+          "required": [
+            "(?:3|３|三)人"
+          ]
+        },
+        {
+          "name": "negation",
+          "target": "raw",
+          "required": [
+            "怪我人はいません"
+          ]
+        }
+      ],
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+        "config": "ja_jp",
+        "split": "validation",
+        "row_index": 10,
+        "utterance_id": 1598,
+        "source_file": "1103709099852339896.wav",
+        "source_raw_transcription": "車の衝突時には３人が家の中にいましたが、怪我人はいませんでした。",
+        "source_asr_transcription": "車の衝突時には３人が家の中にいましたが 怪我人はいませんでした",
+        "gender_label": "male",
+        "num_samples": 147840,
+        "rows_url": "https://datasets-server.huggingface.co/rows?dataset=google/fleurs&config=ja_jp&split=validation&offset=0&length=35",
+        "cached_audio_size_bytes": 591418,
+        "cached_audio_etag": "\"d0858825a0714940d8a355920111fae2\""
+      },
+      "license": "CC-BY-4.0",
+      "admission": "downloaded_and_verified"
+    },
+    {
+      "id": "fleurs-ja-013",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio": "audio/fleurs-ja-013.wav",
+      "sha256": "66b2cadee94dcfd09ab9d64e0872510377435a855fcf93f27c296caecdefefec",
+      "size_bytes": 652858,
+      "expected_sample_rate": 16000,
+      "expected_num_samples": 163200,
+      "reference_raw": "何千年も前に、アリスタルコスという学者が、太陽系は太陽の周りを移動していると言いました。",
+      "max_error_rate": 0.05,
+      "checks": [
+        {
+          "name": "name",
+          "target": "raw",
+          "required": [
+            "アリスタルコス"
+          ]
+        }
+      ],
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+        "config": "ja_jp",
+        "split": "validation",
+        "row_index": 13,
+        "utterance_id": 1615,
+        "source_file": "11099865657281197428.wav",
+        "source_raw_transcription": "何千年も前に、アリスタルコスという学者が、太陽系は太陽の周りを移動していると言いました。",
+        "source_asr_transcription": "何千年も前に アリスタルコスという学者が 太陽系は太陽の周りを移動していると言いました",
+        "gender_label": "male",
+        "num_samples": 163200,
+        "rows_url": "https://datasets-server.huggingface.co/rows?dataset=google/fleurs&config=ja_jp&split=validation&offset=0&length=35",
+        "cached_audio_size_bytes": 652858,
+        "cached_audio_etag": "\"7a97e999f2bea6c041240c12818a97b2\""
+      },
+      "license": "CC-BY-4.0",
+      "admission": "downloaded_and_verified"
+    },
+    {
+      "id": "fleurs-ja-025",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio": "audio/fleurs-ja-025.wav",
+      "sha256": "791a961a253abc6af431fbf7a2e63376ba573bbc4ce4f32f2d690316bdf82357",
+      "size_bytes": 637498,
+      "expected_sample_rate": 16000,
+      "expected_num_samples": 159360,
+      "reference_raw": "元の集団は全く変わっておらず、今でも昔と同じように適応を必要としています。",
+      "max_error_rate": 0.05,
+      "checks": [
+        {
+          "name": "unchanged",
+          "target": "raw",
+          "required": [
+            "全く変わっておらず"
+          ]
+        }
+      ],
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+        "config": "ja_jp",
+        "split": "validation",
+        "row_index": 25,
+        "utterance_id": 1599,
+        "source_file": "11853195180145316333.wav",
+        "source_raw_transcription": "元の集団は全く変わっておらず、今でも昔と同じように適応を必要としています。",
+        "source_asr_transcription": "元の集団は全く変わっておらず 今でも昔と同じように適応を必要としています",
+        "gender_label": "female",
+        "num_samples": 159360,
+        "rows_url": "https://datasets-server.huggingface.co/rows?dataset=google/fleurs&config=ja_jp&split=validation&offset=0&length=35",
+        "cached_audio_size_bytes": 637498,
+        "cached_audio_etag": "\"b2743938b1f894c26f97e9b1c72f791a\""
+      },
+      "license": "CC-BY-4.0",
+      "admission": "downloaded_and_verified"
+    },
+    {
+      "id": "fleurs-ja-030",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio": "audio/fleurs-ja-030.wav",
+      "sha256": "a548ddfc95de96b390e9b491cef0884ecb3aaec0ea773085baa40c16450b019d",
+      "size_bytes": 698938,
+      "expected_sample_rate": 16000,
+      "expected_num_samples": 174720,
+      "reference_raw": "最終スコア21対20の1点差勝利で、オールブラックスの15連勝に終止符が打たれました。",
+      "max_error_rate": 0.05,
+      "checks": [
+        {
+          "name": "score",
+          "target": "raw",
+          "required": [
+            "(?:21|２１|二十一)対(?:20|２０|二十)"
+          ]
+        },
+        {
+          "name": "streak",
+          "target": "raw",
+          "required": [
+            "(?:15|１５|十五)連勝"
+          ]
+        }
+      ],
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+        "config": "ja_jp",
+        "split": "validation",
+        "row_index": 30,
+        "utterance_id": 1523,
+        "source_file": "1204968976973295146.wav",
+        "source_raw_transcription": "最終スコア21対20の1点差勝利で、オールブラックスの15連勝に終止符が打たれました。",
+        "source_asr_transcription": "最終スコア21対20の1点差勝利で オールブラックスの15連勝に終止符が打たれました",
+        "gender_label": "female",
+        "num_samples": 174720,
+        "rows_url": "https://datasets-server.huggingface.co/rows?dataset=google/fleurs&config=ja_jp&split=validation&offset=0&length=35",
+        "cached_audio_size_bytes": 698938,
+        "cached_audio_etag": "\"7128561893b8029e27fcda32b53c579c\""
+      },
+      "license": "CC-BY-4.0",
+      "admission": "downloaded_and_verified"
+    },
+    {
+      "id": "fleurs-ja-034",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio": "audio/fleurs-ja-034.wav",
+      "sha256": "287ea58715c3a94b2751d960d823b67060878a6861ba7f5643dacc30fb2c8c8b",
+      "size_bytes": 522298,
+      "expected_sample_rate": 16000,
+      "expected_num_samples": 130560,
+      "reference_raw": "水は幅100フィートの範囲にわたって堤防の上にこぼれ落ちています。",
+      "max_error_rate": 0.05,
+      "checks": [
+        {
+          "name": "width",
+          "target": "raw",
+          "required": [
+            "(?:100|１００|百)フィート"
+          ]
+        }
+      ],
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+        "config": "ja_jp",
+        "split": "validation",
+        "row_index": 34,
+        "utterance_id": 1612,
+        "source_file": "12387010142585874308.wav",
+        "source_raw_transcription": "水は幅100フィートの範囲にわたって堤防の上にこぼれ落ちています。",
+        "source_asr_transcription": "水は幅100フィートの範囲にわたって堤防の上にこぼれ落ちています",
+        "gender_label": "female",
+        "num_samples": 130560,
+        "rows_url": "https://datasets-server.huggingface.co/rows?dataset=google/fleurs&config=ja_jp&split=validation&offset=0&length=35",
+        "cached_audio_size_bytes": 522298,
+        "cached_audio_etag": "\"931b207f25e8d250732e4589ecfee5c9\""
+      },
+      "license": "CC-BY-4.0",
+      "admission": "downloaded_and_verified"
+    }
+  ],
+  "admitted_utc": "2026-10-07T15:54:46.536556+00:00"
+}

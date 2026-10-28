@@ -1,0 +1,1565 @@
+package dev.lip.keyboard
+
+import android.content.Intent
+import android.icu.text.BreakIterator
+import android.inputmethodservice.InputMethodService
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
+import android.text.InputType
+import android.view.KeyEvent
+import android.view.View
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputConnection
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.TextView
+import dev.lip.Dictation
+import dev.lip.MainActivity
+import dev.lip.Palette
+import dev.lip.Phase
+import dev.lip.column
+import dev.lip.dp
+import dev.lip.label
+
+/** Independent IME; never patches Gboard or selects itself. Clipboard text reads require explicit history consent and eligible context. */
+class LipInputMethodService : InputMethodService() {
+    private val main = Handler(Looper.getMainLooper())
+    private val agentSettings by lazy { dev.lip.agent.AgentHandoffPreferencesStore(this) }
+    private var agentController: dev.lip.agent.AgentShortcutController? = null
+    private var agentSlot: GlassKeyButton? = null
+    private var agentFixtureAdapter: dev.lip.agent.AgentAdapter? = null
+    private val agentResultObserver: () -> Unit = { agentController?.sourceChanged(); refreshAgentShortcut() }
+    private fun agentEligible(): Boolean = !destroyed && isInputViewShown && policy().voice && !dictation.busy &&
+        !swipePending && !localSearchActive() && gifOwner.current == null
+    private fun refreshAgentShortcut() {
+        val slot = agentSlot ?: return
+        val pinned = agentController?.pinned() == true
+        slot.icon = if (pinned) KeyIcon.AGENT else KeyIcon.TRANSLATE
+        slot.contentDescription = if (pinned) "Send last completed Lip dictation to chosen agent; hold for effort choices"
+            else "Local translation not yet available in this English preview"
+        slot.isEnabled = pinned && agentEligible()
+        slot.stateDescription = if (pinned) "Explicit agent action; no field or clipboard text is used" else "Not available in this preview"
+    }
+    /** In-process disposable instrumentation only. No production adapter is
+     * admitted by a saved route enum; release builds cannot use this fixture.
+     */
+    internal fun configureAgentFixture(adapter: dev.lip.agent.AgentAdapter?) {
+        check(debuggable) { "Synthetic adapter requires a debug build" }
+        agentFixtureAdapter = adapter
+        agentController?.bindUi(Any())
+        refreshAgentShortcut()
+    }
+    private val presentationStore by lazy{KeyboardPreferencesStore(this)}
+    private var presentation=KeyboardPreferences()
+    private val stickerPreferences by lazy{StickerPreferencesStore(this)}
+    private var stickerScale=KeyboardScale.SYSTEM
+    private var stickerPanel:StickerPanel?=null
+    private var stickerBrowser:StickerBrowserController?=null
+    private var stickerAttachment:StickerAttachmentController?=null
+    private fun stickerAttachContext():StickerAttachContext? {
+        if(destroyed||page!=KeyboardPage.STICKERS||!isInputViewShown||!policy().voice||dictation.busy||voiceTicket!=null||swipePending||
+            localSearchActive()||gifOwner.current!=null||info?.packageName!=StickerPrivateTransport.RECEIVER)return null
+        val types=info?.contentMimeTypes
+        if(!StickerHandoffMime.accepts("image/png",types)&&!StickerHandoffMime.accepts("image/webp",types))return null
+        val target=runCatching{StickerPrivateTransport.receiver(this)}.getOrNull()?:return null
+        val connection=currentInputConnection?:return null
+        val surrounding=runCatching{connection.getSurroundingText(32,32,0)}.getOrNull()?:return null
+        val cursor=StickerCursorSnapshot.capture(info?.packageName?:return null,info?.fieldId?:return null,
+            surrounding.text,surrounding.selectionStart,surrounding.selectionEnd,surrounding.offset,
+            selectionStart,selectionEnd)?:return null
+        return StickerAttachContext(connection,cursor,stickerWindowToken,target,types,composingStart>=0||composingEnd>=0)
+    }
+    private fun requestStickerOriginal(asset:StickerAssetIdentity){
+        val controller=stickerAttachment?:StickerAttachmentController(this,session,::stickerAttachContext,
+            {stickerPanel?.setAttachmentPending(stickerAttachment?.busy==true||stickerAttachContext()?.composing!=false)},
+            {outcome->android.widget.Toast.makeText(this,when(outcome){
+                StickerAttachmentController.Outcome.REQUESTED->"Image requested; check the editor. Lip did not press Send."
+                StickerAttachmentController.Outcome.NOT_CONFIRMED->"Image request not confirmed; check the editor. No retry was made."
+                StickerAttachmentController.Outcome.UNAVAILABLE->"Original image unavailable or another request is draining. No retry was made."
+            },android.widget.Toast.LENGTH_LONG).show()}).also{stickerAttachment=it}
+        controller.request(asset)
+    }
+
+    private var stickerPage:StickerBrowserPage=StickerBrowserPage.Library()
+    private var stickerState:StickerPanelState=StickerPanelState.Loading
+    private var stickerWindowToken=Any()
+    private fun invalidateStickers(){
+        stickerAttachment?.cancel()
+        stickerWindowToken=Any();stickerBrowser?.cancel();stickerPanel?.close();stickerPanel=null
+        stickerPage=StickerBrowserPage.Library();stickerState=StickerPanelState.Loading
+    }
+    private fun openStickers(){
+        if(!StickerBrowserFeature.enabled(this)||!policy().voice||dictation.busy||!isInputViewShown)return
+        clearEmoji();clearGifSearch();cancelOwnedVoice();invalidateStickers()
+        page=KeyboardPage.STICKERS;loadStickers(StickerBrowserPage.Library())
+    }
+    private fun loadStickers(target:StickerBrowserPage){
+        if(page!=KeyboardPage.STICKERS||!StickerBrowserFeature.enabled(this)||!isInputViewShown)return
+        stickerAttachment?.cancel()
+        val connection=currentInputConnection?:return
+        val editor=session.editorGeneration()?:return
+        val token=stickerWindowToken
+        stickerPage=target
+        val browser=stickerBrowser?:StickerBrowserController(this).also{stickerBrowser=it}
+        browser.load(target,{
+            !destroyed&&page==KeyboardPage.STICKERS&&stickerWindowToken===token&&isInputViewShown&&
+                currentInputConnection===connection&&session.editorGeneration()==editor&&policy().voice&&!dictation.busy
+        }){state->stickerState=state;renderKeys();updateState()}
+    }
+    private fun manageStickerPacks(){
+        if(page!=KeyboardPage.STICKERS||!isInputViewShown||!StickerBrowserFeature.enabled(this))return
+        invalidateStickers();startActivity(Intent(this,dev.lip.stickers.StickerPacksActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+    private var presentationFrame:KeyboardPresentationFrame?=null
+    private var availableWidth=0
+    private var presentationViewCreates=0
+    private val presentationServiceIdentity by lazy{java.util.UUID.randomUUID().toString()}
+    @Volatile private var presentationWitness:String?=null
+    protected override fun dump(fd:java.io.FileDescriptor,writer:java.io.PrintWriter,args:Array<out String>?){
+        if(args?.contentEquals(arrayOf("--lip-sizing-witness"))==true){
+            // Fixture-only observation; never fall through to a generic platform dump.
+            if(!debuggable||packageName!="dev.lip.android.sizingfixture"||android.os.Build.HARDWARE!="ranchu"){
+                writer.println("LIP_SIZING_WITNESS unavailable");return
+            }
+            val reply=java.util.concurrent.atomic.AtomicReference<String?>()
+            val ready=java.util.concurrent.CountDownLatch(1)
+            val capture={
+                try{
+                    val editor=currentInputEditorInfo
+                    if(editor?.packageName=="dev.lip.android.sizingfixture.test"&&ImeFieldPolicy.forInput(editor.inputType,editor.imeOptions).voice&&
+                        !localSearchActive()&&emojiSearch.query.isBlank()&&gifSearch.query.isBlank()&&
+                        page in setOf(KeyboardPage.LETTERS,KeyboardPage.EMOJI,KeyboardPage.GIF,KeyboardPage.STICKERS)){
+                        val record=org.json.JSONObject().put("pid",android.os.Process.myPid())
+                            .put("serviceId",presentationServiceIdentity).put("shown",isInputViewShown)
+                            .put("ownedEditor",true).put("page",page.name).put("fontScale",resources.configuration.fontScale.toDouble())
+                            .put("orientation",resources.configuration.orientation).put("screenWidthDp",resources.configuration.screenWidthDp).put("screenHeightDp",resources.configuration.screenHeightDp)
+                            .put("windowWidth",window?.window?.decorView?.width?:0).put("windowHeight",window?.window?.decorView?.height?:0)
+                            .put("stickerScale",stickerScale.name).put("renderedSettings",org.json.JSONObject(presentation.encode())).put("outerToolsVisible",toolsFrame?.isShown==true||toolsBar?.isShown==true)
+                        // Observation only: retain both coordinate bases; never repair one using the other.
+                        window?.window?.let{ownWindow->
+                            val decor=ownWindow.decorView;val screen=IntArray(2);val local=IntArray(2)
+                            decor.getLocationOnScreen(screen);decor.getLocationInWindow(local)
+                            val attrs=ownWindow.attributes;val metrics=ownWindow.windowManager.currentWindowMetrics.bounds
+                            val node=decor.createAccessibilityNodeInfo()
+                            record.put("windowGeometry",org.json.JSONObject().put("uptimeMs",SystemClock.uptimeMillis())
+                                .put("decorScreenX",screen[0]).put("decorScreenY",screen[1]).put("decorWindowX",local[0]).put("decorWindowY",local[1])
+                                .put("decorWidth",decor.width).put("decorHeight",decor.height).put("nativeNodeWindowId",node?.windowId?:-1)
+                                .put("metrics",metrics.flattenToString()).put("gravity",attrs.gravity).put("attributeX",attrs.x).put("attributeY",attrs.y)
+                                .put("attributeWidth",attrs.width).put("attributeHeight",attrs.height).put("type",attrs.type))
+                        }
+                        val attachment=stickerAttachment?.debugState()
+                        record.put("stickerAttachment",org.json.JSONObject().put("pending",attachment?.first?:false).put("workerTasks",attachment?.second?:0).put("dispatches",attachment?.third?:0))
+                        if(StickerPrivateTransport.enabled(this)){
+                            val transport=StickerPrivateTransport.snapshot()
+                            record.put("stickerTransport",org.json.JSONObject().put("active",transport.active).put("writerAlive",transport.writerAlive).put("queuedTasks",transport.queuedTasks).put("revocationsConfirmed",transport.revocationCallSucceeded))
+                            val barrier=StickerOriginalReadBarrier.observation(this)
+                            record.put("stickerReadBarrier",barrier?.let{org.json.JSONObject().put("active",it.active).put("claimed",it.claimed)
+                                .put("entered",it.entered).put("workerThreadAlive",it.workerThreadAlive).put("canceledPredicateObserved",it.canceledPredicateObserved)
+                                .put("cancelRequested",it.cancelRequested).put("released",it.released).put("callbackExited",it.callbackExited)
+                                .put("loaderAdmissionReleased",it.loaderAdmissionReleased).put("storeLiveInvocations",it.storeLiveInvocations)
+                                .put("timedOut",it.timedOut).put("interrupted",it.interrupted)}?:org.json.JSONObject.NULL)
+                        }
+                        val views=org.json.JSONArray();var cells=0;var visited=0;val ordinals=HashMap<String,Int>()
+                        fun visit(view:View){
+                            if(++visited>4096)return
+                            val description=view.contentDescription?.toString().orEmpty()
+                            val role=when{
+                                page==KeyboardPage.LETTERS&&description in setOf("q","Emoji keyboard","Lip keyboard menu","Show local GIF catalog")->description
+                                page==KeyboardPage.EMOJI&&description in setOf("Return from emoji to letters","Cancel emoji skin tone choices")->description
+                                page==KeyboardPage.EMOJI&&description.startsWith("Insert emoji ")->"emoji"
+                                page==KeyboardPage.EMOJI&&description.startsWith("Choose emoji ")->"tone"
+                                page==KeyboardPage.GIF&&description in setOf("Search local GIF catalog","Return from GIFs to letters","Cancel pending GIF attachment")->description
+                                page==KeyboardPage.GIF&&view.tag=="lip:gif:status"->"gifStatus"
+                                page==KeyboardPage.GIF&&view.tag=="lip:gif:title"->"gifTitle"
+                                page==KeyboardPage.GIF&&view.tag=="lip:gif:credit"->"gifCredit"
+                                page==KeyboardPage.GIF&&view.tag=="lip:gif:scroll"->"gifScroll"
+                                page==KeyboardPage.GIF&&description.startsWith("Attach GIF: ")->"gifTile"
+                                page==KeyboardPage.STICKERS&&description in setOf("Return from stickers to letters","Show local sticker packs","Manage local sticker packs","Previous sticker browser page","Next sticker browser page")->description
+                                page==KeyboardPage.STICKERS&&view.tag?.toString() in setOf("lip:sticker:status","lip:sticker:title","lip:sticker:credit","lip:sticker:scroll","lip:sticker:tile","lip:sticker:preview","lip:sticker:disclosure","lip:sticker:empty","lip:sticker:error")->view.tag.toString().removePrefix("lip:")
+                                else->null
+                            }
+                            if(role!=null&&view.isAttachedToWindow&&view.isShown&&(role !in setOf("emoji","tone","gifTitle","gifTile")||cells++<64)){
+                                val at=IntArray(2);view.getLocationOnScreen(at);val inWindow=IntArray(2);view.getLocationInWindow(inWindow)
+                                val visible=android.graphics.Rect();val hasVisibleRect=view.getGlobalVisibleRect(visible)
+                                val localVisible=android.graphics.Rect();var hasLocalVisible=view.getLocalVisibleRect(localVisible)
+                                val drawingVisible=android.graphics.Rect(localVisible)
+                                // getLocalVisibleRect includes this view's own scroll; getLocationInWindow does not.
+                                // Convert drawing coordinates to the clipped viewport, without a fitted screen offset.
+                                if(hasLocalVisible){
+                                    val dx=inWindow[0].toLong()-view.scrollX;val dy=inWindow[1].toLong()-view.scrollY
+                                    val edges=longArrayOf(localVisible.left+dx,localVisible.top+dy,localVisible.right+dx,localVisible.bottom+dy)
+                                    if(edges.all{it in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong()})localVisible.set(edges[0].toInt(),edges[1].toInt(),edges[2].toInt(),edges[3].toInt())
+                                    else {hasLocalVisible=false;localVisible.setEmpty()}
+                                }else localVisible.setEmpty()
+                                var ancestor:View?=view;var identityChain=true;var reachedDecor=false;var depth=0
+                                while(ancestor!=null&&depth++<64){
+                                    if(!ancestor.matrix.isIdentity)identityChain=false
+                                    if(ancestor===window?.window?.decorView){reachedDecor=true;break}
+                                    ancestor=ancestor.parent as? View
+                                }
+                                val text=view as? android.widget.TextView;val layout=text?.layout
+                                val ordinal=ordinals[role]?:0;ordinals[role]=ordinal+1
+                                val observation=org.json.JSONObject().put("role",role).put("ordinal",ordinal).put("fontPixels",text?.textSize?.toDouble()?:0.0)
+                                    .put("width",view.width).put("height",view.height).put("x",at[0]).put("y",at[1]).put("enabled",view.isEnabled).put("clickable",view.isClickable)
+                                    .put("inWindowX",inWindow[0]).put("inWindowY",inWindow[1])
+                                    .put("hasLocalVisibleRect",hasLocalVisible).put("visibleInWindow",localVisible.flattenToString())
+                                    .put("drawingVisible",drawingVisible.flattenToString()).put("selfScrollX",view.scrollX).put("selfScrollY",view.scrollY)
+                                    .put("identityLocalChain",identityChain&&reachedDecor)
+                                    .put("hasVisibleRect",hasVisibleRect).put("visibleHeight",if(hasVisibleRect)visible.height() else 0).put("visibleWidth",if(hasVisibleRect)visible.width() else 0).put("layoutHeight",layout?.height?:-1).put("lineCount",layout?.lineCount?:0)
+                                    .put("ellipses",layout?.let{l->(0 until l.lineCount).sumOf{l.getEllipsisCount(it)}}?:0)
+                                    .put("contentHeight",view.height-(text?.compoundPaddingTop?:view.paddingTop)-(text?.compoundPaddingBottom?:view.paddingBottom))
+                                    .put("lineWidth",layout?.let{l->(0 until l.lineCount).maxOfOrNull{l.getLineWidth(it).toDouble()}}?:-1.0)
+                                    .put("contentWidth",view.width-(text?.compoundPaddingLeft?:view.paddingLeft)-(text?.compoundPaddingRight?:view.paddingRight))
+                                    .put("scale",(view as? GlassKeyButton)?.labelScale?.name?:"SYSTEM_TEXT")
+                                if(role in setOf("q","Lip keyboard menu")){
+                                    val node=view.createAccessibilityNodeInfo();val bounds=android.graphics.Rect();val localBounds=android.graphics.Rect()
+                                    node?.getBoundsInScreen(bounds);if(android.os.Build.VERSION.SDK_INT>=36)node?.getBoundsInWindow(localBounds)
+                                    observation.put("nativeNodeWindowId",node?.windowId?:-1).put("nativeNodeScreen",bounds.flattenToString()).put("nativeNodeWindow",localBounds.flattenToString())
+                                }
+                                views.put(observation)
+                            }
+                            if(view is android.view.ViewGroup)for(i in 0 until view.childCount)visit(view.getChildAt(i))
+                        }
+                        window?.window?.decorView?.let{visit(it)};record.put("views",views);reply.set(record.toString())
+                    }
+                }catch(_:Throwable){reply.set(null)}finally{ready.countDown()}
+            }
+            if(Looper.myLooper()==Looper.getMainLooper())capture() else if(!main.post{capture()})ready.countDown()
+            val completed=runCatching{ready.await(3,java.util.concurrent.TimeUnit.SECONDS)}.getOrDefault(false)
+            writer.println("LIP_SIZING_WITNESS "+if(completed)reply.get()?:"unavailable" else "unavailable");return
+        }
+        if(args?.contentEquals(arrayOf("--lip-presentation-witness"))==true){
+            if(!debuggable){writer.println("Lip presentation witness unavailable");return}
+            val reply=java.util.concurrent.atomic.AtomicReference<String?>()
+            val ready=java.util.concurrent.CountDownLatch(1)
+            val capture={
+                try{
+                    val record=org.json.JSONObject().put("creation",presentationWitness?.let{org.json.JSONObject(it)})
+                    val bounds=org.json.JSONArray()
+                    // Only fixed key chrome on the ordinary letter page; never host text/search/clipboard/candidates.
+                    if(page==KeyboardPage.LETTERS&&!localSearchActive()){
+                        val wanted=setOf("q","Space","Switch letters and symbols","Emoji keyboard",".","Send in the current editor")
+                        fun visit(view:View){
+                            if(view is GlassKeyButton&&view.contentDescription?.toString() in wanted){
+                                val point=IntArray(2);view.getLocationOnScreen(point)
+                                val full=android.graphics.Rect(point[0],point[1],point[0]+view.width,point[1]+view.height)
+                                val visible=android.graphics.Rect();val shown=view.getGlobalVisibleRect(visible)
+                                val origin=IntArray(2);view.rootView.getLocationOnScreen(origin);visible.offset(origin[0],origin[1])
+                                bounds.put(org.json.JSONObject().put("key",view.contentDescription.toString()).put("height",view.height)
+                                    .put("full",org.json.JSONArray(listOf(full.left,full.top,full.right,full.bottom)))
+                                    .put("visible",org.json.JSONArray(listOf(visible.left,visible.top,visible.right,visible.bottom)))
+                                    .put("complete",shown&&view.isAttachedToWindow&&view.isShown&&visible==full))
+                            }
+                            if(view is android.view.ViewGroup)for(i in 0 until view.childCount)visit(view.getChildAt(i))
+                        }
+                        keys?.let{visit(it)}
+                    }
+                    record.put("keys",bounds);reply.set(record.toString())
+                }catch(_:Throwable){reply.set(null)}finally{ready.countDown()}
+            }
+            if(Looper.myLooper()==Looper.getMainLooper())capture() else if(!main.post{capture()})ready.countDown()
+            val completed=runCatching{ready.await(3,java.util.concurrent.TimeUnit.SECONDS)}.getOrDefault(false)
+            writer.println("LIP_PRESENTATION_WITNESS "+if(completed)reply.get()?:"unavailable" else "unavailable")
+            return
+        }
+        super.dump(fd,writer,args)
+    }
+    private fun applyPresentation(){
+        invalidateStickers();cancelKeyGestures();stopRepeat();stopSwipe();cancelOwnedVoice();stopGif();clearGifSearch();clearEmoji()
+        setInputView(onCreateInputView())
+    }
+    private fun changeHand(hand:KeyboardHand){
+        val next=presentation.copy(hand=hand)
+        if(presentationStore.save(next))applyPresentation()
+        else android.widget.Toast.makeText(this,"Keyboard settings could not be saved",android.widget.Toast.LENGTH_LONG).show()
+    }
+    private val session = ImeSession()
+    private val dictation by lazy { Dictation.get(this) }
+    private val voiceOwner = ImeVoiceOwner(session)
+    private var voiceTicket: ImeTicket?
+        get() = voiceOwner.ticket
+        set(value) { voiceOwner.ticket = value }
+    private var info: EditorInfo? = null
+    private var selectionStart = -1
+    private var selectionEnd = -1
+    private var shift = false
+    private var caps = false
+    private var lastShift = 0L
+    private var page = KeyboardPage.LETTERS
+    private val emojiSearch=EmojiSearch()
+    private val emojiRecents=EmojiRecents()
+    private val emojiPickOwner=EmojiPickOwner(session)
+    private var emojiCatalog:EmojiCatalog?=null
+    private var emojiLoad:Any?=null
+    private var emojiLoadError:String?=null
+    private var emojiPanel:EmojiPanel?=null
+    private var emojiPanelToken=Any()
+    private var keyboardRenderToken=Any()
+    private var emojiKeysNeedRebind=false
+    private var emojiCategory:Int?=null
+    private val emojiWorker=java.util.concurrent.ThreadPoolExecutor(1,1,0,java.util.concurrent.TimeUnit.MILLISECONDS,
+        java.util.concurrent.ArrayBlockingQueue<Runnable>(1),{r->Thread(r,"lip-emoji-catalog").apply{isDaemon=true}})
+    private fun localSearchActive()=gifSearch.active||emojiSearch.active
+    private fun appendQuery(value:String){if(emojiSearch.active)emojiSearch.append(value)else gifSearch.append(value)}
+    private fun deleteQuery(){if(emojiSearch.active)emojiSearch.delete()else gifSearch.delete()}
+    private fun finishQuery(){if(emojiSearch.active)openEmoji()else openGifs()}
+    private fun privateEmojiField()=policy().protected||((info?.imeOptions?:0) and EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING)!=0
+    private fun clearEmoji(resetRecents:Boolean=false){
+        if(emojiSearch.active||page==KeyboardPage.EMOJI)emojiKeysNeedRebind=true
+        emojiSearch.clear();if(resetRecents)emojiRecents.clear();emojiPanel?.close();emojiPanelToken=Any()
+    }
+    private fun openEmoji(){
+        if(dictation.busy||swipePending||gifOwner.current!=null)return
+        clearGifSearch();emojiSearch.finish();emojiCategory=null;emojiLoadError=null
+        page=KeyboardPage.EMOJI;renderKeys();updateState();loadEmoji()
+    }
+    private fun loadEmoji(){
+        if(emojiCatalog!=null||emojiLoad!=null||emojiLoadError!=null)return
+        val load=Any();emojiLoad=load
+        try{emojiWorker.execute{
+            val result=runCatching{
+                val paint=android.graphics.Paint().apply{typeface=android.graphics.Typeface.create("sans-serif-light",android.graphics.Typeface.NORMAL);textSize=32*resources.displayMetrics.scaledDensity}
+                EmojiAssets.load(applicationContext).available{paint.hasGlyph(it)}
+            }
+            main.post{
+                if(destroyed||emojiLoad!==load)return@post
+                emojiLoad=null;result.onSuccess{emojiCatalog=it}.onFailure{emojiLoadError="Emoji unavailable. Close and reopen to retry."}
+                if(page==KeyboardPage.EMOJI&&isInputViewShown){renderKeys();updateState()}
+            }
+        }}catch(_:java.util.concurrent.RejectedExecutionException){emojiLoad=null;emojiLoadError="Emoji unavailable. Close and reopen to retry."}
+    }
+    private fun beginEmojiSearch(){
+        if(dictation.busy||swipePending||gifOwner.current!=null)return
+        cancelKeyGestures();stopSwipe();cancelOwnedVoice();clearGifSearch()
+        emojiSearch.begin();page=KeyboardPage.LETTERS;renderKeys();updateState()
+    }
+    private fun pickEmoji(item:EmojiItem,ticket:EmojiPickOwner.Ticket?,token:Any){
+        val connection=currentInputConnection?:return
+        if(ticket==null||page!=KeyboardPage.EMOJI||emojiSearch.active||dictation.busy||swipePending||!isInputViewShown||
+            emojiCatalog?.items?.contains(item)!=true||!emojiPickOwner.claim(ticket,connection,emojiPanelToken,selectionStart,selectionEnd)||token!==emojiPanelToken)return
+        cancelKeyGestures();stopSwipe();cancelOwnedVoice()
+        val accepted=runCatching{
+            connection.finishComposingText()&&emojiPickOwner.claimedCurrent(ticket,currentInputConnection,emojiPanelToken,selectionStart,selectionEnd)&&
+                page==KeyboardPage.EMOJI&&isInputViewShown&&connection.commitText(item.sequence,1)
+        }.getOrDefault(false)
+        val stillOwn=emojiPickOwner.claimedCurrent(ticket,currentInputConnection,emojiPanelToken,selectionStart,selectionEnd)
+        if(session.editorGeneration()==ticket.generation.first)session.editorChanged() // Never invalidate a reentrant new editor.
+        if(accepted&&stillOwn)emojiRecents.record(item.id,privateEmojiField())
+        else android.widget.Toast.makeText(this,"Emoji was not confirmed; check the editor. No retry was made.",android.widget.Toast.LENGTH_SHORT).show()
+        if(stillOwn&&page==KeyboardPage.EMOJI){renderKeys();updateState()}
+    }
+    private val gifSearch=GifSearch()
+    private val gifConsumedHardwareKeys=HashSet<Int>()
+    private var gifKeysNeedRebind=false
+    private var gifPanel:GifPanel?=null
+    private val gifOwner=GifRequestOwner(session)
+    private val gifWorker=java.util.concurrent.ThreadPoolExecutor(1,1,0,java.util.concurrent.TimeUnit.MILLISECONDS,
+        java.util.concurrent.ArrayBlockingQueue<Runnable>(1),{r->Thread(r,"lip-gif-attachment").apply{isDaemon=true}})
+    private var gifTool:Button?=null
+    private var undoTool:Button?=null
+    private var composingStart=-1
+    private var composingEnd=-1
+    private fun stopGif(){gifOwner.cancel();gifWorker.queue.clear();gifPanel?.setBusy(false)}
+    private fun clearGifSearch(){if(gifSearch.active)gifKeysNeedRebind=true;gifSearch.clear()}
+    private fun openGifs(){if(!policy().voice||dictation.busy)return;clearEmoji();gifSearch.finish();page=KeyboardPage.GIF;renderKeys();updateState()}
+    private fun requestGif(item:GifItem){
+        if(gifOwner.current!=null||dictation.busy||!policy().voice||localSearchActive())return
+        stopSwipe();cancelOwnedVoice()
+        val connection=currentInputConnection?:return
+        if(composingStart>=0||composingEnd>=0){android.widget.Toast.makeText(this,"Finish the current composition before attaching a GIF",android.widget.Toast.LENGTH_SHORT).show();return}
+        val request=gifOwner.begin(item,snapshot(connection),connection,info?.contentMimeTypes)?:return
+        updateState()
+        try{gifWorker.execute{
+            val result=runCatching{GifAssets.read(applicationContext,item)}
+            main.post{
+                if(destroyed||gifOwner.current!==request)return@post
+                if(result.isFailure||composingStart>=0||composingEnd>=0||currentInputConnection!==connection||!session.isCurrent(request.ticket,snapshot(connection))||
+                    !connection.finishComposingText()||!gifOwner.claim(request,snapshot(connection),connection,info?.contentMimeTypes)){
+                    stopGif();updateState();android.widget.Toast.makeText(this,"GIF not attached; target changed or local asset unavailable",android.widget.Toast.LENGTH_SHORT).show();return@post
+                }
+                val uri=android.net.Uri.Builder().scheme("content").authority(packageName+".gif").appendPath("gif").appendPath(item.id+".gif").build()
+                val content=android.view.inputmethod.InputContentInfo(uri,
+                    android.content.ClipDescription("${item.title} · Noto Emoji by Google · CC BY4.0",arrayOf("image/gif")),android.net.Uri.parse(item.source))
+                val accepted=runCatching{connection.commitContent(content,InputConnection.INPUT_CONTENT_GRANT_READ_URI_PERMISSION,null)}.getOrDefault(false)
+                session.editorChanged();updateState()
+                android.widget.Toast.makeText(this,if(accepted)"GIF requested; check the editor" else "GIF was not confirmed; check the editor. No retry was made.",android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }}catch(_:java.util.concurrent.RejectedExecutionException){stopGif();updateState()}
+    }
+
+    private var keys: LinearLayout? = null
+    private var status: TextView? = null
+    private var mic: Button? = null
+    private var clipboardTool:Button?=null
+    private var clipboardCopy:Button?=null
+    private var clipboardPaste:Button?=null
+    private var clipboardLease:ImeRepeatLease?=null
+    private var history:ClipboardHistoryController?=null
+    private var historyArea:LinearLayout?=null
+    private var historyRowsToken=Any()
+    private var clipboardWindowVisible=false
+    private var clipboardListenerRegistered=false
+    private val historyConfirmation=ClipboardConfirmation()
+    private var historyCaptureContext=false
+    private var historyCaptureAfter=Long.MAX_VALUE
+    private val clipboardListener=android.content.ClipboardManager.OnPrimaryClipChangedListener{captureClipboard()}
+    private val historyScreenReceiver=object:android.content.BroadcastReceiver(){
+        override fun onReceive(context:android.content.Context?,intent:Intent?){updateHistoryEligibility();history?.revalidateTime()}
+    }
+    private fun historyContextAllowed():Boolean = clipboardWindowVisible&&isInputViewShown&&clipboardAvailability().paste&&
+        getSystemService(android.os.PowerManager::class.java).isInteractive&&
+        !getSystemService(android.app.KeyguardManager::class.java).isDeviceLocked&&
+        android.provider.Settings.Secure.getString(contentResolver,android.provider.Settings.Secure.DEFAULT_INPUT_METHOD)==
+            android.content.ComponentName(this,LipInputMethodService::class.java).flattenToString()
+    private fun updateHistoryEligibility(){
+        val controller=history?:return
+        val allowed=historyContextAllowed()
+        val capture=allowed&&controller.enabled&&!controller.paused
+        if(capture&&!historyCaptureContext)historyCaptureAfter=System.currentTimeMillis()
+        if(!capture)historyCaptureAfter=Long.MAX_VALUE
+        historyCaptureContext=capture
+        controller.setEligible(allowed)
+        val listen=controller.enabled&&!controller.paused
+        val clipboard=getSystemService(android.content.ClipboardManager::class.java)
+        if(listen&&!clipboardListenerRegistered){clipboard.addPrimaryClipChangedListener(clipboardListener);clipboardListenerRegistered=true}
+        else if(!listen&&clipboardListenerRegistered){clipboard.removePrimaryClipChangedListener(clipboardListener);clipboardListenerRegistered=false}
+    }
+    private fun historyChanged(){
+        if(destroyed)return
+        updateHistoryEligibility()
+        if(page==KeyboardPage.CLIPBOARD)renderHistoryArea()
+    }
+    private fun captureClipboard(manual:Boolean=false){
+        updateHistoryEligibility()
+        val controller=history?:return
+        val text=ClipboardHistoryRead.read({updateHistoryEligibility();controller.canCapture()&&historyContextAllowed()},{
+            runCatching{ClipboardHistoryController.plainText(getSystemService(android.content.ClipboardManager::class.java),if(manual)Long.MIN_VALUE else historyCaptureAfter)}.getOrNull()
+        })?:return
+        controller.capture(text)
+    }
+    private fun pasteSavedClip(id:String,lease:ImeRepeatLease){
+        val controller=history?:return
+        updateHistoryEligibility()
+        if(page!=KeyboardPage.CLIPBOARD||dictation.busy||!lease.canRun(currentInputConnection)||!historyContextAllowed())return
+        val item=controller.item(id)?:return
+        stopSwipe();cancelOwnedVoice();session.editorChanged()
+        currentInputConnection?.let{if(it.finishComposingText())it.commitText(item.text,1)} // Explicit saved-item tap; no clipboard write/retry.
+    }
+    private fun clipboardAvailability()=ClipboardActions.available(info?.inputType?:0,info?.imeOptions?:0,
+        selectionStart,selectionEnd,currentInputConnection!=null)
+    private fun closeClipboard(){clipboardLease?.close();clipboardLease=null;clipboardCopy=null;clipboardPaste=null;historyArea=null;historyConfirmation.cancel()}
+    private fun clipboardAction(copy:Boolean,lease:ImeRepeatLease){
+        val allowed=clipboardAvailability()
+        if(page!=KeyboardPage.CLIPBOARD||dictation.busy||!lease.canRun(currentInputConnection)||
+            !(if(copy)allowed.copy else allowed.paste))return
+        stopSwipe();cancelOwnedVoice();session.editorChanged()
+        val dispatched=currentInputConnection?.performContextMenuAction(if(copy)android.R.id.copy else android.R.id.paste)==true
+        android.widget.Toast.makeText(this,if(dispatched)"Clipboard action sent to editor" else "This editor did not accept the clipboard action",android.widget.Toast.LENGTH_SHORT).show()
+        // Remote dispatch is not a host acknowledgement. Never retry or claim observed success.
+        updateState()
+    }
+    private val observer: () -> Unit = { updateState() }
+    private var cursorGestureCancel:(()->Unit)?=null
+    private var wordDeleteCancel:(()->Unit)?=null
+    private var wordDeleteTransaction:WordDeleteTransaction?=null
+    private var repeatDelete: Runnable? = null
+    private var repeatLease: ImeRepeatLease? = null
+    companion object {
+        /** Debug instrumentation only; no exported component or cross-app control route. */
+        @Volatile internal var debugInstance:java.lang.ref.WeakReference<LipInputMethodService>?=null
+    }
+    private var debugConnectionOverride:InputConnection?=null
+    private var debuggable=false
+    override fun getCurrentInputConnection():InputConnection? = if(debuggable)debugConnectionOverride?:super.getCurrentInputConnection() else super.getCurrentInputConnection()
+    private val candidateOwner=SwipeCandidateOwner(session)
+    private val nextWordOwner=NextWordOwner(session)
+    private var nextWordEngine:NextWordSuggestions?=null
+    private var renderedNextWord:NextWordRequest?=null
+    private var previousWordChoices=false
+    private var candidateBar:LinearLayout?=null
+    private var candidateMic:GlassKeyButton?=null
+    private var renderedCandidate:SwipeCandidateState?=null
+    private var swipePending=false
+    private fun clearCandidates(){nextWordOwner.clear();renderedNextWord=null;previousWordChoices=false;candidateOwner.clear();renderedCandidate=null;candidateMic=null;candidateBar?.removeAllViews()}
+    private fun stageCandidates(base:ImeCursor,text:String,choices:List<String>,connection:InputConnection,expectedEpoch:Long,origin:CandidateOrigin=CandidateOrigin.SWIPE,automatic:Int?=null,expectSelection:Boolean=true,automaticAllowed:Boolean=true){
+        if(currentInputConnection!==connection||session.editorGeneration()!=expectedEpoch)return
+        nextWordOwner.clear();previousWordChoices=false
+        val state=candidateOwner.stage(base,text,choices,connection,origin,expectSelection,automaticAllowed)?:return
+        updateState()
+        main.postDelayed({
+            if(candidateOwner.current!==state)return@postDelayed
+            val current=if(currentInputConnection===connection)candidateCursor(state,connection) else null
+            val exact=if(current!=null)connection.getTextBeforeCursor(text.length,0)?.toString() else null
+            if(!candidateOwner.confirm(state,current,exact,currentInputConnection))swipeMessage="Check the editor; insertion could not be confirmed"
+            updateState()
+            if(state.ready&&candidateOwner.current===state){
+                if(automatic!=null)chooseCandidate(state,automatic,true)
+                else if(text.endsWith(" "))stageNextWords(state,connection)
+            }
+        },80)
+    }
+    private data class CandidateCorrection(val state:SwipeCandidateState,val replacement:String,val connection:InputConnection,val cursor:ImeCursor,val automatic:Boolean)
+    private var correction:CandidateCorrection?=null
+    private fun cancelCorrection(){
+        val pending=correction?:return;correction=null
+        if(currentInputConnection===pending.connection&&session.editorGeneration()==pending.state.epoch&&
+            composingStart==pending.state.start&&composingEnd==pending.state.end)
+            pending.connection.finishComposingText() // End markers only; never retry/roll back text.
+    }
+    private fun correctionFailed(){swipeMessage="Check the editor; correction could not be confirmed";updateState()}
+    private fun chooseCandidate(state:SwipeCandidateState,index:Int,automatic:Boolean=false){
+        if(swipePending||dictation.busy||correction!=null||candidateOwner.current!==state||automatic&&!state.automaticAllowed)return
+        if(state.origin!=CandidateOrigin.SWIPE&&(composingStart>=0||composingEnd>=0)){clearCandidates();updateState();return}
+        val connection=currentInputConnection?:run{clearCandidates();updateState();return}
+        val cursor=candidateCursor(state,connection)
+        val exact=if(cursor!=null)connection.getTextBeforeCursor(state.inserted.length,0)?.toString() else null
+        val replacement=candidateOwner.claim(state,index,cursor,exact,connection)
+        renderedCandidate=null;updateState()
+        if(replacement==null||replacement==state.inserted)return
+        val pending=CandidateCorrection(state,replacement,connection,checkNotNull(cursor),automatic);correction=pending
+        // RemoteInputConnection returns dispatch success, not the host's Boolean.
+        // Only a matching editor-reported composing span can authorize the write.
+        if(!connection.setComposingRegion(state.start,state.end)){
+            cancelCorrection();correctionFailed();return
+        }
+        main.postDelayed({if(correction===pending){cancelCorrection();correctionFailed()}},800)
+    }
+    private fun acknowledgeCorrection(start:Int,end:Int){
+        val pending=correction?:return
+        if(start!=pending.state.start||end!=pending.state.end){cancelCorrection();correctionFailed();return}
+        correction=null // Consume before any text IPC, even if the host reports failure.
+        val connection=pending.connection;val state=pending.state
+        val current=if(currentInputConnection===connection)candidateCursor(state,connection) else null
+        val valid=current==pending.cursor&&session.claimedContextCurrent(checkNotNull(state.ticket),current)&&
+            connection.getTextBeforeCursor(state.inserted.length,0)?.toString()==state.inserted
+        if(!valid){connection.finishComposingText();correctionFailed();return}
+        val accepted=connection.setComposingText(pending.replacement,1)
+        val cleaned=connection.finishComposingText()
+        session.editorChanged()
+        if(accepted&&cleaned)stageCandidates(state.base,pending.replacement,state.alternatives,connection,state.epoch,if(pending.automatic)CandidateOrigin.AUTO else state.origin.let{if(it==CandidateOrigin.AUTO)CandidateOrigin.TYPED else it},
+            automaticAllowed=if(!pending.automatic&&state.origin!=CandidateOrigin.SWIPE)false else state.automaticAllowed)
+        else correctionFailed()
+    }
+    private fun nextWordsAllowed():Boolean = !dictation.busy&&voiceTicket==null&&composingStart<0&&composingEnd<0&&
+        TypingPolicy.forInput(info?.inputType?:0,info?.imeOptions?:0).suggest&&
+        getSharedPreferences("preferences",MODE_PRIVATE).getBoolean("typingSuggestions",true)
+    private fun stageNextWords(state:SwipeCandidateState,connection:InputConnection){
+        val engine=nextWordEngine?:return
+        if(!nextWordsAllowed()||correction!=null||candidateOwner.current!==state||currentInputConnection!==connection)return
+        val cursor=typingCursor(connection)?:return
+        // This is a continuation of an already confirmed insertion, not a parked
+        // cursor inferred from cached coordinates or an arbitrary editor selection.
+        if(!session.isCurrent(state.ticket?:return,cursor))return
+        val request=nextWordOwner.begin(cursor,connection)?:return
+        try{typingWorker.execute{
+            val words=engine.suggest(cursor)
+            main.post{
+                if(destroyed||nextWordEngine!==engine||candidateOwner.current!==state||!nextWordsAllowed()){
+                    if(nextWordOwner.current===request)nextWordOwner.clear();updateState();return@post
+                }
+                val current=if(currentInputConnection===connection)typingCursor(connection) else null
+                if(nextWordOwner.complete(request,words,current,currentInputConnection)){
+                    if(state.origin==CandidateOrigin.SWIPE)previousWordChoices=true // Keep the three swipe alternatives immediately accessible.
+                    renderedCandidate=null
+                }
+                updateState()
+            }
+        }}catch(_:java.util.concurrent.RejectedExecutionException){if(nextWordOwner.current===request)nextWordOwner.clear()}
+    }
+    private fun chooseNextWord(request:NextWordRequest,index:Int){
+        if(!nextWordsAllowed()||nextWordOwner.current!==request||correction!=null||swipePending)return
+        val connection=currentInputConnection?:return
+        val cursor=typingCursor(connection)
+        val inserted=NextWordWriter.write(nextWordOwner,request,index,cursor,connection){
+            currentInputConnection===connection&&nextWordsAllowed()&&session.claimedContextCurrent(request.ticket,typingCursor(connection))
+        }
+        stopSwipe();session.editorChanged()
+        if(inserted!=null)stageCandidates(checkNotNull(cursor),inserted,listOf(inserted),connection,session.editorGeneration()?:return,CandidateOrigin.TYPED,automaticAllowed=false)
+        else android.widget.Toast.makeText(this,"Next-word insertion was not confirmed; check the editor",android.widget.Toast.LENGTH_SHORT).show()
+        updateState() // Dispatch is not a host acknowledgement; never retry or auto-send.
+    }
+    private fun renderCandidates(){
+        val row=candidateBar?:return;val state=candidateOwner.current
+        val next=nextWordOwner.current?.takeIf{it.choices.isNotEmpty()&&!previousWordChoices}
+        if(next!=null){
+            if(renderedNextWord!==next){
+                row.removeAllViews();renderedCandidate=null;renderedNextWord=next
+                row.addView(GlassKeyButton(this,flat=true).apply{icon=KeyIcon.UNDO;contentDescription="Show previous word alternatives";setOnClickListener{previousWordChoices=true;renderedCandidate=null;updateState()}},LinearLayout.LayoutParams(0,-1,1f))
+                next.choices.forEachIndexed{index,word->
+                    row.addView(GlassKeyButton(this,flat=true).apply{
+                        text=word;fitText(18);setSingleLine();ellipsize=android.text.TextUtils.TruncateAt.END
+                        contentDescription="Insert next word $word";stateDescription="Append at the verified caret, not replace the previous word"
+                        setOnClickListener{chooseNextWord(next,index)}
+                    },LinearLayout.LayoutParams(0,-1,8f/next.choices.size))
+                }
+                candidateMic=GlassKeyButton(this,flat=true).apply{icon=KeyIcon.MIC;contentDescription="Record with the selected local Bark model";setOnClickListener{toggleVoice()}}
+                row.addView(candidateMic,LinearLayout.LayoutParams(0,-1,1f))
+            }
+            for(i in 1 until row.childCount-1)row.getChildAt(i).isEnabled=nextWordsAllowed()&&!swipePending
+            return
+        }
+        if(renderedNextWord!=null){row.removeAllViews();renderedNextWord=null;renderedCandidate=null}
+        if(state!==renderedCandidate){
+            row.removeAllViews();renderedCandidate=state;candidateMic=null
+            if(state!=null){
+                row.addView(GlassKeyButton(this,flat=true).apply{
+                    val canPredict=nextWordOwner.current?.choices?.isNotEmpty()==true
+                    icon=KeyIcon.MENU
+                    contentDescription=if(canPredict)"Show next-word predictions" else "Show keyboard tools"
+                    setOnClickListener{if(canPredict){previousWordChoices=false;updateState()}else{clearCandidates();updateState()}}
+                    setOnLongClickListener{clearCandidates();updateState();true}
+                },LinearLayout.LayoutParams(0,-1,1f))
+                state.alternatives.forEachIndexed{index,text->
+                    row.addView(GlassKeyButton(this,flat=true).apply{
+                        this.text=text.trim();fitText(18);setSingleLine();ellipsize=android.text.TextUtils.TruncateAt.END
+                        contentDescription="Choose ${if(state.origin==CandidateOrigin.SWIPE)"swipe" else "typing"} suggestion ${text.trim()}"
+                        tag=index
+                        setOnClickListener{chooseCandidate(state,index)}
+                    },LinearLayout.LayoutParams(0,-1,8f/state.alternatives.size))
+                }
+                candidateMic=GlassKeyButton(this,flat=true).apply{icon=KeyIcon.MIC;contentDescription="Record with the selected local Bark model";setOnClickListener{toggleVoice()}}
+                row.addView(candidateMic,LinearLayout.LayoutParams(0,-1,1f))
+            }
+        }
+        if(state!=null)for(i in 1 until row.childCount-1)row.getChildAt(i).apply{
+            isEnabled=state.ready&&!dictation.busy;stateDescription=if(state.ready)"Replace only the verified last ${if(state.origin==CandidateOrigin.SWIPE)"swipe" else "typed word"}" else "Verifying insertion"
+        }
+    }
+
+    private var typingEngine:TypingSuggestions?=null
+    private var typingAutomatic=false
+    private var typingLoad:Any?=null
+    private val typingWorker=java.util.concurrent.ThreadPoolExecutor(1,1,0,java.util.concurrent.TimeUnit.MILLISECONDS,
+        java.util.concurrent.ArrayBlockingQueue<Runnable>(1),{r->Thread(r,"lip-typing-suggestions").apply{isDaemon=true}})
+    private fun loadTyping(){
+        val epoch=session.editorGeneration()?:return
+        val load=Any();typingLoad=load;typingEngine=null;nextWordEngine=null;typingAutomatic=false;typingWorker.queue.clear()
+        try{typingWorker.execute{
+            var next:NextWordSuggestions?=null
+            val loaded=runCatching{
+                val store=dev.lip.AppStore(applicationContext)
+                if(!store.typingSuggestions)null else {
+                    next=runCatching{NextWordAssets.load(applicationContext)}.getOrNull()
+                    TypingSuggestions(SwipeAssets.dictionary(applicationContext).entries,store.dictionary()) to store.typingAutocorrect
+                }
+            }
+            main.post{
+                if(!destroyed&&typingLoad===load&&session.editorGeneration()==epoch){
+                typingEngine=loaded.getOrNull()?.first;nextWordEngine=next;typingAutomatic=loaded.getOrNull()?.second?:false
+                val state=candidateOwner.current;val connection=currentInputConnection
+                if(state?.origin==CandidateOrigin.TYPED&&connection!=null&&ownsTyped(state,typingCursor(connection),connection)){
+                    if(typingEngine!=null)typedCandidates(state.base,state.inserted,connection,epoch,state.automaticAllowed)
+                    else {clearCandidates();updateState()}
+                }
+            }}
+        }}catch(_:java.util.concurrent.RejectedExecutionException){}
+    }
+    private fun ownsTyped(state:SwipeCandidateState,cursor:ImeCursor?,connection:InputConnection):Boolean =
+        state.origin==CandidateOrigin.TYPED&&cursor?.eligible==true&&state.connection===connection&&session.editorGeneration()==state.epoch&&
+        cursor.packageName==state.base.packageName&&cursor.fieldId==state.base.fieldId&&cursor.start==state.end&&cursor.end==state.end&&
+        cursor.before==(state.base.before+state.inserted).takeLast(32)&&cursor.after==state.base.after&&
+        connection.getTextBeforeCursor(state.inserted.length,0)?.toString()==state.inserted
+    private fun typedCandidates(base:ImeCursor,text:String,connection:InputConnection,epoch:Long,automaticAllowed:Boolean=true){
+        val suffix=TypingBoundary.suffix(text)
+        val token=TypingBoundary.token(text)
+        stageCandidates(base,text,listOf(text),connection,epoch,CandidateOrigin.TYPED,automaticAllowed=automaticAllowed)
+        val placeholder=candidateOwner.current?:return
+        val engine=typingEngine?:return
+        typingWorker.queue.clear()
+        try{typingWorker.execute{
+            val choices=engine.suggest(token)
+            main.post{
+                if(destroyed||candidateOwner.current!==placeholder||typingEngine!==engine||currentInputConnection!==connection)return@post
+                if(!ownsTyped(placeholder,typingCursor(connection),connection)){clearCandidates();updateState();return@post}
+                val values=choices.choices.map{it+suffix}
+                stageCandidates(base,text,values,connection,epoch,CandidateOrigin.TYPED,
+                    if(suffix.isNotEmpty()&&placeholder.automaticAllowed&&typingAutomatic&&TypingPolicy.forInput(info?.inputType?:0,info?.imeOptions?:0).automatic)choices.automatic else null,placeholder.expectedSelection,placeholder.automaticAllowed)
+            }
+        }}catch(_:java.util.concurrent.RejectedExecutionException){}
+    }
+
+    private var destroyed=false
+    private var swipeOverlay:GlassKeyButton?=null
+    private var toolsBar:View?=null
+    private var toolsFrame:View?=null
+    private val swipeOwner=SwipeRequestOwner(session)
+    private var swipeRequest:SwipeRequest?=null
+    private var swipeConnection:InputConnection?=null
+    private var swipeFrame:SwipeKeyboardFrame?=null
+    private var swipeWorker:SwipeDecodeWorker?=null
+    private var swipeCapital=false
+    private var swipeCaps=false
+    private var swipeMessage:String?=null
+    private fun worker():SwipeDecodeWorker { check(!destroyed);return swipeWorker?:SwipeDecodeWorker(applicationContext).also{swipeWorker=it} }
+    private fun invalidateSwipe(){swipeOwner.cancel();swipeRequest=null;swipeConnection=null;swipeWorker?.cancelQueued();swipePending=false;swipeMessage=null;updateState()}
+    private fun stopSwipe(){stopGif();swipeFrame?.abort();cancelCorrection();clearCandidates();invalidateSwipe()}
+    private fun beginSwipe():Boolean {
+        cancelKeyGestures()
+        if(swipePending||localSearchActive()||gifOwner.current!=null)return false
+        stopRepeat();cancelOwnedVoice();cancelCorrection();clearCandidates();invalidateSwipe()
+        if(!policy().swipe||dictation.busy)return false
+        val connection=currentInputConnection?:return false
+        val request=swipeOwner.begin(snapshot(connection),connection)?:return false
+        swipeRequest=request;swipeConnection=connection;swipeCapital=shift;swipeCaps=caps
+        return true
+    }
+    private fun finishSwipe(shape:SwipeGeometry,points:List<SwipePoint>){
+        val request=swipeRequest?:return
+        val connection=swipeConnection?:return
+        val capital=swipeCapital;val lockedCaps=swipeCaps
+        swipePending=true;swipeMessage="Decoding swipe locally…";updateState()
+        worker().decode(shape,points){result->
+            if(swipeRequest!==request)return@decode
+            val word=result.getOrNull()?.firstOrNull()
+            if(word==null||currentInputConnection!==connection||!session.isCurrent(request.ticket,snapshot(connection))){
+                invalidateSwipe();swipeMessage=when{result.isFailure->"Swipe unavailable; type normally";word==null->"No word recognized; try again or type";else->null};updateState();return@decode
+            }
+            if(!connection.finishComposingText()){
+                invalidateSwipe();swipeMessage="Check the editor; swipe composition could not be finished";updateState();return@decode
+            }
+            if(!swipeOwner.claim(request,snapshot(connection),connection)){invalidateSwipe();return@decode}
+            swipeRequest=null;swipeConnection=null
+            val variation=(info?.inputType?:0) and 0xff0
+            val text=SwipeTextFormat.insertion(word,request.ticket.cursor,capital,lockedCaps,variation !in setOf(0x10,0x20,0xd0))
+            val accepted=connection.commitText(text,1) // One consumed dispatch; no ambiguous retry.
+            session.editorChanged();swipePending=false
+            val warning=if(accepted)null else "Check the editor; swipe insertion could not be confirmed"
+            if(shift&&!caps){shift=false;renderKeys()}
+            swipeMessage=warning
+            if(accepted)stageCandidates(request.ticket.cursor,text,result.getOrThrow().map{SwipeTextFormat.insertion(it,request.ticket.cursor,capital,lockedCaps,variation !in setOf(0x10,0x20,0xd0))}.distinct(),connection,request.ticket.epoch)
+            updateState()
+        }
+    }
+
+
+    override fun onCreate() {
+        super.onCreate()
+        debuggable=applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE!=0
+        if(debuggable)debugInstance=java.lang.ref.WeakReference(this)
+        agentController = dev.lip.agent.AgentShortcutController(this, dictation::currentCompletedForAgent,
+            dictation::isCurrentCompletedForAgent, agentSettings,
+            { route -> if (debuggable) agentFixtureAdapter?.takeIf { it.destination.route == route } else null },
+            ::agentEligible, { message -> android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show() })
+        dictation.observeCompletedForAgent(agentResultObserver)
+        dictation.observe(observer)
+        history=ClipboardHistoryController(this,::historyChanged)
+        registerReceiver(historyScreenReceiver,android.content.IntentFilter().apply{
+            addAction(Intent.ACTION_SCREEN_OFF);addAction(Intent.ACTION_USER_PRESENT);addAction(Intent.ACTION_TIME_CHANGED);addAction(Intent.ACTION_TIMEZONE_CHANGED)
+        },android.content.Context.RECEIVER_NOT_EXPORTED)
+        updateHistoryEligibility()
+    }
+    override fun onDestroy() {
+        dictation.unobserveCompletedForAgent(agentResultObserver)
+        agentController?.close(); agentController = null; agentSlot = null; agentFixtureAdapter = null
+        cancelKeyGestures()
+        invalidateStickers();stickerBrowser?.close();stickerBrowser=null
+        stickerAttachment?.close();stickerAttachment=null
+        destroyed=true;debugConnectionOverride=null;typingLoad=null;typingEngine=null;typingWorker.shutdownNow()
+        clearEmoji(true);emojiLoad=null;emojiWorker.shutdownNow();clearGifSearch();gifPanel?.close();gifPanel=null;gifWorker.shutdownNow()
+        if(clipboardListenerRegistered)getSystemService(android.content.ClipboardManager::class.java).removePrimaryClipChangedListener(clipboardListener)
+        clipboardListenerRegistered=false;unregisterReceiver(historyScreenReceiver);history?.close();history=null
+        if(debugInstance?.get()===this)debugInstance=null
+        stopRepeat(); stopSwipe(); swipeWorker?.close();swipeWorker=null;cancelOwnedVoice(); session.finishEditor()
+        dictation.setImeAgentProtected(false)
+        dictation.unobserve(observer); super.onDestroy()
+    }
+    override fun onEvaluateFullscreenMode() = false
+    override fun onStartInput(attribute: EditorInfo, restarting: Boolean) {
+        agentController?.bindUi(Any())
+        val privateField = ImeFieldPolicy.forInput(attribute.inputType, attribute.imeOptions).protected ||
+            attribute.imeOptions and EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING != 0
+        dictation.setImeAgentProtected(privateField) // Metadata only, before observer/capture callbacks.
+        cancelKeyGestures()
+        invalidateStickers();clearEmoji(true);clearGifSearch();composingStart=-1;composingEnd=-1
+        clipboardWindowVisible=false;history?.setEligible(false)
+        debugConnectionOverride=null
+        super.onStartInput(attribute, restarting)
+        stopRepeat(); stopSwipe();cancelOwnedVoice(); session.beginEditor()
+        info = attribute; selectionStart = attribute.initialSelStart; selectionEnd = attribute.initialSelEnd
+        shift = false; caps = false; page = KeyboardPage.LETTERS
+        loadTyping();renderKeys(); updateState()
+    }
+    override fun onFinishInput() {
+        agentController?.bindUi(null)
+        cancelKeyGestures()
+        invalidateStickers();clearEmoji(true);clearGifSearch();gifPanel?.close()
+        clipboardWindowVisible=false;history?.setEligible(false)
+        stopRepeat(); stopSwipe();cancelOwnedVoice(); session.finishEditor()
+        info = null; selectionStart = -1; selectionEnd = -1
+        dictation.setImeAgentProtected(false) // Never restores a revoked result/attempt.
+        super.onFinishInput()
+    }
+    override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
+        super.onStartInputView(info,restarting)
+        agentController?.bindUi(Any()); refreshAgentShortcut()
+        if(presentationStore.load()!=presentation)applyPresentation()
+        stickerScale=stickerPreferences.load()
+        GlassMaterial.refresh();clipboardWindowVisible=true
+        main.post{if(!destroyed)updateHistoryEligibility()}
+        if(page==KeyboardPage.STICKERS){loadStickers(StickerBrowserPage.Library())}
+        else if(page==KeyboardPage.CLIPBOARD||page==KeyboardPage.GIF||gifKeysNeedRebind||emojiKeysNeedRebind||page==KeyboardPage.EMOJI){renderKeys();updateState()}else keys?.invalidate()
+    }
+    override fun onFinishInputView(finishingInput: Boolean) {
+        agentController?.bindUi(null)
+        cancelKeyGestures()
+        invalidateStickers();clearEmoji(true);clearGifSearch();gifPanel?.close()
+        clipboardWindowVisible=false;history?.setEligible(false)
+        closeClipboard();stopRepeat(); stopSwipe();cancelOwnedVoice(); super.onFinishInputView(finishingInput)
+    }
+    override fun onUpdateSelection(oldSelStart: Int, oldSelEnd: Int, newSelStart: Int, newSelEnd: Int,
+        candidatesStart: Int, candidatesEnd: Int) {
+        super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
+        wordDeleteTransaction?.selectionChanged(newSelStart,newSelEnd)
+        val compositionChanged=composingStart!=candidatesStart||composingEnd!=candidatesEnd
+        if(compositionChanged||oldSelStart!=newSelStart||oldSelEnd!=newSelEnd)stickerAttachment?.cancel()
+        if(compositionChanged)wordDeleteCancel?.invoke()
+        composingStart=candidatesStart;composingEnd=candidatesEnd
+        if(compositionChanged){nextWordOwner.clear();updateState()}
+        if(compositionChanged&&gifOwner.current!=null){stopGif();updateState()}
+        selectionStart = newSelStart; selectionEnd = newSelEnd
+        if (oldSelStart != newSelStart || oldSelEnd != newSelEnd) {
+            session.editorChanged();nextWordOwner.clear()
+            if(emojiSearch.active){clearEmoji();page=KeyboardPage.LETTERS;renderKeys();updateState()}
+            else if(page==KeyboardPage.EMOJI&&wordDeleteTransaction?.running!=true){renderKeys();updateState()}
+            val warning=swipeMessage?.takeIf{it.startsWith("Check the editor;")}
+            val typed=candidateOwner.current;val connection=currentInputConnection
+            if(candidateOwner.ownsSelection(newSelStart,newSelEnd)){
+                if(typed!=null&&typed.origin!=CandidateOrigin.SWIPE&&connection!=null){
+                    val confirmed=candidateOwner.confirm(typed,typingCursor(connection),connection.getTextBeforeCursor(typed.inserted.length,0)?.toString(),connection)
+                    if(confirmed&&typed.inserted.endsWith(" "))stageNextWords(typed,connection)
+                }
+                invalidateSwipe()
+            }else stopSwipe() // A real departure revokes even when a later snapshot has returned (ABA).
+            if(warning!=null){swipeMessage=warning;updateState()}
+            cancelOwnedVoice()
+        }
+        acknowledgeCorrection(candidatesStart,candidatesEnd)
+        if(compositionChanged&&candidatesStart<0&&candidatesEnd<0&&oldSelStart==newSelStart&&oldSelEnd==newSelEnd){
+            val state=candidateOwner.current;val connection=currentInputConnection
+            if(state?.ready==true&&state.inserted.endsWith(" ")&&connection!=null)stageNextWords(state,connection)
+            // stageNextWords requires the EXISTING exact current ticket; never refresh an old span on context equality.
+        }
+        if(page==KeyboardPage.STICKERS&&(compositionChanged||oldSelStart!=newSelStart||oldSelEnd!=newSelEnd)){renderKeys();updateState()}
+        if(page==KeyboardPage.CLIPBOARD)updateState()
+    }
+    private fun policy() = info?.let { ImeFieldPolicy.forInput(it.inputType, it.imeOptions) }
+        ?: ImeFieldPolicy.forInput(0, 0)
+
+    private fun landscape() = resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    private fun rowHeight(): Int = resources.displayMetrics.let {
+        KeyboardPresentation.rowHeight(availableWidth.takeIf{w->w>0}?:it.widthPixels,it.heightPixels,it.density,landscape(),presentation.height)
+    }
+    override fun onCreateInputView(): View {
+        agentController?.bindUi(Any())
+        invalidateStickers()
+        cancelKeyGestures();stopRepeat();stopSwipe();GlassMaterial.refresh()
+        stickerScale=stickerPreferences.load()
+        presentation=presentationStore.load();GlassMaterial.matte=presentation.theme==KeyboardTheme.MATTE
+        GlassMaterial.haptics=presentation.haptics
+        val root = column().apply {
+            setBackgroundColor(KeyboardVisualTokens.BACKDROP)
+            setOnApplyWindowInsetsListener { view, insets ->
+                val bottom = insets.getInsets(android.view.WindowInsets.Type.navigationBars() or android.view.WindowInsets.Type.systemGestures()).bottom
+                view.setPadding(0,0,0,bottom); insets
+            }
+        }
+        // A replacement input view must include the current nav area in its FIRST wrap-content measurement.
+        // Waiting for a later insets dispatch can leave the new keyboard measured one nav-height too short.
+        val priorInsets=window?.window?.decorView?.rootWindowInsets
+        if(debuggable){
+            presentationViewCreates++
+            presentationWitness=org.json.JSONObject().put("creates",presentationViewCreates).put("height",presentation.height.name)
+                .put("hand",presentation.hand.name).put("theme",presentation.theme.name).put("priorInsetsKnown",priorInsets!=null)
+                .put("initialBottom",priorInsets?.getInsets(android.view.WindowInsets.Type.navigationBars() or android.view.WindowInsets.Type.systemGestures())?.bottom?:0)
+                .put("pid",android.os.Process.myPid()).put("serviceId",presentationServiceIdentity).toString()
+        }
+        priorInsets?.let{insets->
+            root.setPadding(0,0,0,insets.getInsets(android.view.WindowInsets.Type.navigationBars() or android.view.WindowInsets.Type.systemGestures()).bottom)
+        }
+        val toolbar = GlassKeyboardToolbar(this)
+        fun tool(icon: KeyIcon, description: String, enabled: Boolean = true, action: () -> Unit): GlassKeyButton {
+            val view = GlassKeyButton(this, flat = true).apply {
+                this.icon = icon; contentDescription = description; isEnabled = enabled
+                interactionAllowed={root.isAttachedToWindow&&isAttachedToWindow}
+                if(!enabled)stateDescription="Not available in this preview"
+                setOnClickListener { if(!swipePending&&interactionAllowed()){cancelKeyGestures();action()} }
+            }
+            toolbar.addView(view); return view
+        }
+        val menu = tool(KeyIcon.MENU, "Lip keyboard menu") {}
+        menu.setOnClickListener { if(!swipePending&&menu.interactionAllowed()){cancelKeyGestures();showKeyboardMenu(menu)} }
+        agentSlot = tool(KeyIcon.TRANSLATE, "Local translation not yet available in this English preview", false) {
+            agentSlot?.let { agentController?.tap(it) }
+        }.apply { setOnLongClickListener { if (agentController?.pinned() == true) agentController?.showModes(this) == true else false } }
+        tool(KeyIcon.FACE, "Show emoji") { cancelOwnedVoice();openEmoji() }
+        gifTool=tool(KeyIcon.GIF, "Show local GIF catalog") { cancelOwnedVoice();openGifs() }
+        clipboardTool=tool(KeyIcon.CLIPBOARD, "Show clipboard actions and optional encrypted text history") {
+            if(clipboardAvailability().paste&&!dictation.busy){clearEmoji();clearGifSearch();cancelOwnedVoice();page=KeyboardPage.CLIPBOARD;renderKeys();updateState()}
+        }
+        undoTool=tool(KeyIcon.UNDO, "Undo edit; cancel pending Lip dictation") {
+            stopSwipe()
+            if (voiceTicket != null) cancelOwnedVoice()
+            else { session.editorChanged(); currentInputConnection?.performContextMenuAction(android.R.id.undo) }
+        }
+        mic = tool(KeyIcon.MIC, "Record with the selected local Bark model") { toggleVoice() }.apply {
+            background = DarkGlassDrawable(resources.displayMetrics.density, capsule = true, circle = true)
+            setOnLongClickListener { cancelOwnedVoice(); true }
+        }
+        val toolbarHeight=if(landscape())dp(32) else (resources.displayMetrics.widthPixels*.09f).toInt().coerceIn(dp(36),dp(44))
+        val toolbarFrame=android.widget.FrameLayout(this);toolsBar=toolbar;toolsFrame=toolbarFrame
+        toolbarFrame.addView(toolbar,android.widget.FrameLayout.LayoutParams(-1,-1))
+        candidateBar=LinearLayout(this).apply{isBaselineAligned=false;setBackgroundColor(KeyboardVisualTokens.TOOLBAR);visibility=View.GONE}
+        renderedCandidate=null;toolbarFrame.addView(candidateBar,android.widget.FrameLayout.LayoutParams(-1,-1))
+        swipeOverlay=GlassKeyButton(this).apply {
+            fitText(15);setBackgroundColor(KeyboardVisualTokens.TOOLBAR);visibility=View.GONE
+            setOnClickListener{stopSwipe();updateState()}
+        }
+        toolbarFrame.addView(swipeOverlay,android.widget.FrameLayout.LayoutParams(-1,-1))
+        root.addView(toolbarFrame,LinearLayout.LayoutParams(-1,toolbarHeight))
+        status = label("", 12f).apply {
+            setTextColor(KeyboardVisualTokens.FOREGROUND); setPadding(dp(8),dp(2),dp(8),dp(2)); visibility=View.GONE
+        }
+        root.addView(status, LinearLayout.LayoutParams(-1,-2))
+        keys = column()
+        swipeFrame=SwipeKeyboardFrame(this,{!destroyed&&policy().swipe&&!dictation.busy&&page==KeyboardPage.LETTERS&&!localSearchActive()},
+            {shape->worker().prepare(shape)},::beginSwipe,::finishSwipe,::invalidateSwipe,
+            {android.widget.Toast.makeText(this,"That input was not accepted while decoding. Try again.",android.widget.Toast.LENGTH_SHORT).show()})
+        swipeFrame!!.addView(keys);root.addView(swipeFrame)
+        renderKeys(); updateState()
+        lateinit var frame:KeyboardPresentationFrame
+        frame=KeyboardPresentationFrame(this,root,presentation,
+            {hand->if(presentationFrame===frame&&frame.isAttachedToWindow)changeHand(hand)},
+            {width->if(presentationFrame===frame&&availableWidth!=width){availableWidth=width;renderKeys();updateState()}})
+        presentationFrame=frame
+        return frame
+    }
+    private fun showKeyboardMenu(anchor: View) {
+        val menu = android.widget.PopupMenu(this, anchor)
+        val browserToken=keyboardRenderToken
+        if(StickerBrowserFeature.enabled(this))menu.menu.add("Local sticker packs").setOnMenuItemClickListener {
+            if(browserToken===keyboardRenderToken&&anchor.isAttachedToWindow&&isInputViewShown)openStickers()
+            true
+        }
+        menu.menu.add("Keyboard preferences").setOnMenuItemClickListener {
+            stopSwipe();cancelOwnedVoice();startActivity(Intent(this,KeyboardSettingsActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));true
+        }
+        menu.menu.add("Lip settings").setOnMenuItemClickListener {
+            stopSwipe();cancelOwnedVoice(); startActivity(Intent(this,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); true
+        }
+        menu.menu.add("Choose keyboard").setOnMenuItemClickListener {
+            stopSwipe();cancelOwnedVoice(); getSystemService(android.view.inputmethod.InputMethodManager::class.java).showInputMethodPicker(); true
+        }
+        menu.menu.add("Cancel dictation").setOnMenuItemClickListener { stopSwipe();cancelOwnedVoice(); true }
+        menu.show()
+    }
+    private fun key(text: String, description: String = text, capsule: Boolean = false, action: () -> Unit): GlassKeyButton = GlassKeyButton(this,capsule).apply {
+        val inputOwner=gifSearch.token;val emojiOwner=emojiSearch.token;val renderOwner=keyboardRenderToken;interactionAllowed={inputOwner===gifSearch.token&&emojiOwner===emojiSearch.token&&renderOwner===keyboardRenderToken}
+        this.text=text;labelScale=presentation.keyLabels; contentDescription=description; setOnClickListener { if(!swipePending&&isAttachedToWindow&&interactionAllowed()){cancelKeyGestures();action()} }
+    }
+    private fun cancelKeyGestures(){
+        val cursor=cursorGestureCancel;cursorGestureCancel=null;cursor?.invoke()
+        val deletion=wordDeleteCancel;wordDeleteCancel=null;deletion?.invoke()
+    }
+    private fun cursorGestureAllowed()=ImeFieldPolicy.manualCursor(info?.inputType?:0,selectionStart,selectionEnd)&&!swipePending&&!dictation.busy&&!localSearchActive()&&gifOwner.current==null&&isInputViewShown
+    private fun cursorSteps(connection:InputConnection,lease:ImeRepeatLease,steps:Int):Boolean {
+        val code=if(steps<0)KeyEvent.KEYCODE_DPAD_LEFT else KeyEvent.KEYCODE_DPAD_RIGHT
+        repeat(kotlin.math.abs(steps)){
+            if(!cursorGestureAllowed()||!lease.canRun(currentInputConnection))return false
+            val at=SystemClock.uptimeMillis()
+            fun event(action:Int)=KeyEvent(at,at,action,code,0,0,android.view.KeyCharacterMap.VIRTUAL_KEYBOARD,0,
+                KeyEvent.FLAG_SOFT_KEYBOARD or KeyEvent.FLAG_KEEP_TOUCH_MODE,android.view.InputDevice.SOURCE_KEYBOARD)
+            val down=connection.sendKeyEvent(event(KeyEvent.ACTION_DOWN))
+            val up=connection.sendKeyEvent(event(KeyEvent.ACTION_UP)) // Same connection, even if focus changes after DOWN.
+            if(!down||!up)return false // Dispatch is not a host ACK. No retry/rollback or text fallback.
+        }
+        return true
+    }
+    private fun spaceKey():GlassKeyButton {
+        val view=key("English","Space",true){}
+        val slop=android.view.ViewConfiguration.get(this).scaledTouchSlop.toFloat()
+        val motion=HorizontalKeyDrag(slop,dp(14).toFloat().coerceAtLeast(slop+1),android.view.ViewConfiguration.getLongPressTimeout().toLong())
+        var lease:ImeRepeatLease?=null;var connection:InputConnection?=null;var touchContact=false
+        lateinit var cancel:()->Unit
+        fun finish(){lease?.close();lease=null;connection=null;if(cursorGestureCancel===cancel)cursorGestureCancel=null}
+        cancel={motion.cancel();view.cancelPendingInputEvents();view.isPressed=false;finish()}
+        view.fitText(20)
+        view.setOnClickListener{
+            val held=lease
+            val valid=view.isAttachedToWindow&&isInputViewShown&&!swipePending&&view.interactionAllowed()&&(held==null||held.canRun(currentInputConnection))
+            finish();if(valid)type(" ")
+        }
+        view.setOnLongClickListener {
+            val valid=lease?.canRun(currentInputConnection)!=false&&view.isAttachedToWindow&&isInputViewShown&&!swipePending&&view.interactionAllowed()
+            cancel()
+            if(valid){cancelOwnedVoice();getSystemService(android.view.inputmethod.InputMethodManager::class.java).showInputMethodPicker()}
+            true
+        }
+        view.setOnTouchListener { _,event->
+            val exploration=getSystemService(android.view.accessibility.AccessibilityManager::class.java).isTouchExplorationEnabled
+            if(exploration){
+                if(touchContact){cancel();if(event.actionMasked==android.view.MotionEvent.ACTION_UP||event.actionMasked==android.view.MotionEvent.ACTION_CANCEL)touchContact=false;return@setOnTouchListener true}
+                return@setOnTouchListener false // Preserve native TalkBack button gestures.
+            }
+            when(event.actionMasked){
+                android.view.MotionEvent.ACTION_DOWN->{
+                    cancelKeyGestures();view.cancelPendingInputEvents();touchContact=true
+                    connection=currentInputConnection;lease=connection?.let{ImeRepeatLease(session,it)}
+                    motion.down(event.x,event.y,event.eventTime);cursorGestureCancel=cancel
+                    if(lease==null||!view.interactionAllowed()){cancel();true}else false
+                }
+                android.view.MotionEvent.ACTION_MOVE->{
+                    if(!view.isAttachedToWindow||lease?.canRun(currentInputConnection)!=true||!view.interactionAllowed()){cancel();true}
+                    else{
+                        val update=motion.move(event.x,event.y,event.eventTime,event.pointerCount)
+                        if(update.consume){view.cancelPendingInputEvents();view.isPressed=false}
+                        if(update.begin){
+                            if(!cursorGestureAllowed()){cancel();return@setOnTouchListener true}
+                            stopRepeat();stopSwipe();cancelOwnedVoice();session.editorChanged()
+                        }
+                        if(update.steps!=0&&!cursorSteps(checkNotNull(connection),checkNotNull(lease),update.steps))cancel()
+                        update.consume
+                    }
+                }
+                android.view.MotionEvent.ACTION_UP->{
+                    val valid=lease?.canRun(currentInputConnection)==true&&view.isAttachedToWindow&&view.interactionAllowed()
+                    val consume=motion.up(event.x,event.y,event.pointerCount).consume||!valid
+                    touchContact=false
+                    if(consume)cancel() // A drag never dispatches a trailing Space.
+                    consume // Ordinary tap keeps its lease until the native queued click runs.
+                }
+                android.view.MotionEvent.ACTION_CANCEL,android.view.MotionEvent.ACTION_POINTER_DOWN,android.view.MotionEvent.ACTION_POINTER_UP->{cancel();true}
+                else->false
+            }
+        }
+        view.accessibilityDelegate=object:View.AccessibilityDelegate(){
+            override fun onInitializeAccessibilityNodeInfo(host:View,node:android.view.accessibility.AccessibilityNodeInfo){
+                super.onInitializeAccessibilityNodeInfo(host,node)
+                node.addAction(android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction(android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_LEFT.id,"Move cursor left"))
+                node.addAction(android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction(android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_RIGHT.id,"Move cursor right"))
+            }
+            override fun performAccessibilityAction(host:View,action:Int,args:android.os.Bundle?):Boolean{
+                val step=when(action){android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_LEFT.id->-1;android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_RIGHT.id->1;else->return super.performAccessibilityAction(host,action,args)}
+                if(!host.isAttachedToWindow||!view.interactionAllowed()||!cursorGestureAllowed())return false
+                cancelKeyGestures();stopRepeat();stopSwipe();cancelOwnedVoice();session.editorChanged()
+                val conn=currentInputConnection?:return false;val once=ImeRepeatLease(session,conn)
+                return try{cursorSteps(conn,once,step)}finally{once.close()}
+            }
+        }
+        return view
+    }
+    private fun wordDeleteAllowed()=policy().voice&&selectionStart>=0&&selectionEnd>=selectionStart&&composingStart<0&&composingEnd<0&&
+        !swipePending&&!dictation.busy&&!localSearchActive()&&gifOwner.current==null&&isInputViewShown
+    private fun wordDeleteRead(connection:InputConnection):WordDeleteWindow? {
+        if(!wordDeleteAllowed())return null // Refuse private fields BEFORE reading anything.
+        val read=connection.getSurroundingText(64,64,0)?:return null
+        if(read.offset<0||read.text.length>192||read.selectionStart<0||read.selectionEnd<read.selectionStart||
+            read.selectionEnd>read.text.length||read.offset>Int.MAX_VALUE-read.text.length)return null
+        return WordDeleteWindow(read.offset,read.text.toString(),read.offset+read.selectionStart,read.offset+read.selectionEnd).takeIf{it.valid}
+    }
+    private fun deleteKey(): GlassKeyButton {
+        val view=key("", "Delete previous character; hold to repeat"){}
+        view.icon=KeyIcon.DELETE
+        val slop=android.view.ViewConfiguration.get(this).scaledTouchSlop.toFloat()
+        val motion=HorizontalKeyDrag(slop,dp(28).toFloat().coerceAtLeast(slop+1),android.view.ViewConfiguration.getLongPressTimeout().toLong())
+        var lease:ImeRepeatLease?=null;var connection:InputConnection?=null;var transaction:WordDeleteTransaction?=null
+        var touchContact=false;var pulse:Runnable?=null;var contactStarted=0L
+        lateinit var cancel:()->Unit
+        fun finish(){
+            pulse?.let(main::removeCallbacks);pulse=null
+            if(wordDeleteTransaction===transaction)wordDeleteTransaction=null
+            val target=connection;val epoch=session.editorGeneration();val panel=emojiPanelToken
+            transaction=null;lease?.close();lease=null;connection=null
+            if(wordDeleteCancel===cancel)wordDeleteCancel=null
+            if(page==KeyboardPage.EMOJI&&target!=null)main.post{
+                if(page==KeyboardPage.EMOJI&&isInputViewShown&&currentInputConnection===target&&session.editorGeneration()==epoch&&emojiPanelToken===panel){renderKeys();updateState()}
+            }
+        }
+        cancel={transaction?.cancel();motion.cancel();view.cancelPendingInputEvents();view.isPressed=false;stopRepeat();finish()}
+        fun tick(){
+            val tx=transaction?:return
+            tx.advance()
+            if(tx.running){
+                if(pulse==null)pulse=Runnable{pulse=null;tick()}
+                main.postDelayed(checkNotNull(pulse),16)
+            }else{
+                if(tx.state==WordDeleteTransaction.State.REFUSED)android.widget.Toast.makeText(this,"Editor did not confirm word deletion; check the selected text",android.widget.Toast.LENGTH_SHORT).show()
+                finish()
+            }
+        }
+        view.setOnClickListener{
+            val held=lease
+            val valid=view.isAttachedToWindow&&isInputViewShown&&!swipePending&&view.interactionAllowed()&&(held==null||held.canRun(currentInputConnection))
+            finish();if(valid)deletePrevious()
+        }
+        view.setOnLongClickListener{
+            val valid=lease?.canRun(currentInputConnection)!=false&&view.isAttachedToWindow&&isInputViewShown&&!swipePending&&view.interactionAllowed()
+            cancel();if(valid)startRepeat();true
+        }
+        view.setOnTouchListener{_,event->
+            val exploration=getSystemService(android.view.accessibility.AccessibilityManager::class.java).isTouchExplorationEnabled
+            if(exploration){
+                if(touchContact){cancel();if(event.actionMasked==android.view.MotionEvent.ACTION_UP||event.actionMasked==android.view.MotionEvent.ACTION_CANCEL)touchContact=false;return@setOnTouchListener true}
+                return@setOnTouchListener false
+            }
+            when(event.actionMasked){
+                android.view.MotionEvent.ACTION_DOWN->{
+                    cancelKeyGestures();view.cancelPendingInputEvents();touchContact=true
+                    connection=currentInputConnection;lease=connection?.let{ImeRepeatLease(session,it)}
+                    contactStarted=SystemClock.uptimeMillis();motion.down(event.x,event.y,event.eventTime);wordDeleteCancel=cancel
+                    if(lease==null||!view.interactionAllowed()){cancel();true}else false
+                }
+                android.view.MotionEvent.ACTION_MOVE->{
+                    if(!view.isAttachedToWindow||lease?.canRun(currentInputConnection)!=true||!view.interactionAllowed()){cancel();true}
+                    else{
+                        val update=motion.move(event.x,event.y,event.eventTime,event.pointerCount)
+                        if(update.consume){view.cancelPendingInputEvents();view.isPressed=false}
+                        if(update.begin){
+                            if(update.steps>0||!wordDeleteAllowed()||selectionStart!=selectionEnd){cancel();return@setOnTouchListener true}
+                            val conn=checkNotNull(connection)
+                            val origin=WordDeleteCapture.read(contactStarted,{SystemClock.uptimeMillis()},
+                                {lease?.canRun(currentInputConnection)==true&&view.isAttachedToWindow&&view.interactionAllowed()&&wordDeleteAllowed()&&selectionStart==selectionEnd},
+                                {wordDeleteRead(conn)})
+                            if(origin==null||origin.start!=selectionStart||origin.end!=selectionEnd||origin.start-origin.offset>64||origin.offset+origin.text.length-origin.end>64){cancel();return@setOnTouchListener true}
+                            val starts=WordDeleteBoundaries.starts(origin)
+                            if(starts.isEmpty()){cancel();return@setOnTouchListener true}
+                            stopRepeat();stopSwipe();cancelOwnedVoice();session.editorChanged()
+                            transaction=WordDeleteTransaction(origin,starts,object:WordDeleteTransaction.Port{
+                                override fun valid()=lease?.canRun(currentInputConnection)==true&&view.isAttachedToWindow&&view.interactionAllowed()&&wordDeleteAllowed()
+                                override fun read()=if(valid())wordDeleteRead(conn) else null
+                                override fun select(start:Int,end:Int)=valid()&&conn.setSelection(start,end)
+                                override fun deleteSelection()=valid()&&conn.commitText("",1) // Exact selected span, single attempt; no markers/fallback.
+                            },{SystemClock.uptimeMillis()},contactStarted)
+                            wordDeleteTransaction=transaction
+                        }
+                        transaction?.move(update.steps)
+                        if(transaction!=null&&pulse==null)tick()
+                        update.consume
+                    }
+                }
+                android.view.MotionEvent.ACTION_UP->{
+                    stopRepeat();touchContact=false
+                    val valid=lease?.canRun(currentInputConnection)==true&&view.isAttachedToWindow&&view.interactionAllowed()
+                    // Release coordinates can differ from the last MOVE. Validate them before destructive release.
+                    if(transaction!=null){
+                        val finalMove=motion.move(event.x,event.y,event.eventTime,event.pointerCount)
+                        if(!valid||!motion.active){cancel();return@setOnTouchListener true}
+                        transaction?.move(finalMove.steps)
+                        motion.up(event.x,event.y,event.pointerCount)
+                        transaction?.release();if(pulse==null)tick()
+                        return@setOnTouchListener true
+                    }
+                    val consume=motion.up(event.x,event.y,event.pointerCount).consume||!valid
+                    if(consume)cancel()
+                    consume
+                }
+                android.view.MotionEvent.ACTION_CANCEL,android.view.MotionEvent.ACTION_POINTER_DOWN,android.view.MotionEvent.ACTION_POINTER_UP->{cancel();true}
+                else->false
+            }
+        }
+        return view
+    }
+    private fun actionKey(): GlassKeyButton = key(actionTitle(), if(emojiSearch.active)"Show offline emoji search results" else if(gifSearch.active)"Show local GIF search results" else "${actionTitle()} in the current editor", true) { editorAction() }.apply {
+        fitText(18)
+        icon=when(actionTitle()) { "Enter"->KeyIcon.ENTER;"Done"->KeyIcon.DONE;"Search"->KeyIcon.SEARCH;else->KeyIcon.NONE }
+    }
+    private fun renderSpec(spec: KeySpec): View = when(spec.action) {
+        KeyAction.SPACER -> View(this)
+        KeyAction.DELETE -> deleteKey()
+        KeyAction.EDITOR_ACTION -> actionKey()
+        KeyAction.SHIFT -> key("", "Shift; double-tap to lock capitals") {
+            cancelOwnedVoice(); val now=SystemClock.uptimeMillis()
+            if(now-lastShift in 1..350){caps=!caps;shift=false}else{shift=!shift;caps=false}
+            lastShift=now;renderKeys()
+        }.apply { icon=if(caps)KeyIcon.CAPS else if(shift)KeyIcon.SHIFT_ON else KeyIcon.SHIFT;accessibilityToggle=shift||caps;stateDescription=if(caps)"Caps Lock on" else if(shift)"Shift on" else "Shift off";setOnLongClickListener { if(swipePending||!isAttachedToWindow||!interactionAllowed())return@setOnLongClickListener true;caps=!caps;shift=false;renderKeys();true } }
+        KeyAction.MODE -> key(spec.label,if(spec.label=="!?#")"Show symbols" else "Switch letters and symbols",true) {
+            cancelOwnedVoice();page=if(spec.label=="!?#" || page==KeyboardPage.LETTERS)KeyboardPage.SYMBOLS else KeyboardPage.LETTERS;renderTypedMode()
+        }.apply { fitText(20) }
+        KeyAction.EMOJI -> key("","Emoji keyboard") { cancelOwnedVoice();openEmoji() }.apply { icon=KeyIcon.FACE }
+        KeyAction.SPACE -> spaceKey()
+        KeyAction.EXTRA_SYMBOLS -> key(spec.label,"More symbols") { cancelOwnedVoice();page=if(page==KeyboardPage.SYMBOLS)KeyboardPage.EXTRA_SYMBOLS else KeyboardPage.SYMBOLS;renderKeys() }.apply { fitText(17) }
+        KeyAction.NUMBER_PAD -> key(spec.label,"Show number pad") { cancelOwnedVoice();page=KeyboardPage.NUMBER_PAD;renderKeys() }.apply { fitText(12) }
+        KeyAction.TYPE -> key(spec.label) { type(spec.label) }.apply {
+            if(spec.hint!=null&&spec.label.length==1&&spec.label[0].isLetter())tag="swipe:"+spec.label.lowercase(java.util.Locale.ROOT)
+            hintLabel=spec.hint
+            spec.hint?.let { hint ->setOnLongClickListener { if(isAttachedToWindow&&interactionAllowed())type(hint);true };accessibilityPaneTitle=null }
+        }
+    }
+    private fun renderTypedMode(){
+        // A letters/symbols layout switch is not an editor mutation. Carry only
+        // an exact owned typed span, never a pending correction or swipe claim.
+        val state=candidateOwner.current
+        val connection=currentInputConnection
+        val keep=state?.origin==CandidateOrigin.TYPED&&connection!=null&&correction==null&&
+            ownsTyped(state,typingCursor(connection),connection)
+        renderKeys()
+        if(keep&&state!=null&&connection!=null&&ownsTyped(state,typingCursor(connection),connection))
+            stageCandidates(state.base,state.inserted,state.alternatives,connection,state.epoch,CandidateOrigin.TYPED,
+                expectSelection=state.expectedSelection,automaticAllowed=state.automaticAllowed)
+    }
+    private fun renderKeys() {
+        cancelKeyGestures()
+        closeClipboard();stopRepeat();stopSwipe();gifPanel?.close();gifPanel=null;gifKeysNeedRebind=false
+        emojiPanel?.close();emojiPanel=null;emojiPanelToken=Any();keyboardRenderToken=Any();emojiKeysNeedRebind=false
+        stickerPanel?.close();stickerPanel=null
+        if(page!=KeyboardPage.STICKERS)invalidateStickers()
+        val container=keys?:return;container.removeAllViews()
+        if(page==KeyboardPage.CLIPBOARD){renderClipboard(container);return}
+        if(page==KeyboardPage.STICKERS){
+            if(!StickerBrowserFeature.enabled(this)){page=KeyboardPage.LETTERS;invalidateStickers();renderKeys();return}
+            stickerPanel=StickerPanel(this,rowHeight()*5,stickerState,stickerScale,
+                {invalidateStickers();page=KeyboardPage.LETTERS;renderKeys();updateState()},
+                ::manageStickerPacks,{loadStickers(StickerBrowserPage.Library())},
+                {id->loadStickers(StickerBrowserPage.Pack(id))},
+                {stickerPage.previous()?.let(::loadStickers)},{loadStickers(stickerPage.next())},
+                if(stickerAttachContext()?.composing==false)::requestStickerOriginal else null)
+            stickerPanel?.setAttachmentPending(stickerAttachment?.busy==true||stickerAttachContext()?.composing!=false)
+            container.addView(stickerPanel)
+            toolsBar?.visibility=View.GONE;toolsFrame?.visibility=View.GONE
+            return
+        }
+        if(page==KeyboardPage.GIF){
+            gifPanel=GifPanel(this,rowHeight()*5,gifSearch.query,GifCatalog.accepts(info?.contentMimeTypes),::requestGif,
+                {if(gifOwner.current==null){cancelOwnedVoice();gifSearch.begin();page=KeyboardPage.LETTERS;renderKeys();updateState()}},
+                {clearGifSearch();page=KeyboardPage.LETTERS;renderKeys();updateState()},
+                {stopGif();updateState()})
+            container.addView(gifPanel)
+            toolsBar?.visibility=View.GONE;toolsFrame?.visibility=View.GONE
+            return
+        }
+        val numeric=ImeKeyLayout.numericRows(info?.inputType?:0)
+        if(numeric!=null){
+            numeric.forEach { values ->
+                val row=LinearLayout(this).apply { isBaselineAligned=false }
+                values.forEach { value->row.addView(key(value){type(value)},LinearLayout.LayoutParams(0,rowHeight(),1f)) }
+                container.addView(row)
+            }
+            val row=LinearLayout(this).apply { isBaselineAligned=false }
+            row.addView(renderSpec(KeySpec("English",KeyAction.SPACE)),LinearLayout.LayoutParams(0,rowHeight(),2f))
+            row.addView(deleteKey(),LinearLayout.LayoutParams(0,rowHeight(),1f))
+            row.addView(actionKey(),LinearLayout.LayoutParams(0,rowHeight(),1f));container.addView(row)
+            return
+        }
+        if(page==KeyboardPage.NUMBER_PAD){renderNumberPad(container);return}
+        if(page==KeyboardPage.EMOJI){renderEmoji(container);return}
+        val rows=KeyboardLayoutSpec.rows(page,shift||caps)
+        val heights=KeyboardLayoutSpec.rowHeights(rowHeight()*5,rows.size)
+        rows.forEachIndexed { index,specs->
+            val h=heights[index]
+            val row=LinearLayout(this).apply { isBaselineAligned=false }
+            specs.forEach { spec->row.addView(renderSpec(spec),LinearLayout.LayoutParams(0,h,spec.units)) }
+            container.addView(row)
+        }
+    }
+    private fun renderNumberPad(container: LinearLayout) {
+        val height=rowHeight()*5
+        val row=LinearLayout(this).apply { isBaselineAligned=false }
+        val left=column();val center=column();val right=column()
+        listOf("+","-","*","/").forEach { value->left.addView(key(value){type(value)},LinearLayout.LayoutParams(-1,0,1f)) }
+        left.addView(key("ABC","Switch letters and symbols",true){page=KeyboardPage.LETTERS;renderKeys()},LinearLayout.LayoutParams(-1,0,1f))
+        listOf("123","456","789").forEach { values->
+            val line=LinearLayout(this).apply { isBaselineAligned=false };values.forEach { c->line.addView(key(c.toString()){type(c.toString())},LinearLayout.LayoutParams(0,-1,1f)) };center.addView(line,LinearLayout.LayoutParams(-1,0,1f))
+        }
+        val last=LinearLayout(this).apply { isBaselineAligned=false }
+        listOf(KeySpec(","),KeySpec("!?#",KeyAction.MODE),KeySpec("0"),KeySpec("="),KeySpec(".")).forEach { spec->last.addView(renderSpec(spec),LinearLayout.LayoutParams(0,-1,if(spec.label=="0")1.5f else 1f)) }
+        center.addView(last,LinearLayout.LayoutParams(-1,0,1f))
+        right.addView(key("%"){type("%")},LinearLayout.LayoutParams(-1,0,1f))
+        right.addView(key("", "Space") { type(" ") }.apply { icon=KeyIcon.SPACE },LinearLayout.LayoutParams(-1,0,1f))
+        right.addView(deleteKey(),LinearLayout.LayoutParams(-1,0,1f));right.addView(actionKey(),LinearLayout.LayoutParams(-1,0,1f))
+        row.addView(left,LinearLayout.LayoutParams(0,height,1.5f));row.addView(center,LinearLayout.LayoutParams(0,height,7f));row.addView(right,LinearLayout.LayoutParams(0,height,1.5f));container.addView(row)
+    }
+    private fun renderEmoji(container: LinearLayout) {
+        val token=emojiPanelToken
+        val ticket=emojiPickOwner.capture(currentInputConnection,token,selectionStart,selectionEnd)
+        emojiPanel=EmojiPanel(this,rowHeight()*(if(landscape())6 else 7),if(landscape())10 else 7,
+            emojiCatalog,emojiLoadError,emojiSearch.query,emojiCategory,emojiRecents,privateEmojiField(),deleteKey(),
+            {item->pickEmoji(item,ticket,token)},::beginEmojiSearch,
+            {clearEmoji();page=KeyboardPage.LETTERS;renderKeys();updateState()},::openGifs,
+            {group->emojiCategory=group;renderKeys();updateState()},
+            {if(!privateEmojiField()){emojiRecents.enable();renderKeys();updateState()}},presentation.emojiPreview)
+        container.addView(emojiPanel)
+        toolsBar?.visibility=View.GONE;toolsFrame?.visibility=View.GONE
+    }
+    private fun renderClipboard(container:LinearLayout){
+        val connection=currentInputConnection?:return
+        val lease=ImeRepeatLease(session,connection);clipboardLease=lease
+        val h=rowHeight()
+        val actions=LinearLayout(this).apply{isBaselineAligned=false}
+        actions.addView(label("Clipboard",16f).apply{setTextColor(KeyboardVisualTokens.FOREGROUND);setPadding(dp(8),0,dp(4),0)},LinearLayout.LayoutParams(0,h,1.5f))
+        clipboardCopy=key("Copy","Copy selected text to the system clipboard"){clipboardAction(true,lease)}.apply{fitText(16)}
+        clipboardPaste=key("Paste","Paste system clipboard using the current editor"){clipboardAction(false,lease)}.apply{fitText(16)}
+        actions.addView(clipboardCopy,LinearLayout.LayoutParams(0,h,.9f));actions.addView(clipboardPaste,LinearLayout.LayoutParams(0,h,.8f))
+        actions.addView(key("ABC","Return from clipboard to letters"){page=KeyboardPage.LETTERS;renderKeys();updateState()}.apply{fitText(16)},LinearLayout.LayoutParams(0,h,.8f))
+        container.addView(actions)
+        historyArea=column()
+        container.addView(android.widget.ScrollView(this).apply{isFillViewport=true;addView(historyArea)},LinearLayout.LayoutParams(-1,h*4))
+        renderHistoryArea();updateState()
+    }
+    private fun historyKey(view:GlassKeyButton,id:String,command:String):GlassKeyButton=view.apply{
+        accessibilityDelegate=object:View.AccessibilityDelegate(){
+            override fun onInitializeAccessibilityNodeInfo(host:View,info:android.view.accessibility.AccessibilityNodeInfo){
+                super.onInitializeAccessibilityNodeInfo(host,info)
+                info.extras.putString("dev.lip.clipId",id);info.extras.putString("dev.lip.clipCommand",command)
+            }
+        }
+    }
+    private fun renderHistoryArea(){
+        val area=historyArea?:return;val controller=history?:return;val lease=clipboardLease?:return
+        val rowsToken=Any();historyRowsToken=rowsToken
+        area.removeAllViews()
+        fun note(text:String){area.addView(label(text,14f).apply{setTextColor(KeyboardVisualTokens.FOREGROUND);setPadding(dp(12),dp(6),dp(12),dp(6))},LinearLayout.LayoutParams(-1,-2))}
+        fun action(text:String,description:String=text,enabled:Boolean=true,run:()->Unit){
+            area.addView(key(text,description){
+                if(page==KeyboardPage.CLIPBOARD&&lease.canRun(currentInputConnection)&&clipboardAvailability().paste&&historyContextAllowed())run()
+            }.apply{fitText(16);isEnabled=enabled},LinearLayout.LayoutParams(-1,rowHeight()))
+        }
+        val prompt=historyConfirmation.current
+        when(prompt?.kind){
+            "enable"->{
+                note("Save future copied text only while Lip's keyboard is visible in an ordinary field. Private/incognito/locked contexts and sensitive-marked items are skipped. Apps may not flag secrets: avoid copying secrets while this is enabled. Up to20 text items,4096 characters each; unpinned items expire after1hour. Up to10 pinned items remain until removed. Encrypted on this device, not backed up. The existing clipboard is not imported.")
+                action("Agree and enable","Agree and enable clipboard text history"){if(historyConfirmation.claim(prompt)){controller.enable();renderHistoryArea()}}
+                action("Cancel"){if(historyConfirmation.claim(prompt))renderHistoryArea()};return
+            }
+            "clear","off"->{
+                val disable=prompt.kind=="off"
+                note(if(disable)"Turn off and erase Lip's saved clipboard text? The system clipboard is not changed." else "Erase Lip's saved clipboard text? Future capture remains enabled. The system clipboard is not changed.")
+                action("Confirm",if(disable)"Confirm turn off and erase clipboard history" else "Confirm erase clipboard history"){if(historyConfirmation.claim(prompt))controller.clear(disable)}
+                action("Cancel"){if(historyConfirmation.claim(prompt))renderHistoryArea()};return
+            }
+        }
+        if(controller.busy)note("Updating encrypted history…")
+        controller.message?.let{note(it);action("Retry history",enabled=!controller.busy){controller.retry()}}
+        if(!controller.enabled){
+            note("History is off. Lip does not read or save clipboard content without consent.")
+            action("Enable text history","Enable clipboard text history",!controller.busy&&!controller.paused){historyConfirmation.begin("enable");renderHistoryArea()}
+            if(controller.paused)action("Turn off and erase","Turn off and erase clipboard history",!controller.busy){historyConfirmation.begin("off");renderHistoryArea()}
+            return
+        }
+        note("History on while keyboard is visible ·20 items ·1h unpinned ·10 pins")
+        action("Save current clipboard","Save current clipboard to encrypted history",!controller.busy&&!controller.paused){captureClipboard(manual=true)}
+        for(item in controller.items){
+            val row=LinearLayout(this).apply{isBaselineAligned=false}
+            val preview=item.text.replace("\n"," ↵ ").let{if(it.codePointCount(0,it.length)>48)it.substring(0,it.offsetByCodePoints(0,48))+"…" else it}
+            row.addView(historyKey(key(preview,"Paste saved clipboard text: $preview"){if(historyRowsToken===rowsToken)pasteSavedClip(item.id,lease)},item.id,"paste").apply{
+                fitText(16);setSingleLine();ellipsize=android.text.TextUtils.TruncateAt.END;isEnabled=!controller.busy
+            },LinearLayout.LayoutParams(0,rowHeight(),4f))
+            row.addView(historyKey(key(if(item.pinned)"Unpin" else "Pin","${if(item.pinned)"Unpin" else "Pin"} saved clipboard text: $preview"){
+                if(historyRowsToken===rowsToken&&lease.canRun(currentInputConnection))controller.pin(item.id,!item.pinned)
+            },item.id,"pin").apply{accessibilityToggle=item.pinned;stateDescription=if(item.pinned)"Pinned" else "Unpinned";fitText(12);isEnabled=!controller.busy&&(item.pinned||controller.items.count{it.pinned}<ClipboardHistory.MAX_PINS)},LinearLayout.LayoutParams(0,rowHeight(),1.2f))
+            row.addView(historyKey(key("×","Delete saved clipboard text: $preview"){
+                if(historyRowsToken===rowsToken&&lease.canRun(currentInputConnection))controller.delete(item.id)
+            },item.id,"delete").apply{fitText(18);isEnabled=!controller.busy},LinearLayout.LayoutParams(0,rowHeight(),.8f))
+            area.addView(row)
+        }
+        action("Clear saved items","Clear clipboard history"){historyConfirmation.begin("clear");renderHistoryArea()}
+        action("Turn off and erase","Turn off and erase clipboard history"){historyConfirmation.begin("off");renderHistoryArea()}
+    }
+    override fun onKeyDown(keyCode:Int,event:KeyEvent):Boolean{
+        if(!localSearchActive())return if(keyCode in gifConsumedHardwareKeys)true else super.onKeyDown(keyCode,event)
+        if(event.isSystem&&keyCode!=KeyEvent.KEYCODE_BACK)return super.onKeyDown(keyCode,event)
+        if(keyCode in 0..KeyEvent.getMaxKeyCode())gifConsumedHardwareKeys.add(keyCode)
+        when(keyCode){
+            KeyEvent.KEYCODE_ENTER,KeyEvent.KEYCODE_NUMPAD_ENTER,KeyEvent.KEYCODE_BACK,KeyEvent.KEYCODE_ESCAPE->finishQuery()
+            KeyEvent.KEYCODE_DEL->deleteQuery()
+            else->{
+                val code=event.unicodeChar
+                if(!event.isCtrlPressed&&!event.isMetaPressed&&code!=0&&code and android.view.KeyCharacterMap.COMBINING_ACCENT==0&&Character.isValidCodePoint(code))
+                    appendQuery(String(Character.toChars(code)))
+            }
+        }
+        updateState();return true // Unknown editing shortcuts are refused, never forwarded into the host search target.
+    }
+    override fun onKeyUp(keyCode:Int,event:KeyEvent):Boolean{
+        if(gifConsumedHardwareKeys.remove(keyCode))return true
+        if(localSearchActive()&&!event.isSystem)return true
+        return super.onKeyUp(keyCode,event)
+    }
+    override fun onKeyMultiple(keyCode:Int,count:Int,event:KeyEvent):Boolean{
+        if(!localSearchActive())return super.onKeyMultiple(keyCode,count,event)
+        event.characters?.let(::appendQuery);updateState();return true
+    }
+    private fun type(value: String) {
+        cancelKeyGestures()
+        if(localSearchActive()){appendQuery(value);updateState();return}
+        if(swipePending)return
+        val connection=currentInputConnection
+        val prior=candidateOwner.current
+        val cursor=if(connection!=null&&getSharedPreferences("preferences",MODE_PRIVATE).getBoolean("typingSuggestions",true)&&TypingPolicy.forInput(info?.inputType?:0,info?.imeOptions?:0).suggest) typingCursor(connection) else null
+        val continuing=connection!=null&&prior!=null&&ownsTyped(prior,cursor,connection)&&TypingBoundary.suffix(prior.inserted).isEmpty()
+        val letter=value.length==1&&(value[0] in 'a'..'z'||value[0] in 'A'..'Z'||value=="'")
+        val boundary=cursor!=null&&cursor.before.lastOrNull()?.let{!it.isLetterOrDigit()&&it!='\''}!=false&&cursor.after.firstOrNull()?.let{!it.isLetterOrDigit()&&it!='\''}!=false
+        val base=if(continuing)prior!!.base else cursor?.takeIf{boundary&&letter&&value!="'"}
+        val text=if(continuing)prior!!.inserted+value else value
+        stopSwipe();cancelOwnedVoice(); session.editorChanged()
+        // A deliberate key inserts at the current caret. Finish markers first so a canceled,
+        // late composing-region request cannot make this new key replace an earlier word.
+        val accepted=connection!=null&&connection.finishComposingText()&&connection.commitText(value,1)
+        if(!accepted)android.widget.Toast.makeText(this,"Editor did not confirm the typing request",android.widget.Toast.LENGTH_SHORT).show()
+        val epoch=session.editorGeneration()
+        if (shift && !caps && value.any(Char::isLetter)) { shift = false; renderKeys() }
+        if(accepted&&base!=null&&epoch!=null&&TypingBoundary.valid(text)&&(letter||continuing&&TypingBoundary.isDelimiter(value)))typedCandidates(base,text,connection!!,epoch,if(continuing&&TypingBoundary.isDelimiter(value))prior!!.automaticAllowed else true)
+    }
+    private fun deletePrevious() {
+        cancelKeyGestures()
+        if(localSearchActive()){deleteQuery();updateState();return}
+        if(swipePending)return
+        val undo=candidateOwner.current
+        if(undo?.origin==CandidateOrigin.AUTO&&undo.ready){chooseCandidate(undo,0);return}
+        val ownedConnection=currentInputConnection
+        val ownedCursor=if(undo?.origin==CandidateOrigin.TYPED&&ownedConnection!=null)typingCursor(ownedConnection) else null
+        val owned=if(undo!=null&&ownedConnection!=null&&ownsTyped(undo,ownedCursor,ownedConnection))undo else null
+        stopSwipe();cancelOwnedVoice(); session.editorChanged()
+        val connection = currentInputConnection ?: return
+        if(!connection.finishComposingText())return // Explicit Delete targets the caret, never a late earlier composing span.
+        if (owned==null&&selectionStart >= 0 && selectionEnd >= 0 && selectionStart != selectionEnd) {
+            connection.commitText("", 1); return // Explicit user's Delete key, not dictation replacement.
+        }
+        if (policy().protected) { connection.deleteSurroundingTextInCodePoints(1, 0); return }
+        val before = connection.getTextBeforeCursor(64, 0)?.toString()
+        if (before.isNullOrEmpty()) { connection.deleteSurroundingTextInCodePoints(1, 0); return }
+        val iterator = BreakIterator.getCharacterInstance(); iterator.setText(before)
+        val boundary = iterator.preceding(before.length)
+        if (boundary >= 0){
+            val removed=before.length-boundary
+            val accepted=connection.deleteSurroundingText(removed,0)
+            val remaining=owned?.inserted?.dropLast(removed)
+            val epoch=session.editorGeneration()
+            if(accepted&&owned!=null&&connection===ownedConnection&&epoch==owned.epoch&&!remaining.isNullOrEmpty()&&
+                remaining.length<=48&&remaining.all{it in 'a'..'z'||it in 'A'..'Z'||it=='\''})
+                typedCandidates(owned.base,remaining,connection,epoch,if(TypingBoundary.suffix(owned.inserted).isNotEmpty())owned.automaticAllowed else true) // No inference over arbitrary host words.
+        }
+    }
+    private fun resolvedAction(): ImeResolvedAction = info?.let {
+        ImeResolvedAction.resolve(it.imeOptions, it.actionLabel?.toString(), it.actionId)
+    } ?: ImeResolvedAction("Enter", null)
+    private fun actionTitle(): String = if(localSearchActive())"Search" else resolvedAction().label
+    private fun editorAction() {
+        cancelKeyGestures()
+        if(localSearchActive()){finishQuery();return}
+        if(swipePending)return
+        stopSwipe();cancelOwnedVoice(); session.editorChanged()
+        val connection = currentInputConnection ?: return
+        val attribute = info ?: return
+        if(!connection.finishComposingText())return // Explicit Enter/action must not replace a late earlier span.
+        val action = resolvedAction()
+        if (action.actionId != null) {
+            connection.performEditorAction(action.actionId) // Only an explicit user's action-key tap.
+        } else if (attribute.inputType == InputType.TYPE_NULL) {
+            connection.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
+            connection.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
+        } else connection.commitText("\n", 1)
+    }
+    private fun candidateCursor(state:SwipeCandidateState,connection:InputConnection)=
+        if(state.origin==CandidateOrigin.SWIPE)snapshot(connection) else typingCursor(connection)
+    private fun typingCursor(connection:InputConnection):ImeCursor?{
+        val attribute=info?:return null
+        if(!TypingPolicy.forInput(attribute.inputType,attribute.imeOptions).suggest)return null
+        val surrounding=connection.getSurroundingText(32,32,0)?:return null
+        val start=surrounding.selectionStart;val end=surrounding.selectionEnd;val text=surrounding.text
+        if(surrounding.offset<0||start<0||end!=start||start>text.length||surrounding.offset>Int.MAX_VALUE-start)return null
+        val at=surrounding.offset+start
+        return ImeCursor(attribute.packageName?:return null,attribute.fieldId,at,at,text.subSequence(0,start).toString().takeLast(32),text.subSequence(end,text.length).toString().take(32),false)
+    }
+    private fun snapshot(connection: InputConnection): ImeCursor? {
+        val attribute = info ?: return null
+        val field = policy()
+        if (field.protected || !field.voice) return null // Never read password contents.
+        if (selectionStart < 0 || selectionEnd != selectionStart) return null
+        val before = connection.getTextBeforeCursor(32, 0)?.toString() ?: return null
+        val after = connection.getTextAfterCursor(32, 0)?.toString() ?: return null
+        return ImeCursor(attribute.packageName ?: return null, attribute.fieldId, selectionStart, selectionEnd, before, after, field.protected)
+    }
+    private fun toggleVoice() {
+        cancelKeyGestures()
+        if(swipePending||localSearchActive()||gifOwner.current!=null)return
+        stopSwipe()
+        if (voiceTicket != null && dictation.phase == Phase.LISTENING) { dictation.stop(); return }
+        if (dictation.busy || !policy().voice) { status?.text = "Voice unavailable in this field"; return }
+        val connection = currentInputConnection ?: return
+        val ticket = session.capture(snapshot(connection)) ?: run { status?.text = "Place an unselected text cursor first"; return }
+        voiceTicket = ticket
+        dictation.start(insert = { text, done ->
+            if (currentInputConnection !== connection || text.isBlank() || text.length > 16_384 ||
+                !session.claim(ticket, snapshot(connection))) { voiceTicket = null; done(false) }
+            else {
+                voiceTicket = null // Own selection callback must not cancel the already dispatched operation.
+                val accepted = ImeVoiceTextWriter.write(connection,text)
+                session.editorChanged()
+                if (!accepted) done(false) // A false return can still be ambiguous: no retry/fallback.
+                else main.postDelayed({
+                    val current = if (currentInputConnection === connection) snapshot(connection) else null
+                    val expectedBefore = (ticket.cursor.before + text).takeLast(32)
+                    done(session.sameEditor(ticket) && current != null && current.packageName == ticket.cursor.packageName &&
+                        current.fieldId == ticket.cursor.fieldId && current.start == ticket.cursor.start + text.length &&
+                        current.end == current.start && current.before == expectedBefore && current.after == ticket.cursor.after)
+                }, 80)
+            }
+        }, stillValid = { currentInputConnection === connection && session.isCurrent(ticket, snapshot(connection)) },
+            retainHistory = info?.imeOptions?.and(EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING) == 0)
+        updateState()
+    }
+    private fun cancelOwnedVoice() {
+        voiceOwner.cancel { dictation.interrupt() }
+    }
+    private fun updateState() {
+        refreshAgentShortcut()
+        swipeFrame?.setInputPaused(swipePending)
+        swipeOverlay?.apply{text=swipeMessage?.let{"$it · Tap to cancel"}?:"";contentDescription=text;visibility=if(swipeMessage!=null)View.VISIBLE else View.GONE}
+        renderCandidates()
+        val clipboard=clipboardAvailability()
+        clipboardTool?.isEnabled=clipboard.paste&&!dictation.busy
+        clipboardCopy?.isEnabled=clipboard.copy&&!dictation.busy
+        clipboardPaste?.isEnabled=clipboard.paste&&!dictation.busy
+        val candidatesVisible=(candidateOwner.current!=null||nextWordOwner.current?.choices?.isNotEmpty()==true)&&swipeMessage==null
+        candidateBar?.visibility=if(candidatesVisible)View.VISIBLE else View.GONE
+        val dedicatedMediaHeader=page==KeyboardPage.EMOJI||page==KeyboardPage.GIF||page==KeyboardPage.STICKERS
+        toolsFrame?.visibility=if(dedicatedMediaHeader)View.GONE else View.VISIBLE
+        toolsBar?.visibility=if(dedicatedMediaHeader)View.GONE else if(swipeMessage!=null||candidatesVisible)View.INVISIBLE else View.VISIBLE
+        candidateMic?.isEnabled=policy().voice&&!dictation.busy
+        gifPanel?.setBusy(gifOwner.current!=null)
+        stickerPanel?.setAttachmentPending(stickerAttachment?.busy==true||stickerAttachContext()?.composing!=false)
+        gifTool?.isEnabled=policy().voice&&!dictation.busy
+        undoTool?.isEnabled=!localSearchActive()
+        mic?.isEnabled = !localSearchActive()&&gifOwner.current==null&&policy().voice && (!dictation.busy || voiceTicket != null)
+        (mic as? GlassKeyButton)?.icon=if(voiceTicket!=null && dictation.phase==Phase.LISTENING)KeyIcon.STOP else KeyIcon.MIC
+        status?.apply{
+            maxLines=if(localSearchActive())1 else Int.MAX_VALUE
+            ellipsize=if(localSearchActive())android.text.TextUtils.TruncateAt.END else null
+            minimumHeight=if(localSearchActive())dp(40) else 0
+            textSize=if(emojiSearch.active)16f else 12f
+        }
+        status?.text = when {
+            emojiSearch.active->"Search emoji: ${emojiSearch.query}"
+            gifSearch.active->"Search local GIFs: ${gifSearch.query} · Search key shows results"
+            policy().protected || (info?.imeOptions?.and(EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING) ?: 0) != 0 -> "Private field · manual keys only"
+            voiceTicket != null || dictation.phase == Phase.ERROR -> dictation.message
+            else -> "Lip keyboard preview · swipe not yet qualified"
+        }
+        status?.visibility=if(localSearchActive()||voiceTicket!=null || dictation.phase==Phase.ERROR || policy().protected )View.VISIBLE else View.GONE
+        if (!dictation.busy) voiceTicket = null
+    }
+    override fun onWindowHidden() {
+        agentController?.bindUi(null)
+        cancelKeyGestures()
+        invalidateStickers();clearEmoji(true);clearGifSearch();gifPanel?.close()
+        clipboardWindowVisible=false;history?.setEligible(false)
+        closeClipboard();stopRepeat(); stopSwipe();cancelOwnedVoice(); session.editorChanged(); super.onWindowHidden()
+    }
+    private fun startRepeat() {
+        if(swipePending)return
+        stopRepeat()
+        val connection = currentInputConnection ?: return
+        val lease = ImeRepeatLease(session, connection); repeatLease = lease
+        val task = object : Runnable {
+            override fun run() {
+                if (!lease.canRun(currentInputConnection) || repeatLease !== lease) { stopRepeat(); return }
+                deletePrevious(); main.postDelayed(this, 65)
+            }
+        }
+        repeatDelete = task; main.post(task)
+    }
+    private fun stopRepeat() {
+        repeatLease?.close(); repeatLease = null
+        repeatDelete?.let(main::removeCallbacks); repeatDelete = null
+    }
+}

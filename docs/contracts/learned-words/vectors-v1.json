@@ -1,0 +1,30 @@
+{
+  "unicode_version": "16.0.0",
+  "accepted": [
+    {
+      "input": "Stra\u00dfe",
+      "display": "Stra\u00dfe",
+      "identity": "strasse"
+    },
+    {
+      "input": "cafe\u0301",
+      "display": "caf\u00e9",
+      "identity": "caf\u00e9"
+    },
+    {
+      "input": "\ud801\udd70",
+      "display": "\ud801\udd70",
+      "identity": "\ud801\udd97"
+    },
+    {
+      "input": "\u6771\u4eac",
+      "display": "\u6771\u4eac",
+      "identity": "\u6771\u4eac"
+    }
+  ],
+  "refused": [
+    "abc\u202e",
+    "a@example.com",
+    "123456"
+  ]
+}

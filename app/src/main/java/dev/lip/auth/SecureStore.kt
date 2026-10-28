@@ -12,8 +12,11 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 /** Shared encrypted app storage. Keys and ciphertext are excluded from Android backup. */
-class SecureStore(context: Context) {
-    private val directory = File(context.applicationContext.noBackupFilesDir, "encrypted")
+class SecureStore(context: Context, directoryName: String = "encrypted", private val keyAlias: String = KEY_ALIAS) {
+    init {
+        require(directoryName.matches(Regex("[A-Za-z0-9_-]{1,64}")) && keyAlias.matches(Regex("[A-Za-z0-9._-]{1,128}"))) { "Invalid secure storage namespace" }
+    }
+    private val directory = File(context.applicationContext.noBackupFilesDir, directoryName)
 
     fun read(name: String): String? = synchronized(lock) {
         val file = file(name)
@@ -31,7 +34,10 @@ class SecureStore(context: Context) {
         } catch (_: Exception) { throw AuthException("Encrypted storage could not be read. Existing data has been preserved.") }
     }
 
-    fun write(name: String, value: String) = synchronized(lock) {
+    fun write(name: String, value: String) = writeAdmitted(name, value) {}
+
+    /** Final CPU-only admission AFTER encrypted staging, immediately before publication. */
+    fun writeAdmitted(name: String, value: String, admit: () -> Unit) = synchronized(lock) {
         val file = file(name)
         val plain = value.toByteArray(Charsets.UTF_8)
         if (plain.size > MAX_BYTES - 29) throw AuthException("Encrypted storage exceeds its size limit.")
@@ -43,7 +49,7 @@ class SecureStore(context: Context) {
             cipher.updateAAD(name.toByteArray(Charsets.UTF_8))
             val bytes = byteArrayOf(1) + cipher.iv + cipher.doFinal(plain)
             val output = file.startWrite()
-            try { output.write(bytes); file.finishWrite(output) }
+            try { output.write(bytes); admit(); file.finishWrite(output) }
             catch (e: Exception) { file.failWrite(output); throw e }
         } catch (_: Exception) { throw AuthException("Encrypted storage could not be saved. Previous data has been preserved.") }
     }
@@ -54,6 +60,30 @@ class SecureStore(context: Context) {
         catch (_: Exception) { throw AuthException("Encrypted data could not be completely removed. Try again.") }
     }
 
+    fun names(prefix: String): List<String> = synchronized(lock) {
+        require(prefix.matches(Regex("[A-Za-z0-9_-]+")) && prefix.length <= 80) { "Invalid storage prefix" }
+        if (!directory.exists()) return@synchronized emptyList()
+        val files = directory.list() ?: throw AuthException("Encrypted storage could not be listed.")
+        files.map { it.removeSuffix(".bak").removeSuffix(".new") }
+            .filter { it.startsWith(prefix) }.distinct()
+    }
+
+    /** Actual physical history namespace: include pending/backup bytes, never decode or create a key. */
+    fun historyUsage(): dev.lip.HistoryUsage = synchronized(lock) {
+        if (!directory.exists()) return@synchronized dev.lip.HistoryUsage(0,0)
+        val files = directory.listFiles() ?: throw AuthException("History storage could not be counted.")
+        var bytes = 0L; var entries = 0; var legacy = false
+        for (item in files) {
+            val logical = item.name.removeSuffix(".bak").removeSuffix(".new")
+            if (logical != "history" && !logical.startsWith("history-")) continue
+            if (java.nio.file.Files.isSymbolicLink(item.toPath()) || !item.isFile) throw AuthException("Invalid history storage entry; preserved.")
+            val size = java.nio.file.Files.size(item.toPath())
+            bytes = Math.addExact(bytes,size); entries = Math.addExact(entries,1)
+            if (logical == "history") legacy = true
+        }
+        dev.lip.HistoryUsage(bytes,entries,legacy)
+    }
+
     private fun file(name: String): AtomicFile {
         require(name.matches(Regex("[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)*")) && name.length <= 80) { "Invalid storage name" }
         return AtomicFile(File(directory, name))
@@ -61,10 +91,12 @@ class SecureStore(context: Context) {
 
     private fun key(create: Boolean): SecretKey {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-        (store.getKey(KEY_ALIAS, null) as? SecretKey)?.let { return it }
+        (store.getKey(keyAlias, null) as? SecretKey)?.let { return it }
         if (!create) throw AuthException("The encryption key is unavailable.")
+        val existing = directory.list() ?: throw AuthException("Encrypted storage could not be inspected.")
+        if (existing.isNotEmpty()) throw AuthException("The encryption key is unavailable; existing data was preserved. No replacement key was created.")
         return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore").apply {
-            init(KeyGenParameterSpec.Builder(KEY_ALIAS, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+            init(KeyGenParameterSpec.Builder(keyAlias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
                 .setKeySize(256).setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                 .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE).build())
         }.generateKey()

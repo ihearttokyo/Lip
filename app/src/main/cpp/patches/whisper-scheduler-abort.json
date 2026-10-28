@@ -1,0 +1,14 @@
+{
+  "upstream": "https://github.com/ggml-org/whisper.cpp",
+  "pin": "306c88f4d1286aec1bf96e544632897886af5501",
+  "source": "src/whisper.cpp",
+  "issue": "https://github.com/ggml-org/whisper.cpp/issues/3718",
+  "license": "MIT",
+  "license_file": "third_party/whisper.cpp/LICENSE",
+  "license_sha256": "94f29bbed6a22c35b992c5c6ebf0e7c92f13b836b90f36f461c9cf2f0f1d010d",
+  "input_sha256": "00d02d64b6818ef24ab97cc2184794634668e7cb0343ede2791d78a3f651dc45",
+  "patch": "whisper-scheduler-abort.patch",
+  "patch_sha256": "ce3cc61128694ef7b8f31965a32251f24751db5e87e12c82c8be71a95cf669c4",
+  "output_sha256": "4cee50443113fab137c0ae6c93fcf5a701c92c600588ba7f1bc840ed3dfacdd7",
+  "change": "Forward inference abort callback/data into scheduled backends; clear null callbacks for VAD. No sampling/model/PCM/thread/context/decoder changes."
+}

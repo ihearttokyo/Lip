@@ -5,3 +5,5 @@ dependencyResolutionManagement {
 }
 rootProject.name = "Lip"
 include(":app")
+// Standalone test-only observer: its instrumentation cannot force-stop Lip or the editor fixture.
+include(":imeProbe")

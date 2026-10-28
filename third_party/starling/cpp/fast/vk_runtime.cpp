@@ -1,0 +1,1198 @@
+// vk_runtime.cpp — see vk_runtime.hpp.
+
+#include "vk_runtime.hpp"
+
+#include <algorithm>
+#include <chrono>
+#include <cstdint>
+#include <cstdio>
+#include <ctime>
+#include <sys/stat.h>
+#include <cstdlib>
+#include <cstring>
+#include <fstream>
+#include <iterator>
+
+#if defined(_WIN32)
+#include <windows.h>
+#else
+#include <dlfcn.h>
+#endif
+
+namespace starling::fast::vk {
+
+namespace {
+
+// After a fence timeout, how long the drain waits for the late work before
+// declaring the GPU hung (see Context::wait_fence).
+constexpr uint64_t kDrainGraceMs = 10000;
+
+void* open_vulkan_library() {
+#if defined(_WIN32)
+    return (void*)LoadLibraryA("vulkan-1.dll");
+#elif defined(__APPLE__)
+    const char* names[] = {"libvulkan.1.dylib", "libvulkan.dylib", "libMoltenVK.dylib"};
+    for (const char* n : names)
+        if (void* h = dlopen(n, RTLD_NOW | RTLD_LOCAL)) return h;
+    return nullptr;
+#else
+    const char* names[] = {"libvulkan.so.1", "libvulkan.so"};
+    for (const char* n : names)
+        if (void* h = dlopen(n, RTLD_NOW | RTLD_LOCAL)) return h;
+    return nullptr;
+#endif
+}
+
+void* lib_symbol(void* lib, const char* name) {
+#if defined(_WIN32)
+    return (void*)GetProcAddress((HMODULE)lib, name);
+#else
+    return dlsym(lib, name);
+#endif
+}
+
+std::string vk_err(const char* what, VkResult r) {
+    return std::string(what) + " failed (VkResult " + std::to_string((int)r) + ")";
+}
+
+bool env_on(const char* name) {
+    const char* v = std::getenv(name);
+    return v && v[0] && v[0] != '0';
+}
+
+} // namespace
+
+// ---------------------------------------------------------------------------
+// Buffer
+// ---------------------------------------------------------------------------
+
+Buffer& Buffer::operator=(Buffer&& o) noexcept {
+    if (this != &o) {
+        release();
+        buf = o.buf; mem = o.mem; size = o.size; host = o.host;
+        coherent = o.coherent; ctx = o.ctx;
+        o.buf = VK_NULL_HANDLE; o.mem = VK_NULL_HANDLE; o.size = 0;
+        o.host = nullptr; o.ctx = nullptr;
+    }
+    return *this;
+}
+
+void Buffer::release() {
+    if (!ctx) return;
+    if (ctx->gpu_hung()) {
+        // By design: hung work may still use the buffer, so it is neither
+        // unmapped nor freed — leaked to the driver at process exit.
+        buf = VK_NULL_HANDLE; mem = VK_NULL_HANDLE; host = nullptr; size = 0; ctx = nullptr;
+        return;
+    }
+    const Fns& f = ctx->fn_;
+    if (buf) ctx->drop_views(buf);
+    if (host) f.vkUnmapMemory(ctx->dev_, mem);
+    if (buf) f.vkDestroyBuffer(ctx->dev_, buf, nullptr);
+    if (mem) f.vkFreeMemory(ctx->dev_, mem, nullptr);
+    buf = VK_NULL_HANDLE; mem = VK_NULL_HANDLE; host = nullptr; size = 0; ctx = nullptr;
+}
+
+// ---------------------------------------------------------------------------
+// Context
+// ---------------------------------------------------------------------------
+
+namespace {
+
+// A recorded wedge stays in force this long — in the marker file across
+// processes, and in memory for later contexts of this process.
+constexpr double kWedgeTtlSec = 900.0;
+
+// Leaked on purpose (never destroyed): an engine may be freed during static
+// destruction, after function-local statics would already be gone.
+struct ContextRegistry {
+    std::mutex mu;                       // guards live/hung/unavailable/init_err
+    std::weak_ptr<Context> live;         // the context engines currently share
+    Context* hung = nullptr;             // a hung context: never destroyed
+    bool unavailable = false;            // init failed: no usable device
+    std::string init_err;
+    std::mutex wedge_mu;                 // guards the wedge record (innermost)
+    std::string wedge_why;               // last wedge this process observed
+    std::chrono::steady_clock::time_point wedge_at;
+};
+ContextRegistry& registry() {
+    static ContextRegistry* r = new ContextRegistry;
+    return *r;
+}
+
+// The last holder's release: a clean teardown, or a hung context parked.
+// Disarmed until the shared_ptr owns the context: if allocating its control
+// block throws, acquire() still holds reg.mu and owns the context itself.
+struct ReleaseContext {
+    bool armed = false;
+    void operator()(Context* p) const {
+        if (!armed) return;
+        ContextRegistry& r = registry();
+        std::lock_guard<std::mutex> rk(r.mu);
+        if (p->gpu_hung()) { r.hung = p; return; }   // its work never finished
+        delete p;
+    }
+};
+
+} // namespace
+
+std::shared_ptr<Context> Context::acquire(std::string& err) {
+    ContextRegistry& reg = registry();
+    std::lock_guard<std::mutex> lk(reg.mu);
+    if (reg.hung) return std::shared_ptr<Context>(reg.hung, [](Context*) {});
+    if (std::shared_ptr<Context> c = reg.live.lock()) return c;
+    if (reg.unavailable) { err = reg.init_err.empty() ? "Vulkan unavailable" : reg.init_err; return nullptr; }
+    std::unique_ptr<Context> fresh(new Context());
+    if (!fresh->init(reg.init_err)) {
+        reg.unavailable = true;
+        err = reg.init_err.empty() ? "Vulkan unavailable" : reg.init_err;
+        return nullptr;
+    }
+    // A wedge this process observed recently outlives the context that saw
+    // it, even when no marker file could be written. `fresh` is not shared
+    // yet, so its wedge state needs no lock (mark_wedged takes wedge_mu_
+    // before reg.wedge_mu).
+    {
+        std::lock_guard<std::mutex> rw(reg.wedge_mu);
+        if (!reg.wedge_why.empty() && !fresh->wedged_ &&
+            std::chrono::duration<double>(std::chrono::steady_clock::now() - reg.wedge_at).count() < kWedgeTtlSec) {
+            fresh->wedged_ = true;
+            fresh->wedged_why_ = "fast engine: GPU driver failure earlier in this process (" +
+                                 reg.wedge_why + "); restart the app/device before retrying";
+        }
+    }
+    std::shared_ptr<Context> c(fresh.get(), ReleaseContext{});
+    std::get_deleter<ReleaseContext>(c)->armed = true;
+    fresh.release();
+    reg.live = c;
+    return c;
+}
+
+bool Context::init(std::string& err) {
+    lib_ = open_vulkan_library();
+    if (!lib_) { err = "Vulkan loader library not found"; return false; }
+    fn_.vkGetInstanceProcAddr =
+        (PFN_vkGetInstanceProcAddr)lib_symbol(lib_, "vkGetInstanceProcAddr");
+    if (!fn_.vkGetInstanceProcAddr) { err = "vkGetInstanceProcAddr missing"; return false; }
+    fn_.vkCreateInstance =
+        (PFN_vkCreateInstance)fn_.vkGetInstanceProcAddr(nullptr, "vkCreateInstance");
+    fn_.vkEnumerateInstanceVersion = (PFN_vkEnumerateInstanceVersion)
+        fn_.vkGetInstanceProcAddr(nullptr, "vkEnumerateInstanceVersion");
+    uint32_t inst_ver = VK_API_VERSION_1_0;
+    if (fn_.vkEnumerateInstanceVersion) fn_.vkEnumerateInstanceVersion(&inst_ver);
+    if (inst_ver < VK_API_VERSION_1_1) { err = "Vulkan 1.1 instance required"; return false; }
+
+    VkApplicationInfo app{VK_STRUCTURE_TYPE_APPLICATION_INFO};
+    app.pApplicationName = "starling-fast";
+    app.pEngineName = "starling-fast";
+    app.apiVersion = VK_API_VERSION_1_1;
+    VkInstanceCreateInfo ici{VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
+    ici.pApplicationInfo = &app;
+    VkResult r = fn_.vkCreateInstance(&ici, nullptr, &inst_);
+    if (r != VK_SUCCESS) { err = vk_err("vkCreateInstance", r); return false; }
+#define STARLING_VK_LOAD_I(name)                                                   \
+    fn_.name = (PFN_##name)fn_.vkGetInstanceProcAddr(inst_, #name);                \
+    if (!fn_.name) { err = "missing Vulkan entry point " #name; return false; }
+    STARLING_VK_INSTANCE_FNS(STARLING_VK_LOAD_I)
+#undef STARLING_VK_LOAD_I
+
+    uint32_t n_phys = 0;
+    fn_.vkEnumeratePhysicalDevices(inst_, &n_phys, nullptr);
+    if (n_phys == 0) { err = "no Vulkan physical devices"; return false; }
+    std::vector<VkPhysicalDevice> phys(n_phys);
+    fn_.vkEnumeratePhysicalDevices(inst_, &n_phys, phys.data());
+
+    // Device choice: explicit index, else the first discrete GPU, else the
+    // first integrated GPU, else device 0. CPU (software) devices are only
+    // used when explicitly requested: they are never faster than the CPU path.
+    int pick = -1;
+    if (const char* e = std::getenv("STARLING_FAST_DEVICE")) {
+        int i = std::atoi(e);
+        if (i >= 0 && i < (int)n_phys) pick = i;
+    }
+    if (pick < 0) {
+        int best_score = -1;
+        for (uint32_t i = 0; i < n_phys; ++i) {
+            VkPhysicalDeviceProperties p;
+            fn_.vkGetPhysicalDeviceProperties(phys[i], &p);
+            if (p.apiVersion < VK_API_VERSION_1_1) continue;
+            int score = p.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU ? 3
+                      : p.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU ? 2
+                      : p.deviceType == VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU ? 1 : -1;
+            if (score > best_score) { best_score = score; pick = (int)i; }
+        }
+        if (pick < 0) { err = "no Vulkan 1.1 GPU found"; return false; }
+    }
+    phys_ = phys[(size_t)pick];
+
+    VkPhysicalDeviceSubgroupProperties sgp{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES};
+    VkPhysicalDeviceProperties2 p2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
+    VkPhysicalDeviceMaintenance3Properties m3{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_3_PROPERTIES};
+    p2.pNext = &sgp;
+    sgp.pNext = &m3;
+    fn_.vkGetPhysicalDeviceProperties2(phys_, &p2);
+    const VkPhysicalDeviceProperties& props = p2.properties;
+    info_.name = props.deviceName;
+    info_.vendor_id = props.vendorID;
+    info_.device_id = props.deviceID;
+    info_.driver_version = props.driverVersion;
+    info_.api_version = props.apiVersion;
+    info_.discrete = props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
+    info_.subgroup_size = sgp.subgroupSize;
+    info_.subgroup_ops = sgp.supportedOperations;
+    info_.subgroup_compute = (sgp.supportedStages & VK_SHADER_STAGE_COMPUTE_BIT) != 0;
+    info_.max_texel_elems = props.limits.maxTexelBufferElements;
+    info_.min_texel_align = std::max<uint64_t>(props.limits.minTexelBufferOffsetAlignment, 16);
+    info_.max_shared_bytes = props.limits.maxComputeSharedMemorySize;
+    info_.max_wg_invocations = props.limits.maxComputeWorkGroupInvocations;
+    info_.max_storage_range = props.limits.maxStorageBufferRange;
+    info_.min_storage_align = props.limits.minStorageBufferOffsetAlignment;
+    info_.non_coherent_atom = std::max<uint64_t>(props.limits.nonCoherentAtomSize, 1);
+    info_.max_alloc = m3.maxMemoryAllocationSize;
+
+    uint32_t n_qf = 0;
+    fn_.vkGetPhysicalDeviceQueueFamilyProperties(phys_, &n_qf, nullptr);
+    std::vector<VkQueueFamilyProperties> qf(n_qf);
+    fn_.vkGetPhysicalDeviceQueueFamilyProperties(phys_, &n_qf, qf.data());
+    int qpick = -1;
+    // Prefer a dedicated compute family where one exists (desktop GPUs: it
+    // runs beside the compositor instead of stalling it), else the universal
+    // queue every conformant driver exposes (mobile GPUs).
+    if (!env_on("STARLING_FAST_UNIVERSAL_QUEUE"))
+        for (uint32_t i = 0; i < n_qf; ++i)
+            if ((qf[i].queueFlags & VK_QUEUE_COMPUTE_BIT) && !(qf[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
+                qpick = (int)i; break;
+            }
+    if (qpick < 0)
+        for (uint32_t i = 0; i < n_qf; ++i)
+            if ((qf[i].queueFlags & VK_QUEUE_COMPUTE_BIT) && (qf[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
+                qpick = (int)i; break;
+            }
+    if (qpick < 0)
+        for (uint32_t i = 0; i < n_qf; ++i)
+            if (qf[i].queueFlags & VK_QUEUE_COMPUTE_BIT) { qpick = (int)i; break; }
+    if (qpick < 0) { err = "no Vulkan compute queue"; return false; }
+    qfam_ = (uint32_t)qpick;
+    if (qf[qfam_].timestampValidBits > 0 && props.limits.timestampPeriod > 0)
+        info_.timestamp_period_ns = props.limits.timestampPeriod;
+
+    // Optional features: f16 arithmetic (packed-f16 GEMM variants).
+    std::vector<const char*> exts;
+    {
+        uint32_t n_ext = 0;
+        fn_.vkEnumerateDeviceExtensionProperties(phys_, nullptr, &n_ext, nullptr);
+        std::vector<VkExtensionProperties> ep(n_ext);
+        fn_.vkEnumerateDeviceExtensionProperties(phys_, nullptr, &n_ext, ep.data());
+        auto has_ext = [&](const char* n) {
+            for (auto& e : ep) if (std::strcmp(e.extensionName, n) == 0) return true;
+            return false;
+        };
+        // Memory budget (free-headroom query) where the driver exposes it
+        // (#325): RADV and most desktop drivers do; the PowerVR driver on
+        // the Pixel 10 Pro does not, so the wedged-driver marker below is
+        // the protection there.
+        mem_budget_ = has_ext(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
+        if (mem_budget_) exts.push_back(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
+        const bool core12 = props.apiVersion >= VK_API_VERSION_1_2;
+        if (core12 || has_ext(VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME)) {
+            VkPhysicalDeviceShaderFloat16Int8Features f16{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES};
+            VkPhysicalDeviceFeatures2 f2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+            f2.pNext = &f16;
+            fn_.vkGetPhysicalDeviceFeatures2(phys_, &f2);
+            info_.f16 = f16.shaderFloat16 == VK_TRUE && !env_on("STARLING_FAST_NO_F16");
+            if (info_.f16 && !core12) exts.push_back(VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME);
+        }
+        // Integer dot products (probe only so far). The instance targets
+        // Vulkan 1.1, so this goes through the KHR extension even on 1.3.
+        if (has_ext(VK_KHR_SHADER_INTEGER_DOT_PRODUCT_EXTENSION_NAME)) {
+            VkPhysicalDeviceShaderIntegerDotProductFeaturesKHR idf{
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_DOT_PRODUCT_FEATURES_KHR};
+            VkPhysicalDeviceFeatures2 f2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+            f2.pNext = &idf;
+            fn_.vkGetPhysicalDeviceFeatures2(phys_, &f2);
+            info_.int_dot = idf.shaderIntegerDotProduct == VK_TRUE;
+            if (info_.int_dot) exts.push_back(VK_KHR_SHADER_INTEGER_DOT_PRODUCT_EXTENSION_NAME);
+        }
+        if (env_on("STARLING_FAST_VERBOSE")) {
+            std::fprintf(stderr, "[fast-vk] device %04x:%04x driver %08x api %08x\n", info_.vendor_id,
+                         info_.device_id, info_.driver_version, info_.api_version);
+            for (auto& e : ep)
+                std::fprintf(stderr, "[fast-vk] ext %s %u\n", e.extensionName, e.specVersion);
+            VkPhysicalDeviceSubgroupProperties sg{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES};
+            VkPhysicalDeviceProperties2 p2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
+            p2.pNext = &sg;
+            fn_.vkGetPhysicalDeviceProperties2(phys_, &p2);
+            std::fprintf(stderr, "[fast-vk] subgroup size %u ops %08x stages %08x\n", sg.subgroupSize,
+                         sg.supportedOperations, sg.supportedStages);
+            std::fprintf(stderr, "[fast-vk] f16 %d int_dot %d\n", info_.f16, info_.int_dot);
+        }
+    }
+    VkPhysicalDeviceShaderFloat16Int8Features f16_on{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES};
+    f16_on.shaderFloat16 = info_.f16 ? VK_TRUE : VK_FALSE;
+    VkPhysicalDeviceShaderIntegerDotProductFeaturesKHR idot_on{
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_DOT_PRODUCT_FEATURES_KHR};
+    idot_on.shaderIntegerDotProduct = VK_TRUE;
+
+
+    const float prio = 1.0f;
+    VkDeviceQueueCreateInfo qci{VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
+    qci.queueFamilyIndex = qfam_;
+    qci.queueCount = 1;
+    qci.pQueuePriorities = &prio;
+    VkDeviceCreateInfo dci{VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
+    dci.queueCreateInfoCount = 1;
+    dci.pQueueCreateInfos = &qci;
+    dci.enabledExtensionCount = (uint32_t)exts.size();
+    dci.ppEnabledExtensionNames = exts.empty() ? nullptr : exts.data();
+    void* feat_chain = nullptr;
+    if (info_.f16) {
+        f16_on.pNext = feat_chain;
+        feat_chain = &f16_on;
+    }
+    if (info_.int_dot) {
+        idot_on.pNext = feat_chain;
+        feat_chain = &idot_on;
+    }
+    dci.pNext = feat_chain;
+    r = fn_.vkCreateDevice(phys_, &dci, nullptr, &dev_);
+    if (r != VK_SUCCESS) { err = vk_err("vkCreateDevice", r); return false; }
+#define STARLING_VK_LOAD_D(name)                                                   \
+    fn_.name = (PFN_##name)fn_.vkGetDeviceProcAddr(dev_, #name);                   \
+    if (!fn_.name) { err = "missing Vulkan device entry point " #name; return false; }
+    STARLING_VK_DEVICE_FNS(STARLING_VK_LOAD_D)
+#undef STARLING_VK_LOAD_D
+    fn_.vkGetDeviceQueue(dev_, qfam_, 0, &queue_);
+
+    fn_.vkGetPhysicalDeviceMemoryProperties(phys_, &memprops_);
+    for (uint32_t i = 0; i < memprops_.memoryTypeCount; ++i) {
+        VkMemoryPropertyFlags f = memprops_.memoryTypes[i].propertyFlags;
+        if ((f & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) && (f & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) &&
+            memprops_.memoryHeaps[memprops_.memoryTypes[i].heapIndex].size > (512ull << 20))
+        {
+            info_.uma = !info_.discrete;
+            if (f & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) info_.uma_cached = info_.uma;
+        }
+    }
+
+    // Pipeline cache: persisted next to other caches so the second process
+    // start skips driver shader compilation (hundreds of ms on mobile).
+    std::vector<char> cache_blob;
+    if (const char* d = std::getenv("STARLING_FAST_CACHE_DIR")) {
+        char tag[64];
+        std::snprintf(tag, sizeof tag, "/starling-fast-%08x-%08x.pcache",
+                      info_.vendor_id, info_.device_id);
+        pcache_path_ = std::string(d) + tag;
+        std::ifstream in(pcache_path_, std::ios::binary);
+        if (in) cache_blob.assign(std::istreambuf_iterator<char>(in), {});
+        // #325: a fresh (< 15 min) wedge marker from a previous process
+        // means the GPU driver is in a degraded state that only a device
+        // restart clears. Fail fast instead of joining the retry storm —
+        // every retry into a wedged driver prolongs it and risks a
+        // watchdog restart.
+        wedge_path_ = std::string(d) + "/starling-fast-gpu-wedged";
+        struct stat wst;
+        if (stat(wedge_path_.c_str(), &wst) == 0 &&
+            std::difftime(std::time(nullptr), wst.st_mtime) < kWedgeTtlSec) {
+            char why[192] = {0};
+            if (FILE* f = std::fopen(wedge_path_.c_str(), "r")) {
+                size_t n = std::fread(why, 1, sizeof(why) - 1, f);
+                (void)n;
+                std::fclose(f);
+            }
+            std::lock_guard<std::mutex> lk(wedge_mu_);
+            wedged_ = true;
+            wedged_why_ = std::string("fast engine: a previous process observed GPU driver "
+                                      "failure (") + (why[0] ? why : "unknown") +
+                          ") less than 15 minutes ago; restart the app/device before retrying";
+        }
+    }
+    VkPipelineCacheCreateInfo pci{VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO};
+    pci.initialDataSize = cache_blob.size();
+    pci.pInitialData = cache_blob.empty() ? nullptr : cache_blob.data();
+    if (fn_.vkCreatePipelineCache(dev_, &pci, nullptr, &pcache_) != VK_SUCCESS) {
+        pci.initialDataSize = 0; pci.pInitialData = nullptr;
+        fn_.vkCreatePipelineCache(dev_, &pci, nullptr, &pcache_);
+    }
+
+    VkCommandPoolCreateInfo cpci{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
+    cpci.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    cpci.queueFamilyIndex = qfam_;
+    r = fn_.vkCreateCommandPool(dev_, &cpci, nullptr, &xfer_pool_);
+    if (r != VK_SUCCESS) { err = vk_err("vkCreateCommandPool", r); return false; }
+    VkCommandBufferAllocateInfo cbai{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+    cbai.commandPool = xfer_pool_;
+    cbai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    cbai.commandBufferCount = 1;
+    r = fn_.vkAllocateCommandBuffers(dev_, &cbai, &xfer_cb_);
+    if (r != VK_SUCCESS) { err = vk_err("vkAllocateCommandBuffers", r); return false; }
+    VkFenceCreateInfo fci{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
+    r = fn_.vkCreateFence(dev_, &fci, nullptr, &xfer_fence_);
+    if (r != VK_SUCCESS) { err = vk_err("vkCreateFence", r); return false; }
+
+    profile_ = env_on("STARLING_FAST_PROFILE") && info_.timestamp_period_ns > 0;
+    if (env_on("STARLING_FAST_VERBOSE"))
+        std::fprintf(stderr,
+            "[fast] device '%s' vendor=%04x api=%u.%u subgroup=%u shared=%u "
+            "max_storage=%llu uma=%d%s f16=%d queue_family=%u\n",
+            info_.name.c_str(), info_.vendor_id, VK_VERSION_MAJOR(info_.api_version),
+            VK_VERSION_MINOR(info_.api_version), info_.subgroup_size,
+            info_.max_shared_bytes, (unsigned long long)info_.max_storage_range,
+            info_.uma ? 1 : 0, info_.uma_cached ? "(cached)" : "", info_.f16 ? 1 : 0, qfam_);
+    if (env_on("STARLING_FAST_VERBOSE"))
+        for (uint32_t i = 0; i < memprops_.memoryTypeCount; ++i) {
+            const VkMemoryPropertyFlags f = memprops_.memoryTypes[i].propertyFlags;
+            const uint32_t h = memprops_.memoryTypes[i].heapIndex;
+            std::fprintf(stderr, "[fast] memory type %u: heap %u (%llu MiB)%s%s%s%s\n", i, h,
+                         (unsigned long long)(memprops_.memoryHeaps[h].size >> 20),
+                         (f & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) ? " device-local" : "",
+                         (f & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) ? " host-visible" : "",
+                         (f & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) ? " coherent" : "",
+                         (f & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) ? " cached" : "");
+        }
+    return true;
+}
+
+Context::~Context() {
+    if (!dev_) {   // init failed after creating the instance
+        if (inst_) fn_.vkDestroyInstance(inst_, nullptr);
+        return;
+    }
+    if (gpu_hung_) {
+        // A submission never drained: vkDeviceWaitIdle would block forever
+        // and destroying in-use objects is invalid. Leave the device to the
+        // driver — the process is failing anyway, and hanging is worse.
+        std::fprintf(stderr, "[fast] vk teardown: skipped (GPU work never finished; "
+                             "device left to the driver)\n");
+        return;
+    }
+    fn_.vkDeviceWaitIdle(dev_);
+    if (pcache_ && !pcache_path_.empty()) {
+        size_t n = 0;
+        if (fn_.vkGetPipelineCacheData(dev_, pcache_, &n, nullptr) == VK_SUCCESS && n) {
+            std::vector<char> blob(n);
+            if (fn_.vkGetPipelineCacheData(dev_, pcache_, &n, blob.data()) == VK_SUCCESS) {
+                std::ofstream out(pcache_path_, std::ios::binary);
+                out.write(blob.data(), (std::streamsize)n);
+            }
+        }
+    }
+    staging_.release();
+    // The wedge marker is never removed by a process: init()'s 15-minute
+    // freshness check is its only expiry. Deleting it on exit would hide a
+    // failure another (wedged) process recorded while this one ran.
+    for (auto& kv : pipes_) fn_.vkDestroyPipeline(dev_, kv.second->pipe, nullptr);
+    for (auto& kv : layouts_) {
+        fn_.vkDestroyPipelineLayout(dev_, kv.second.second, nullptr);
+        fn_.vkDestroyDescriptorSetLayout(dev_, kv.second.first, nullptr);
+    }
+    for (auto& kv : modules_) fn_.vkDestroyShaderModule(dev_, kv.second, nullptr);
+    for (auto& kv : views_) fn_.vkDestroyBufferView(dev_, kv.second, nullptr);
+    if (pcache_) fn_.vkDestroyPipelineCache(dev_, pcache_, nullptr);
+    if (xfer_fence_) fn_.vkDestroyFence(dev_, xfer_fence_, nullptr);
+    if (xfer_pool_) fn_.vkDestroyCommandPool(dev_, xfer_pool_, nullptr);
+    fn_.vkDestroyDevice(dev_, nullptr);
+    if (inst_) fn_.vkDestroyInstance(inst_, nullptr);
+    // Observability (#325): this line is how a harness verifies the VkDevice
+    // was destroyed by US (clean teardown) rather than abandoned to the
+    // driver's async reaping — the leading wedge correlate on the Pixel.
+    // Printed only once the device is gone, so a teardown that hangs or
+    // dies part-way leaves no false evidence. One line per device lifetime:
+    // the device is destroyed when the last engine using it is freed.
+    std::fprintf(stderr, "[fast] vk teardown: device destroyed cleanly\n");
+    // The loader library stays mapped: other Vulkan users in the process
+    // (e.g. ggml's backend) may share it.
+}
+
+void Context::mark_wedged(const std::string& why) {
+    std::lock_guard<std::mutex> lk(wedge_mu_);
+    if (wedged_) return;
+    wedged_why_ = why;
+    wedged_ = true;
+    {   // Remembered for later contexts of this process (see acquire()).
+        ContextRegistry& reg = registry();
+        std::lock_guard<std::mutex> rk(reg.wedge_mu);
+        reg.wedge_why = why;
+        reg.wedge_at = std::chrono::steady_clock::now();
+    }
+    if (!wedge_path_.empty()) {
+        if (FILE* f = std::fopen(wedge_path_.c_str(), "w")) {
+            std::fprintf(f, "%s", why.c_str());
+            std::fclose(f);
+        } else {
+            // The in-process guard still holds; later processes are unprotected.
+            std::fprintf(stderr, "[fast] cannot write the GPU wedge marker %s\n",
+                         wedge_path_.c_str());
+        }
+    }
+}
+
+std::string Context::wedged_why() const {
+    std::lock_guard<std::mutex> lk(wedge_mu_);
+    return wedged_why_;
+}
+
+bool Context::wait_fence(VkFence fence, const char* what, std::string& err,
+                         uint64_t budget_ms) {
+    // Bounded wait: a lost or hung device must surface as an error, not a
+    // hang. Callers hold queue_mu_. The decode loop passes the #325
+    // degradation-watchdog budget; everything else gets the default.
+    if (budget_ms == 0) budget_ms = kDefaultFenceBudgetMs;
+    budget_ms = std::min<uint64_t>(budget_ms, UINT64_MAX / 1000000);   // ns must not wrap
+    const VkResult r = fn_.vkWaitForFences(dev_, 1, &fence, VK_TRUE, budget_ms * 1000000);
+    if (r == VK_SUCCESS) {
+        fn_.vkResetFences(dev_, 1, &fence);
+        return true;
+    }
+    err = vk_err(what, r);
+    if (r == VK_ERROR_OUT_OF_DEVICE_MEMORY || r == VK_ERROR_DEVICE_LOST || r == VK_TIMEOUT) {
+        err += r == VK_ERROR_OUT_OF_DEVICE_MEMORY
+             ? " (out of device memory: the GPU driver is likely wedged; a device restart"
+               " clears it — do not keep retrying)"
+             : r == VK_ERROR_DEVICE_LOST
+             ? " (device lost: the GPU driver has failed; a device restart is required)"
+             : std::string(" (GPU work did not finish within ") + std::to_string(budget_ms) +
+               " ms; the driver may be wedged)";
+        // #325: record the wedge so this process fails fast from now on and
+        // the next one (within 15 min) refuses to join the retry storm.
+        // Before the drain below, which may itself block on a hung GPU.
+        mark_wedged(err);
+    }
+    // The fence may still be pending: its work must finish before the fence
+    // is reset or the submitted buffers are reused or freed.
+    // vkDeviceWaitIdle has no timeout, and only a LOST device is guaranteed
+    // to return from waits in finite time (Vulkan spec, "Lost Device") — a
+    // device that is wedged but not lost (timeout, the OOM reading) is not.
+    // So drain through the fence with a bounded grace (worst case the
+    // caller, and anyone queued on queue_mu_, waits budget + grace). Late
+    // work that does finish still leaves the wedge marked: the budget
+    // already judged it a stall. If the work never finishes, leave the
+    // fence pending and mark the context hung: teardown then skips the
+    // destruction that would block on (or free under) it.
+    const VkResult d = fn_.vkWaitForFences(dev_, 1, &fence, VK_TRUE, kDrainGraceMs * 1000000);
+    if (d == VK_ERROR_DEVICE_LOST) {
+        fn_.vkDeviceWaitIdle(dev_);   // lost: returns in finite time; objects may be destroyed
+    } else if (d != VK_SUCCESS) {
+        mark_wedged(err);   // idempotent; covers results not classified above
+        gpu_hung_ = true;
+        std::fprintf(stderr, "[fast] GPU work still pending %llu ms after the fence failure; "
+                             "the device will not be torn down\n",
+                     (unsigned long long)kDrainGraceMs);
+        return false;
+    }
+    fn_.vkResetFences(dev_, 1, &fence);
+    return false;
+}
+
+bool Context::check_memory_budget(uint64_t need, std::string& err) {
+    // #325 preflight: with VK_EXT_memory_budget, refuse a load cleanly when
+    // the device-local heaps cannot fit `need` (+64 MiB margin). A no-op on
+    // drivers without the extension (PowerVR: the wedge marker covers it).
+    if (wedged_) { err = wedged_why(); return false; }
+    if (!mem_budget_) return true;
+    VkPhysicalDeviceMemoryBudgetPropertiesEXT budget{
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_BUDGET_PROPERTIES_EXT};
+    VkPhysicalDeviceMemoryProperties2 props2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2};
+    props2.pNext = &budget;
+    fn_.vkGetPhysicalDeviceMemoryProperties2(phys_, &props2);
+    uint64_t avail = 0, budget_total = 0;
+    for (uint32_t h = 0; h < props2.memoryProperties.memoryHeapCount; ++h) {
+        if (!(props2.memoryProperties.memoryHeaps[h].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT)) continue;
+        budget_total += budget.heapBudget[h];
+        const uint64_t heap_free = budget.heapBudget[h] > budget.heapUsage[h]
+                                  ? budget.heapBudget[h] - budget.heapUsage[h] : 0;
+        avail += heap_free;
+    }
+    if (!budget_total) return true;   // driver reports no budgets: cannot check
+    if (need + (64ull << 20) > avail) {
+        err = "fast engine: GPU memory preflight failed: need " + std::to_string(need >> 20) +
+              " MiB, " + std::to_string(avail >> 20) + " MiB available - the GPU driver may be " +
+              "degraded; restarting the app/device clears it";
+        return false;
+    }
+    return true;
+}
+
+int Context::find_memory(uint32_t type_bits, VkMemoryPropertyFlags want,
+                         VkMemoryPropertyFlags avoid) const {
+    for (uint32_t i = 0; i < memprops_.memoryTypeCount; ++i) {
+        if (!(type_bits & (1u << i))) continue;
+        VkMemoryPropertyFlags f = memprops_.memoryTypes[i].propertyFlags;
+        if ((f & want) == want && !(f & avoid)) return (int)i;
+    }
+    return -1;
+}
+
+bool Context::create_buffer(Buffer& out, VkDeviceSize bytes, Mem kind, std::string& err) {
+    out.release();
+    bytes = std::max<VkDeviceSize>(bytes, 16);
+    bytes = (bytes + 15) & ~VkDeviceSize(15);
+    VkBufferCreateInfo bci{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+    bci.size = bytes;
+    // Uniform-texel usage lets kernels read activations through the texture
+    // path (gemm_sg's A operand, a view per dispatch window).
+    bci.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
+                VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT;
+    bci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    VkResult r = fn_.vkCreateBuffer(dev_, &bci, nullptr, &out.buf);
+    if (r != VK_SUCCESS) { err = vk_err("vkCreateBuffer", r); return false; }
+    out.ctx = this;
+    out.size = bytes;
+    VkMemoryRequirements req;
+    fn_.vkGetBufferMemoryRequirements(dev_, out.buf, &req);
+
+    const VkMemoryPropertyFlags HV = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+    const VkMemoryPropertyFlags HC = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    const VkMemoryPropertyFlags CA = VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+    const VkMemoryPropertyFlags DL = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    int mt = -1;
+    switch (kind) {
+    case Mem::Device:
+        // UMA: device-local memory that is also host-visible lets uploads be
+        // plain memcpy (no staging round trip, no second copy of the weights).
+        if (info_.uma_cached) mt = find_memory(req.memoryTypeBits, DL | HV | HC | CA, 0);
+        if (mt < 0 && info_.uma) mt = find_memory(req.memoryTypeBits, DL | HV | HC, 0);
+        if (mt < 0) mt = find_memory(req.memoryTypeBits, DL, 0);
+        break;
+    case Mem::DeviceOnly:
+        mt = find_memory(req.memoryTypeBits, DL, HV);
+        if (mt < 0) mt = find_memory(req.memoryTypeBits, DL, 0);
+        break;
+    case Mem::Upload:
+        mt = find_memory(req.memoryTypeBits, HV | HC, CA);
+        if (mt < 0) mt = find_memory(req.memoryTypeBits, HV | HC, 0);
+        break;
+    case Mem::Readback:
+        mt = find_memory(req.memoryTypeBits, HV | HC | CA, 0);
+        if (mt < 0) mt = find_memory(req.memoryTypeBits, HV | CA, 0);
+        if (mt < 0) mt = find_memory(req.memoryTypeBits, HV | HC, 0);
+        break;
+    }
+    if (mt < 0) mt = find_memory(req.memoryTypeBits, 0, 0);
+    if (mt < 0) { err = "no suitable Vulkan memory type"; out.release(); return false; }
+    VkMemoryAllocateInfo mai{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
+    mai.allocationSize = req.size;
+    mai.memoryTypeIndex = (uint32_t)mt;
+    r = fn_.vkAllocateMemory(dev_, &mai, nullptr, &out.mem);
+    if (r != VK_SUCCESS) {
+        err = vk_err("vkAllocateMemory", r) + " (" + std::to_string(req.size >> 20) + " MiB)";
+        err += " — the model may not fit, or the GPU driver is degraded; a device"
+               " restart clears the latter (do not keep retrying)";
+        // Allocation OOM alone must NOT wedge: a model that simply does not
+        // fit would otherwise poison later loads via the 15-min marker.
+        // Device-lost is an unambiguous driver failure.
+        if (r == VK_ERROR_DEVICE_LOST) mark_wedged(err);
+        out.release();
+        return false;
+    }
+    fn_.vkBindBufferMemory(dev_, out.buf, out.mem, 0);
+    VkMemoryPropertyFlags f = memprops_.memoryTypes[mt].propertyFlags;
+    if ((f & HV) && kind != Mem::DeviceOnly) {
+        r = fn_.vkMapMemory(dev_, out.mem, 0, VK_WHOLE_SIZE, 0, &out.host);
+        if (r != VK_SUCCESS) out.host = nullptr;
+        out.coherent = (f & HC) != 0;
+    }
+    return true;
+}
+
+bool Context::ensure_staging(VkDeviceSize bytes, std::string& err) {
+    if (staging_ && staging_.size >= bytes) return true;
+    VkDeviceSize want = std::max<VkDeviceSize>(bytes, 64ull << 20);
+    if (!create_buffer(staging_, want, Mem::Readback, err)) return false;
+    if (!staging_.host) { staging_.release(); err = "staging buffer is not host-mappable"; return false; }
+    return true;
+}
+
+void Context::flush(const Buffer& dst, VkDeviceSize off, VkDeviceSize bytes) {
+    if (!dst.host || dst.coherent || bytes == 0) return;
+    // Whole atoms only; a range reaching the buffer's end runs to the end of
+    // the allocation (which may be larger than the buffer).
+    const VkDeviceSize atom = info_.non_coherent_atom;
+    VkMappedMemoryRange mr{VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE};
+    mr.memory = dst.mem;
+    mr.offset = off / atom * atom;
+    const VkDeviceSize end = (off + bytes + atom - 1) / atom * atom;
+    mr.size = end >= dst.size ? VK_WHOLE_SIZE : end - mr.offset;
+    fn_.vkFlushMappedMemoryRanges(dev_, 1, &mr);
+}
+
+bool Context::upload(Buffer& dst, VkDeviceSize off, const void* src, size_t bytes, std::string& err) {
+    if (wedged_) { err = wedged_why(); return false; }   // #325: fail fast once wedged
+    if (bytes == 0) return true;
+    if (off + bytes > dst.size) { err = "upload out of range"; return false; }
+    if (dst.host) {
+        std::memcpy((char*)dst.host + off, src, bytes);
+        flush(dst, off, bytes);
+        return true;
+    }
+    std::lock_guard<std::mutex> lk(queue_mu_);
+    const VkDeviceSize chunk = 64ull << 20;
+    if (!ensure_staging(std::min<VkDeviceSize>(bytes, chunk), err)) return false;
+    size_t done = 0;
+    while (done < bytes) {
+        size_t n = (size_t)std::min<VkDeviceSize>(bytes - done, staging_.size);
+        std::memcpy(staging_.host, (const char*)src + done, n);
+        if (!staging_.coherent) {
+            VkMappedMemoryRange mr{VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE};
+            mr.memory = staging_.mem; mr.offset = 0; mr.size = VK_WHOLE_SIZE;
+            fn_.vkFlushMappedMemoryRanges(dev_, 1, &mr);
+        }
+        VkCommandBufferBeginInfo bi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+        bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        fn_.vkBeginCommandBuffer(xfer_cb_, &bi);
+        VkBufferCopy c{0, off + done, n};
+        fn_.vkCmdCopyBuffer(xfer_cb_, staging_.buf, dst.buf, 1, &c);
+        fn_.vkEndCommandBuffer(xfer_cb_);
+        VkSubmitInfo si{VK_STRUCTURE_TYPE_SUBMIT_INFO};
+        si.commandBufferCount = 1;
+        si.pCommandBuffers = &xfer_cb_;
+        VkResult r = fn_.vkQueueSubmit(queue_, 1, &si, xfer_fence_);
+        if (r != VK_SUCCESS) { err = vk_err("vkQueueSubmit(upload)", r); return false; }
+        if (!wait_fence(xfer_fence_, "vkWaitForFences(upload)", err)) return false;
+        done += n;
+    }
+    return true;
+}
+
+bool Context::download(const Buffer& src, VkDeviceSize off, void* dst, size_t bytes, std::string& err) {
+    if (wedged_) { err = wedged_why(); return false; }   // #325: fail fast once wedged
+    if (bytes == 0) return true;
+    if (off + bytes > src.size) { err = "download out of range"; return false; }
+    if (src.host) {
+        if (!src.coherent) {
+            VkMappedMemoryRange mr{VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE};
+            mr.memory = src.mem; mr.offset = 0; mr.size = VK_WHOLE_SIZE;
+            fn_.vkInvalidateMappedMemoryRanges(dev_, 1, &mr);
+        }
+        std::memcpy(dst, (const char*)src.host + off, bytes);
+        return true;
+    }
+    std::lock_guard<std::mutex> lk(queue_mu_);
+    const VkDeviceSize chunk = 64ull << 20;
+    if (!ensure_staging(std::min<VkDeviceSize>(bytes, chunk), err)) return false;
+    size_t done = 0;
+    while (done < bytes) {
+        size_t n = (size_t)std::min<VkDeviceSize>(bytes - done, staging_.size);
+        VkCommandBufferBeginInfo bi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+        bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        fn_.vkBeginCommandBuffer(xfer_cb_, &bi);
+        VkBufferCopy c{off + done, 0, n};
+        fn_.vkCmdCopyBuffer(xfer_cb_, src.buf, staging_.buf, 1, &c);
+        fn_.vkEndCommandBuffer(xfer_cb_);
+        VkSubmitInfo si{VK_STRUCTURE_TYPE_SUBMIT_INFO};
+        si.commandBufferCount = 1;
+        si.pCommandBuffers = &xfer_cb_;
+        VkResult r = fn_.vkQueueSubmit(queue_, 1, &si, xfer_fence_);
+        if (r != VK_SUCCESS) { err = vk_err("vkQueueSubmit(download)", r); return false; }
+        if (!wait_fence(xfer_fence_, "vkWaitForFences(download)", err)) return false;
+        if (!staging_.coherent) {
+            VkMappedMemoryRange mr{VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE};
+            mr.memory = staging_.mem; mr.offset = 0; mr.size = VK_WHOLE_SIZE;
+            fn_.vkInvalidateMappedMemoryRanges(dev_, 1, &mr);
+        }
+        std::memcpy((char*)dst + done, staging_.host, n);
+        done += n;
+    }
+    return true;
+}
+
+const Pipeline* Context::pipeline(const char* shader, const std::vector<uint32_t>& spec,
+                                  std::string& err) {
+    std::string key = shader;
+    for (uint32_t v : spec) key += ":" + std::to_string(v);
+    std::lock_guard<std::mutex> lk(pipe_mu_);
+    auto it = pipes_.find(key);
+    if (it != pipes_.end()) return it->second.get();
+
+    const ShaderBlob* blob = find_shader(shader);
+    if (!blob) { err = std::string("unknown fast-engine shader ") + shader; return nullptr; }
+    VkShaderModule mod;
+    auto mit = modules_.find(shader);
+    if (mit != modules_.end()) {
+        mod = mit->second;
+    } else {
+        VkShaderModuleCreateInfo smci{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
+        smci.codeSize = blob->n_words * 4;
+        smci.pCode = blob->words;
+        VkResult r = fn_.vkCreateShaderModule(dev_, &smci, nullptr, &mod);
+        if (r != VK_SUCCESS) { err = vk_err("vkCreateShaderModule", r); return nullptr; }
+        modules_[shader] = mod;
+    }
+    auto& lay = layouts_[blob->n_bindings | (blob->texel_mask << 8)];
+    if (!lay.first) {
+        std::vector<VkDescriptorSetLayoutBinding> b(blob->n_bindings);
+        for (uint32_t i = 0; i < blob->n_bindings; ++i) {
+            b[i] = {};
+            b[i].binding = i;
+            b[i].descriptorType = (blob->texel_mask >> i) & 1u ? VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER
+                                                               : VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+            b[i].descriptorCount = 1;
+            b[i].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+        }
+        VkDescriptorSetLayoutCreateInfo dci{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
+        dci.bindingCount = blob->n_bindings;
+        dci.pBindings = b.data();
+        VkResult r = fn_.vkCreateDescriptorSetLayout(dev_, &dci, nullptr, &lay.first);
+        if (r != VK_SUCCESS) { err = vk_err("vkCreateDescriptorSetLayout", r); return nullptr; }
+        VkPushConstantRange pcr{VK_SHADER_STAGE_COMPUTE_BIT, 0, kPushBytes};
+        VkPipelineLayoutCreateInfo plci{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
+        plci.setLayoutCount = 1;
+        plci.pSetLayouts = &lay.first;
+        plci.pushConstantRangeCount = 1;
+        plci.pPushConstantRanges = &pcr;
+        r = fn_.vkCreatePipelineLayout(dev_, &plci, nullptr, &lay.second);
+        if (r != VK_SUCCESS) { err = vk_err("vkCreatePipelineLayout", r); return nullptr; }
+    }
+    std::vector<VkSpecializationMapEntry> me(spec.size());
+    for (size_t i = 0; i < spec.size(); ++i) me[i] = {(uint32_t)i, (uint32_t)(i * 4), 4};
+    VkSpecializationInfo si{};
+    si.mapEntryCount = (uint32_t)me.size();
+    si.pMapEntries = me.data();
+    si.dataSize = spec.size() * 4;
+    si.pData = spec.data();
+    VkComputePipelineCreateInfo cpci{VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
+    cpci.stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    cpci.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    cpci.stage.module = mod;
+    cpci.stage.pName = "main";
+    cpci.stage.pSpecializationInfo = spec.empty() ? nullptr : &si;
+    cpci.layout = lay.second;
+    auto p = std::make_unique<Pipeline>();
+    VkResult r = fn_.vkCreateComputePipelines(dev_, pcache_, 1, &cpci, nullptr, &p->pipe);
+    if (r != VK_SUCCESS) { err = vk_err("vkCreateComputePipelines", r) + " for " + key; return nullptr; }
+    p->layout = lay.second;
+    p->dsl = lay.first;
+    p->n_bindings = blob->n_bindings;
+    p->texel_mask = blob->texel_mask;
+    p->label = shader;
+    const Pipeline* raw = p.get();
+    pipes_[key] = std::move(p);
+    return raw;
+}
+
+VkBufferView Context::texel_view(const Buffer& b, VkDeviceSize off, VkDeviceSize range,
+                                 std::string& err) {
+    range &= ~VkDeviceSize(15);
+    if (!b.buf || !range || off % info_.min_texel_align ||
+        range / 16 > info_.max_texel_elems) {
+        err = "texel view out of limits (off " + std::to_string(off) + ", range " +
+              std::to_string(range) + ")";
+        return VK_NULL_HANDLE;
+    }
+    std::lock_guard<std::mutex> lk(view_mu_);
+    const auto key = std::make_tuple(b.buf, off, range);
+    auto it = views_.find(key);
+    if (it != views_.end()) return it->second;
+    VkBufferViewCreateInfo ci{VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO};
+    ci.buffer = b.buf;
+    ci.format = VK_FORMAT_R32G32B32A32_UINT;
+    ci.offset = off;
+    ci.range = range;
+    VkBufferView v = VK_NULL_HANDLE;
+    const VkResult r = fn_.vkCreateBufferView(dev_, &ci, nullptr, &v);
+    if (r != VK_SUCCESS) { err = vk_err("vkCreateBufferView", r); return VK_NULL_HANDLE; }
+    views_[key] = v;
+    return v;
+}
+
+void Context::drop_views(VkBuffer b) {
+    std::lock_guard<std::mutex> lk(view_mu_);
+    for (auto it = views_.begin(); it != views_.end();) {
+        if (std::get<0>(it->first) == b) {
+            fn_.vkDestroyBufferView(dev_, it->second, nullptr);
+            it = views_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Recording
+// ---------------------------------------------------------------------------
+
+Recording::Recording(Context& ctx) : ctx_(ctx) {
+    const Fns& f = ctx_.fn_;
+    VkCommandPoolCreateInfo cpci{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
+    cpci.queueFamilyIndex = ctx_.qfam_;
+    VkResult r = f.vkCreateCommandPool(ctx_.dev_, &cpci, nullptr, &pool_);
+    if (r != VK_SUCCESS) { pool_ = VK_NULL_HANDLE; fail_ = vk_err("vkCreateCommandPool", r); }
+    VkFenceCreateInfo fci{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
+    r = f.vkCreateFence(ctx_.dev_, &fci, nullptr, &fence_);
+    if (r != VK_SUCCESS) { fence_ = VK_NULL_HANDLE; if (fail_.empty()) fail_ = vk_err("vkCreateFence", r); }
+    profile_ = ctx_.profile_;
+}
+
+Recording::~Recording() {
+    if (ctx_.gpu_hung()) return;   // the hung work may still use the pool/fence
+    const Fns& f = ctx_.fn_;
+    for (VkDescriptorPool p : dpools_) f.vkDestroyDescriptorPool(ctx_.dev_, p, nullptr);
+    if (qpool_) f.vkDestroyQueryPool(ctx_.dev_, qpool_, nullptr);
+    if (fence_) f.vkDestroyFence(ctx_.dev_, fence_, nullptr);
+    if (pool_) f.vkDestroyCommandPool(ctx_.dev_, pool_, nullptr);
+}
+
+void Recording::begin() {
+    const Fns& f = ctx_.fn_;
+    if (!pool_) return;   // fail_ is set; submit_and_wait reports it
+    VkCommandBufferAllocateInfo cbai{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+    cbai.commandPool = pool_;
+    cbai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    cbai.commandBufferCount = 1;
+    f.vkAllocateCommandBuffers(ctx_.dev_, &cbai, &cb_);
+    segs_.push_back(cb_);
+    VkCommandBufferBeginInfo bi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+    f.vkBeginCommandBuffer(cb_, &bi);
+    if (profile_) {
+        max_queries_ = 4096;
+        VkQueryPoolCreateInfo qci{VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO};
+        qci.queryType = VK_QUERY_TYPE_TIMESTAMP;
+        qci.queryCount = max_queries_;
+        if (!qpool_ && f.vkCreateQueryPool(ctx_.dev_, &qci, nullptr, &qpool_) != VK_SUCCESS) {
+            qpool_ = VK_NULL_HANDLE;
+            profile_ = false;   // profiling is best-effort
+            return;
+        }
+        f.vkCmdResetQueryPool(cb_, qpool_, 0, max_queries_);
+        n_queries_ = 0;
+        q_labels_.clear();
+        f.vkCmdWriteTimestamp(cb_, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, qpool_, n_queries_++);
+        q_labels_.push_back("<start>");
+    }
+}
+
+void Recording::end() {
+    if (!cb_) return;
+    // A trailing barrier orders this recording against later submissions.
+    if (bar_pending_) emit_barrier(true);
+    ctx_.fn_.vkEndCommandBuffer(cb_);
+}
+
+void Recording::split() {
+    const Fns& f = ctx_.fn_;
+    if (!cb_) return;
+    f.vkEndCommandBuffer(cb_);
+    VkCommandBufferAllocateInfo cbai{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+    cbai.commandPool = pool_;
+    cbai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    cbai.commandBufferCount = 1;
+    f.vkAllocateCommandBuffers(ctx_.dev_, &cbai, &cb_);
+    segs_.push_back(cb_);
+    VkCommandBufferBeginInfo bi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+    f.vkBeginCommandBuffer(cb_, &bi);
+    // Order this segment after everything submitted before it.
+    barrier();
+}
+
+VkDescriptorSet Recording::alloc_set(const Pipeline& p) {
+    const Fns& f = ctx_.fn_;
+    const uint32_t kSets = 256;
+    // Two attempts: the current pool, then a fresh one (a pool can run out of
+    // descriptors before sets when layouts have many bindings).
+    for (int attempt = 0; attempt < 2; ++attempt) {
+        if (dpools_.empty() || dpool_left_ == 0) {
+            const VkDescriptorPoolSize ps[2] = {{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, kSets * 16},
+                                                {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, kSets}};
+            VkDescriptorPoolCreateInfo dpci{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
+            dpci.maxSets = kSets;
+            dpci.poolSizeCount = 2;
+            dpci.pPoolSizes = ps;
+            VkDescriptorPool dp = VK_NULL_HANDLE;
+            VkResult r = f.vkCreateDescriptorPool(ctx_.dev_, &dpci, nullptr, &dp);
+            if (r != VK_SUCCESS) {
+                if (fail_.empty()) fail_ = vk_err("vkCreateDescriptorPool", r);
+                return VK_NULL_HANDLE;
+            }
+            dpools_.push_back(dp);
+            dpool_left_ = kSets;
+        }
+        VkDescriptorSetAllocateInfo ai{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+        ai.descriptorPool = dpools_.back();
+        ai.descriptorSetCount = 1;
+        ai.pSetLayouts = &p.dsl;
+        VkDescriptorSet set = VK_NULL_HANDLE;
+        VkResult r = f.vkAllocateDescriptorSets(ctx_.dev_, &ai, &set);
+        if (r == VK_SUCCESS) {
+            --dpool_left_;
+            return set;
+        }
+        dpool_left_ = 0;
+        if (attempt == 1 && fail_.empty()) fail_ = vk_err("vkAllocateDescriptorSets", r);
+    }
+    return VK_NULL_HANDLE;
+}
+
+// STARLING_FAST_SKIP=label[,label...] (diagnostic): drop every dispatch
+// recorded under one of these labels (`name*` matches a prefix), so the
+// encoder/prefill classes can be priced by difference. Results are garbage.
+static bool skip_label(const std::string& label) {
+    static const std::vector<std::string> skips = [] {
+        std::vector<std::string> v;
+        if (const char* e = std::getenv("STARLING_FAST_SKIP")) {
+            std::string s(e), cur;
+            for (char c : s + ",") {
+                if (c == ',') { if (!cur.empty()) v.push_back(cur); cur.clear(); }
+                else cur += c;
+            }
+        }
+        return v;
+    }();
+    for (const std::string& s : skips) {
+        if (!s.empty() && s.back() == '*') {
+            if (label.compare(0, s.size() - 1, s, 0, s.size() - 1) == 0) return true;
+        } else if (label == s) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void Recording::dispatch(const Pipeline& p, const std::vector<Ref>& bindings,
+                         const void* push, size_t push_bytes,
+                         uint32_t gx, uint32_t gy, uint32_t gz) {
+    const Fns& f = ctx_.fn_;
+    if (!cb_) return;
+    if (skip_label(label_.empty() ? std::string(p.label) : label_)) return;
+    if (bindings.empty() && p.n_bindings) {
+        if (fail_.empty()) fail_ = std::string("dispatch without bindings: ") + p.label;
+        return;
+    }
+    VkDescriptorSet set = alloc_set(p);
+    if (!set) return;   // fail_ is set; submit_and_wait reports it
+    std::vector<VkDescriptorBufferInfo> infos(p.n_bindings);
+    std::vector<VkBufferView> views(p.n_bindings);
+    std::vector<VkWriteDescriptorSet> writes(p.n_bindings);
+    for (uint32_t i = 0; i < p.n_bindings; ++i) {
+        const Ref& r = i < bindings.size() ? bindings[i] : bindings.back();
+        if ((p.texel_mask >> i) & 1u) {
+            const VkDeviceSize range = r.range == VK_WHOLE_SIZE ? r.buf->size - r.off : r.range;
+            std::string verr;
+            views[i] = ctx_.texel_view(*r.buf, r.off, range, verr);
+            if (!views[i]) {
+                if (fail_.empty()) fail_ = verr + " (" + p.label + ")";
+                return;
+            }
+            writes[i] = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+            writes[i].dstSet = set;
+            writes[i].dstBinding = i;
+            writes[i].descriptorCount = 1;
+            writes[i].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
+            writes[i].pTexelBufferView = &views[i];
+            continue;
+        }
+        infos[i].buffer = r.buf->buf;
+        infos[i].offset = r.off;
+        const VkDeviceSize range = r.range == VK_WHOLE_SIZE ? r.buf->size - r.off : r.range;
+        // Never clamp: the kernels address the whole range, so a shorter view
+        // would read and write outside it. Callers size bindings to fit.
+        if (range > ctx_.info_.max_storage_range) {
+            if (fail_.empty())
+                fail_ = std::string("binding ") + std::to_string(i) + " of " + p.label + ": " +
+                        std::to_string(range) + " bytes exceed maxStorageBufferRange (" +
+                        std::to_string(ctx_.info_.max_storage_range) + ")";
+            return;
+        }
+        infos[i].range = range;
+        writes[i] = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+        writes[i].dstSet = set;
+        writes[i].dstBinding = i;
+        writes[i].descriptorCount = 1;
+        writes[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        writes[i].pBufferInfo = &infos[i];
+    }
+    f.vkUpdateDescriptorSets(ctx_.dev_, p.n_bindings, writes.data(), 0, nullptr);
+    emit_barrier(false);
+    f.vkCmdBindPipeline(cb_, VK_PIPELINE_BIND_POINT_COMPUTE, p.pipe);
+    f.vkCmdBindDescriptorSets(cb_, VK_PIPELINE_BIND_POINT_COMPUTE, p.layout, 0, 1, &set, 0, nullptr);
+    uint8_t pc[kPushBytes] = {};
+    std::memcpy(pc, push, std::min<size_t>(push_bytes, kPushBytes));
+    f.vkCmdPushConstants(cb_, p.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, kPushBytes, pc);
+    if (gx && gy && gz) f.vkCmdDispatch(cb_, gx, gy, gz);
+    ++n_dispatch_;
+    if (profile_ && n_queries_ < max_queries_) {
+        f.vkCmdWriteTimestamp(cb_, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, qpool_, n_queries_++);
+        q_labels_.push_back(label_.empty() ? p.label : label_);
+    }
+}
+
+void Recording::barrier() {
+    if (cb_) bar_pending_ = true;
+}
+
+void Recording::emit_barrier(bool dst_xfer) {
+    if (!bar_pending_) return;
+    bar_pending_ = false;
+    const bool src_xfer = bar_xfer_src_;
+    bar_xfer_src_ = false;
+    VkMemoryBarrier mb{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
+    mb.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT | (src_xfer ? VK_ACCESS_TRANSFER_WRITE_BIT : 0u);
+    mb.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT |
+                       (dst_xfer ? VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT : 0u);
+    ctx_.fn_.vkCmdPipelineBarrier(cb_,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | (src_xfer ? VK_PIPELINE_STAGE_TRANSFER_BIT : 0u),
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | (dst_xfer ? VK_PIPELINE_STAGE_TRANSFER_BIT : 0u),
+        0, 1, &mb, 0, nullptr, 0, nullptr);
+}
+
+void Recording::copy(const Buffer& src, VkDeviceSize soff, const Buffer& dst,
+                     VkDeviceSize doff, VkDeviceSize bytes) {
+    if (!cb_) return;
+    emit_barrier(true);
+    VkBufferCopy c{soff, doff, bytes};
+    ctx_.fn_.vkCmdCopyBuffer(cb_, src.buf, dst.buf, 1, &c);
+    bar_xfer_src_ = true;
+}
+
+void Recording::fill(const Buffer& dst, VkDeviceSize off, VkDeviceSize bytes, uint32_t value) {
+    if (!cb_) return;
+    emit_barrier(true);
+    ctx_.fn_.vkCmdFillBuffer(cb_, dst.buf, off, bytes, value);
+    bar_xfer_src_ = true;
+}
+
+bool Recording::submit_and_wait(std::string& err, uint64_t stall_budget_ms) {
+    const Fns& f = ctx_.fn_;
+    if (!fail_.empty()) { err = "recording failed: " + fail_; return false; }
+    if (segs_.empty()) { err = "recording is empty (begin() not called)"; return false; }
+    std::lock_guard<std::mutex> lk(ctx_.queue_mu_);
+    if (ctx_.wedged_) { err = ctx_.wedged_why(); return false; }   // #325: fail fast once wedged
+    VkResult r = VK_SUCCESS;
+    for (size_t i = 0; i < segs_.size(); ++i) {
+        VkSubmitInfo si{VK_STRUCTURE_TYPE_SUBMIT_INFO};
+        si.commandBufferCount = 1;
+        si.pCommandBuffers = &segs_[i];
+        r = f.vkQueueSubmit(ctx_.queue_, 1, &si, i + 1 == segs_.size() ? fence_ : VK_NULL_HANDLE);
+        if (r != VK_SUCCESS) {
+            // Earlier segments may be in flight: drain before reporting.
+            f.vkDeviceWaitIdle(ctx_.dev_);
+            err = vk_err("vkQueueSubmit", r);
+            return false;
+        }
+    }
+    return ctx_.wait_fence(fence_, "vkWaitForFences", err, stall_budget_ms);
+}
+
+void Recording::report_profile(const char* title) const {
+    if (!profile_ || n_queries_ < 2) return;
+    const Fns& f = ctx_.fn_;
+    std::vector<uint64_t> ts(n_queries_);
+    if (f.vkGetQueryPoolResults(ctx_.dev_, qpool_, 0, n_queries_, ts.size() * 8, ts.data(), 8,
+                                VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT) != VK_SUCCESS)
+        return;
+    const double ns = ctx_.info_.timestamp_period_ns;
+    std::map<std::string, std::pair<double, int>> agg;
+    for (uint32_t i = 1; i < n_queries_; ++i) {
+        auto& a = agg[q_labels_[i]];
+        a.first += (double)(ts[i] - ts[i - 1]) * ns * 1e-6;
+        a.second += 1;
+    }
+    const double total = (double)(ts[n_queries_ - 1] - ts[0]) * ns * 1e-6;
+    std::vector<std::pair<double, std::string>> rows;
+    for (auto& kv : agg) rows.push_back({kv.second.first, kv.first});
+    std::sort(rows.rbegin(), rows.rend());
+    std::fprintf(stderr, "[fast-profile] %s: %.3f ms GPU, %zu dispatches\n", title, total, n_dispatch_);
+    for (auto& row : rows)
+        std::fprintf(stderr, "  %-28s %9.3f ms  %5.1f%%  x%d\n", row.second.c_str(), row.first,
+                     100.0 * row.first / std::max(total, 1e-9), agg[row.second].second);
+}
+
+} // namespace starling::fast::vk

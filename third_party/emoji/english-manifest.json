@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "cldr_release": "49",
+  "cldr_commit": "96e54b273d2da4ec6fbad350ba19ff23fa24a588",
+  "emoji_version": "17.0",
+  "rows": 3944,
+  "categories": [
+    "Smileys & Emotion",
+    "People & Body",
+    "Animals & Nature",
+    "Food & Drink",
+    "Travel & Places",
+    "Activities",
+    "Objects",
+    "Symbols",
+    "Flags"
+  ],
+  "bytes": 627512,
+  "sha256": "8cab49584fe5a81ceb32c8c8b1b9ef78510dac2f4d3f83beb3db55768f446263",
+  "qualification": "fully-qualified only; component/nonqualified rows omitted; device font availability separate",
+  "join": "remove FE0F for annotation lookup only; emitted sequences unchanged from fully-qualified source",
+  "source_manifest_sha256": "3dd86a4837c9780755dda931a83b6599120b20a2eda81a4472a86fc92617a019",
+  "indexed": {
+    "bytes": 1314162,
+    "sha256": "696057e9cb8e4e9aa5f85f9581f90648a4cee2e094860c38914c5a5e7c6b836b",
+    "format": "original six columns + normalized title, sorted normalized phrases, sorted unique words; exact JVM/Android index equality required"
+  }
+}

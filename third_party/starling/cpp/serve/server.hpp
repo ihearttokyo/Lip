@@ -1,0 +1,250 @@
+// server.hpp — native starling-serve HTTP/WebSocket server.
+//
+// Wraps libstarling_ggml (the flat C API in cpp/include/starling_ggml.h) behind
+// the HTTP/WS contract the removed Python `starling.server` defined
+// (tag python-research-final); a supervisor starts it with:
+//
+//   spawn("starling-serve", ["--model", slug, "--gguf", path, "--port", "8181"])
+//
+// Endpoints:
+//   GET    /health          → { model, loaded, phase, queue_depth, busy,
+//                              backend, warm, load_error }
+//   GET    /v1/models       → the configured model
+//   POST   /v1/audio/transcriptions → multipart WAV + model → { text }
+//   POST   /normalize       → text models only (s1): { transcript, styling?,
+//                             structure?, context? } → { text, request_id }
+//   POST   /warmup          → idempotent warmup (silent clip / probe text);
+//                             loads a deferred (--no-eager-load) model first
+//   DELETE /v1/audio/transcriptions/<id> → cancel by X-Request-Id
+//   WS     /stream          → real-time streaming dictation
+//
+// One model is resident at a time (the supervisor enforces this). Inference is
+// serialised through a request queue so only one transcribe is in-flight
+// (matching the Python server's single-GPU-worker model).
+#pragma once
+
+#include "starling_ggml.h"
+
+#include <atomic>
+#include <condition_variable>
+#include <cstdint>
+#include <deque>
+#include <functional>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <string>
+#include <thread>
+#include <unordered_map>
+#include <vector>
+
+namespace starling::serve {
+
+// ---- constants (mirror python-research-final:src/starling/server.py) ---------------------------
+constexpr int    kSampleRate           = 16000;
+constexpr double kDefaultMaxChunk      = 30.0;
+// Preview cadence: 1 s first-partial minimum, 0.5 s interval (issue #357).
+// Chosen from the notebook replay against the frozen thresholds (the
+// removed Python server used 5 s / 3 s).
+constexpr double kDefaultMinChunk      = 1.0;
+constexpr double kDefaultPartialInt    = 0.5;
+constexpr double kDefaultStreamChunk   = 12.0;
+constexpr double kDefaultStreamOverlap = 3.0;
+constexpr double kWarmupSeconds        = 5.0;
+constexpr int    kMaxWaiters           = 8;
+constexpr int    kMaxUploadMB          = 256;
+constexpr double kRequestTimeoutS      = 600.0;
+// Per-WS-connection rolling buffer cap (audio beyond the finalized boundary).
+constexpr double kDefaultMaxStreamS    = 60.0;
+
+// ---- model slug ↔ enum ----------------------------------------------------
+// Maps the CLI slug to the C-API model enum. Returns 0 (invalid)
+// if the slug is unknown.
+starling_ggml_model slug_to_model(const std::string& slug);
+const char* model_to_slug(starling_ggml_model m);
+bool is_supported_model(const std::string& slug);
+
+// Build the supported-models space-separated string for --version output.
+std::string supported_models_str();
+
+// ---- config ---------------------------------------------------------------
+struct ServerConfig {
+    std::string model_slug;                        // "parakeet", "moss", ...
+    std::string gguf_path;                         // path to the .gguf file
+    std::string host = "127.0.0.1";
+    int  port        = 8181;
+    bool warmup      = false;
+    bool eager_load  = true;
+    bool granite_chunk_fairness = false; // opt-in: yield FIFO turn after each chunk
+    double max_chunk_seconds       = kDefaultMaxChunk;
+    double min_chunk_seconds       = kDefaultMinChunk;
+    double partial_interval        = kDefaultPartialInt;
+    double stream_chunk_seconds    = kDefaultStreamChunk;
+    double stream_overlap_seconds  = kDefaultStreamOverlap;
+    double max_stream_seconds      = kDefaultMaxStreamS;  // 0 = unlimited
+    double request_timeout_seconds = kRequestTimeoutS;
+    int    max_upload_mb           = kMaxUploadMB;
+};
+
+// ---- lifecycle phase ------------------------------------------------------
+//   unloaded → loading → ready → busy → ready (repeats)
+// "busy" is transient (reported during inference); "ready" is the idle state.
+enum class Phase { Unloaded, Loading, Ready, Busy };
+
+// ---- transcribe result ----------------------------------------------------
+// A word of a transcript and when the engine heard it, in seconds from the
+// start of the transcribed audio (issue #357).
+struct TimedWord {
+    std::string word;
+    double start = 0.0;
+    double end = 0.0;
+};
+
+struct TranscribeResult {
+    std::string text;
+    // The text's whitespace-separated words with their times, when the
+    // engine gives word timestamps (Parakeet); nullopt otherwise.
+    std::optional<std::vector<TimedWord>> words;
+};
+
+// ---- request context (for cancellation) ----------------------------------
+struct RequestContext {
+    std::string id;
+    std::atomic<bool> cancelled{false};
+    std::atomic<bool> running{false};
+    // Completion claim, guarded by StarlingServer::mutex_. Set once the
+    // engine call has finished; cancellation and completion each check the
+    // other under the same lock so exactly one of them wins.
+    bool done = false;
+};
+
+// Queue behaviour for callers without a RequestContext (WS streaming chunks,
+// warmup). Everyone — including anonymous callers — takes a ticket in the
+// serial queue so only one transcribe is ever in-flight; the policy only
+// decides whether an anonymous caller waits for its turn or bails out with
+// "server busy" so it can retry later.
+enum class QueuePolicy { Block, SkipIfBusy };
+
+// ---- the server -----------------------------------------------------------
+class StarlingServer {
+public:
+    explicit StarlingServer(ServerConfig cfg);
+    ~StarlingServer();
+
+    // Lifecycle: load the model into device memory. Idempotent + thread-safe.
+    void load();
+    void warmup();
+
+    // Synchronous transcribe of raw float32 mono PCM samples. Enqueues onto the
+    // serial worker, blocks until done. ctx is used for cancellation; pass
+    // nullptr for fire-and-forget (no cancellation) — the call still queues
+    // behind earlier requests instead of bypassing them.
+    // Returns the result, or sets *err on failure.
+    TranscribeResult transcribe_pcm(const float* samples, int64_t n,
+                                     RequestContext* ctx, std::string* err,
+                                     QueuePolicy policy = QueuePolicy::Block);
+
+    // Synchronous text normalization (s1). Same serial-queue discipline as
+    // transcribe_pcm. Empty control strings select the trained defaults.
+    // Returns the normalized text, or sets *err on failure.
+    std::string normalize_text(const std::string& transcript,
+                               const std::string& styling,
+                               const std::string& structure,
+                               const std::string& context,
+                               RequestContext* ctx, std::string* err,
+                               QueuePolicy policy = QueuePolicy::Block);
+
+    // True when the resident model has a text path (registry normalize_fn).
+    bool is_text_model() const;
+
+    // Cancel a queued/in-flight request by id. Returns true if found.
+    bool cancel_request(const std::string& id);
+
+    // Introspection for /health.
+    std::string model_slug() const { return cfg_.model_slug; }
+    bool loaded() const;
+    bool busy() const;
+    Phase phase() const;
+    int  queue_depth() const;
+
+    // Build a JSON health response body.
+    std::string health_json() const;
+
+    // Register a request for cancellation tracking; returns the context.
+    // Removes it on scope exit via finish_request().
+    RequestContext* register_request(const std::string& id);
+    void finish_request(RequestContext* ctx);
+
+    const ServerConfig& config() const { return cfg_; }
+    std::string backend_identity() const;
+    // The last load failure message, empty when the last load succeeded.
+    std::string load_error() const;
+    // True once warmup() has finished (successfully or with a logged error).
+    bool warm() const;
+
+private:
+    ServerConfig cfg_;
+    // Refreshed after model load latches the selected runtime device. WS
+    // admission reads this cache without taking the C API runtime mutex.
+    std::string backend_identity_;
+    starling_ggml_ctx* model_ = nullptr;
+
+    mutable std::mutex mutex_;       // protects queue state + request registry
+    mutable std::mutex load_mutex_;   // serializes loading and identity updates
+    std::condition_variable queue_cv_;
+
+    // Serial inference queue: requests wait in arrival order. Anonymous
+    // callers (no RequestContext) get a synthesized "#anon-N" ticket so they
+    // queue too; those tickets are never in the requests_ registry and can't
+    // be cancelled.
+    std::deque<std::string> request_order_;
+    std::unordered_map<std::string, std::unique_ptr<RequestContext>> requests_;
+    int n_waiters_ = 0;
+    // A yielded Granite job retains one admission slot until its next ticket.
+    // Capacity checks count these reservations so a newly arrived request
+    // cannot displace an already accepted upload between chunks.
+    int reserved_continuations_ = 0;
+    uint64_t next_anon_id_ = 0;
+
+    // Lifecycle phase.
+    std::atomic<Phase> phase_{Phase::Unloaded};
+    std::atomic<bool> loaded_{false};
+
+    // Why the most recent load failed; empty when it did not (or none ran).
+    // Reported by /health so a supervisor that deferred the load
+    // (--no-eager-load) can tell "failed" from "not yet".
+    std::string load_error_;
+    // Guards backend_identity_ and load_error_. Separate from load_mutex_,
+    // which is held for a whole model load: /health must answer while a
+    // load is running.
+    mutable std::mutex status_mutex_;
+
+    // Warmup dedup (mutable: health_json reports whether warmup finished).
+    mutable std::mutex warmup_mutex_;
+    bool warmup_done_ = false;
+    bool warmup_in_progress_ = false;
+
+    // Internal: run transcribe under the serial lock.
+    TranscribeResult do_transcribe(const float* samples, int64_t n,
+                                    RequestContext* ctx, std::string* err,
+                                    QueuePolicy policy);
+
+    // Internal: take a serial-queue ticket, wait for the turn, run
+    // engine_call (returning a malloc'd string owned by the caller policy
+    // below), release the turn, and map failures to *err. Returns the
+    // engine's string via out_text. Shared by the audio and text paths.
+    // effective_req_id (optional) receives the request id actually used for
+    // the queue ticket (the caller's ctx id, or the synthesized "#anon-N" —
+    // the trace correlates follow-up records like response emission with it).
+    // A successful nonterminal turn reserves one admission slot; its next
+    // call must set continuing=true to transfer that slot to a new ticket.
+    bool run_with_turn(RequestContext* ctx, QueuePolicy policy,
+                       const std::function<char*()>& engine_call,
+                       std::string* out_text, std::string* err,
+                       std::string* effective_req_id = nullptr,
+                       bool complete_request = true,
+                       bool continuing = false);
+};
+
+} // namespace starling::serve
