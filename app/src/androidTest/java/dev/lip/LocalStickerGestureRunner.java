@@ -38,20 +38,28 @@ public final class LocalStickerGestureRunner extends Instrumentation {
         Display display=getTargetContext().getSystemService(WindowManager.class).getDefaultDisplay();DisplayMetrics m=new DisplayMetrics();display.getRealMetrics(m);
         must(display.getRotation()==Surface.ROTATION_0&&m.widthPixels==width&&m.heightPixels==height);
     }
+    // Exact null-safe CharSequence comparison (TextUtils.equals semantics), kept
+    // pure so null-node metadata controls do not need an Android runtime.
+    static boolean same(CharSequence expected,CharSequence actual){
+        if(expected==actual)return true;
+        if(expected==null||actual==null||expected.length()!=actual.length())return false;
+        for(int i=0;i<expected.length();i++)if(expected.charAt(i)!=actual.charAt(i))return false;
+        return true;
+    }
     private boolean hasReceiver(AccessibilityNodeInfo n,int depth){
         if(n==null||depth>32)return false;
-        if(RECEIVER.contentEquals(n.getPackageName())&&"Owned local sticker receiver editor".contentEquals(n.getContentDescription()))
+        if(same(RECEIVER,n.getPackageName())&&same("Owned local sticker receiver editor",n.getContentDescription()))
             return n.isVisibleToUser()&&n.isEditable()&&!n.isPassword();
         for(int i=0;i<n.getChildCount();i++)if(hasReceiver(n.getChild(i),depth+1))return true;return false;
     }
     private boolean hasText(AccessibilityNodeInfo n,String expected,int depth){
         if(n==null||depth>32)return false;
-        if(RECEIVER.contentEquals(n.getPackageName())&&expected.contentEquals(n.getText())&&n.isVisibleToUser())return true;
+        if(same(RECEIVER,n.getPackageName())&&same(expected,n.getText())&&n.isVisibleToUser())return true;
         for(int i=0;i<n.getChildCount();i++)if(hasText(n.getChild(i),expected,depth+1))return true;return false;
     }
     private void tile(AccessibilityNodeInfo n,String label,int x,int y,int depth,int[] matches){
         if(n==null||depth>32)return;
-        if(APP.contentEquals(n.getPackageName())&&label.contentEquals(n.getContentDescription())&&n.isVisibleToUser()){
+        if(same(APP,n.getPackageName())&&same(label,n.getContentDescription())&&n.isVisibleToUser()){
             Rect bounds=new Rect();n.getBoundsInScreen(bounds);must(n.isClickable()&&n.isEnabled()&&bounds.contains(x,y));matches[0]++;
         }
         for(int i=0;i<n.getChildCount();i++)tile(n.getChild(i),label,x,y,depth+1,matches);
@@ -60,8 +68,8 @@ public final class LocalStickerGestureRunner extends Instrumentation {
         dimensions();must(automation.clearCache());List<AccessibilityWindowInfo> windows=automation.getWindows();int editors=0,keyboards=0;
         for(AccessibilityWindowInfo window:windows){
             AccessibilityNodeInfo root=window.getRoot();if(root==null)continue;
-            if(window.getType()==AccessibilityWindowInfo.TYPE_APPLICATION&&RECEIVER.contentEquals(root.getPackageName())&&hasReceiver(root,0)&&hasText(root,"Owned local sticker receiver · accept",0))editors++;
-            if(window.getType()==AccessibilityWindowInfo.TYPE_INPUT_METHOD&&APP.contentEquals(root.getPackageName())){
+            if(window.getType()==AccessibilityWindowInfo.TYPE_APPLICATION&&same(RECEIVER,root.getPackageName())&&hasReceiver(root,0)&&hasText(root,"Owned local sticker receiver · accept",0))editors++;
+            if(window.getType()==AccessibilityWindowInfo.TYPE_INPUT_METHOD&&same(APP,root.getPackageName())){
                 Rect bounds=new Rect();window.getBoundsInScreen(bounds);must(bounds.contains(x1,y1)&&bounds.contains(x2,y2));
                 int[] first={0},second={0};tile(root,"Request original sticker Synthetic png",x1,y1,0,first);tile(root,"Request original sticker Synthetic webp",x2,y2,0,second);
                 must(first[0]==1&&second[0]==1);keyboards++;
