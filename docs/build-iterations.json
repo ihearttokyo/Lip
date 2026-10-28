@@ -92,6 +92,11 @@
       "ordinal": 12,
       "candidate": "macos-agent-finish-shortcut",
       "status": "reserved"
+    },
+    {
+      "ordinal": 13,
+      "candidate": "android-text-editing-panel",
+      "status": "reserved"
     }
   ]
 }

@@ -2,7 +2,7 @@
 
 This replaces the original Android 13/cloud-OAuth/bubble-only contract. Source
 PRs 17 and 18 are merged at `13d87e4439d38811a4c82a8bab747f1d7443d88c`.
-The next **Lip v0.012** identity is reserved source, not a published installer;
+The next **Lip v0.013** identity is reserved source, not a published installer;
 see [release identity](RELEASE-IDENTITY.md). Historical validation/research receipts
 describe their original candidates, not automatic acceptance of current main.
 
@@ -69,6 +69,8 @@ typing archive or cloud history sync is enabled.
 
 Mac source adds an optional Option+Fn finish-only intent and desired provider/effort defaults, retaining local output in Review and excluding cursor insertion for that intent. No actual provider route is admitted. See [source and scoped CLI evidence](MAC-AGENT-SHORTCUT.md).
 
+Android source also adds a tap-only [Text editing panel](TEXT-EDITING-PANEL.md). Eight native editor groups pass, but the complete driver remains FAIL due to unresolved selected-password caret noninterference and incognito setup. This is partial source, not privacy/full-feature acceptance.
+
 Agent shortcut/effort UI does not establish provider capability. Direct/background
 ChatGPT/Claude delivery remains unverified and disabled without an admitted route;
 no simulated send, hidden endpoint, paid fallback or draft-sharing substitute.
@@ -78,7 +80,7 @@ Translation, including a future optional ChatGPT backend, remains future work.
 
 Source/build/synthetic/emulator/physical evidence are distinct. The recorded
 ARM64/API36 CPU+Vulkan build and aggregate checks are scoped implementation
-evidence, not GPU execution or acceptance of the reserved v0.012 package.
+evidence, not GPU execution or acceptance of the reserved v0.013 package.
 Still open: physical microphone/editor matrix, matched GPU/CPU quality/latency/
 memory/power, Hexagon support, macOS intended-use verification, full Gboard parity,
 measured swipe superiority, real provider delivery, signed small-installer/update

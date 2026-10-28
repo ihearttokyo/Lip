@@ -17,7 +17,52 @@ public final class ImeFixtureActivity extends Activity {
     public int foreignStart(){return android.view.inputmethod.BaseInputConnection.getComposingSpanStart(normal.getText());}
     public int foreignEnd(){return android.view.inputmethod.BaseInputConnection.getComposingSpanEnd(normal.getText());}
     public void clearForeignComposition(){hostConnection.finishComposingText();}
-    public int cursorContextReads,passwordCursorContextReads,cursorArrowDispatches,cursorArrowDowns;
+    public int cursorContextReads,passwordCursorContextReads,incognitoCursorContextReads,cursorArrowDispatches,cursorArrowDowns;
+    // Separate text-panel witnesses; existing clipboard/cursor test counters retain their meaning.
+    public int editingSelectAllCommands,editingCutCommands,editingCopyCommands,editingPasteCommands,editingNavigationCommands,editingNavigationDowns;
+    public boolean refuseEditingContextCommands,refuseEditingNavigation;
+    public int editingMultilineConnectionCreations,editingMultilineNavigationCommands,editingMultilineNavigationDowns;
+    public int editingSyntheticShiftDowns,editingSyntheticShiftUps;
+    public int editingPasswordConnectionCreations,editingIncognitoConnectionCreations;
+    private long editingPrivateConnectionRevision;
+    private EditText editingPrivateConnectedField;
+    private synchronized long editingPrivateConnectionOpened(EditText field){editingPrivateConnectedField=field;return ++editingPrivateConnectionRevision;}
+    private synchronized void editingPrivateConnectionClosed(long token){if(token==editingPrivateConnectionRevision)editingPrivateConnectedField=null;}
+    public synchronized long editingPrivateConnectionToken(EditText field){return editingPrivateConnectedField==field?editingPrivateConnectionRevision:0;}
+
+    public int editingShiftMetaState(){return android.text.method.MetaKeyKeyListener.getMetaState(normal.getText(),android.view.KeyEvent.META_SHIFT_ON);}
+    public static final class EditingPrivateAudit {
+        int selection,commit,delete,finishComposing,composingRegion,composingText,menu,key;
+        int lastSelectionStart=-1,lastSelectionEnd=-1;
+    }
+    private final EditingPrivateAudit editingPasswordAudit=new EditingPrivateAudit(),editingIncognitoAudit=new EditingPrivateAudit();
+    public int[] editingPrivateAuditSnapshot(EditText field){
+        EditingPrivateAudit audit=field==password?editingPasswordAudit:field==incognito?editingIncognitoAudit:null;
+        if(audit==null)throw new IllegalArgumentException("Private fixture field required");
+        return new int[]{audit.selection,audit.commit,audit.delete,audit.finishComposing,audit.composingRegion,audit.composingText,audit.menu,audit.key,audit.lastSelectionStart,audit.lastSelectionEnd};
+    }
+    private android.view.inputmethod.InputConnection auditPrivateConnection(android.view.inputmethod.InputConnection base,EditingPrivateAudit audit){
+        return new android.view.inputmethod.InputConnectionWrapper(base,false){
+            @Override public boolean setSelection(int start,int end){audit.selection++;audit.lastSelectionStart=start;audit.lastSelectionEnd=end;return super.setSelection(start,end);}
+            @Override public boolean commitText(CharSequence text,int position){audit.commit++;return super.commitText(text,position);}
+            @Override public boolean commitText(CharSequence text,int position,android.view.inputmethod.TextAttribute attributes){audit.commit++;return super.commitText(text,position,attributes);}
+            @Override public boolean deleteSurroundingText(int before,int after){audit.delete++;return super.deleteSurroundingText(before,after);}
+            @Override public boolean deleteSurroundingTextInCodePoints(int before,int after){audit.delete++;return super.deleteSurroundingTextInCodePoints(before,after);}
+            @Override public boolean finishComposingText(){audit.finishComposing++;return super.finishComposingText();}
+            @Override public boolean setComposingRegion(int start,int end){audit.composingRegion++;return super.setComposingRegion(start,end);}
+            @Override public boolean setComposingRegion(int start,int end,android.view.inputmethod.TextAttribute attributes){audit.composingRegion++;return super.setComposingRegion(start,end,attributes);}
+            @Override public boolean setComposingText(CharSequence text,int position){audit.composingText++;return super.setComposingText(text,position);}
+            @Override public boolean setComposingText(CharSequence text,int position,android.view.inputmethod.TextAttribute attributes){audit.composingText++;return super.setComposingText(text,position,attributes);}
+            @Override public boolean performContextMenuAction(int id){audit.menu++;return super.performContextMenuAction(id);}
+            @Override public boolean sendKeyEvent(android.view.KeyEvent event){audit.key++;return super.sendKeyEvent(event);}
+        };
+    }
+    public void beginEditingComposition(int start,int end){
+        if(hostConnection==null||getCurrentFocus()!=normal||start<0||end<start||end>normal.length())throw new IllegalStateException("Synthetic composition premise unavailable");
+        if(!hostConnection.setComposingRegion(start,end))throw new IllegalStateException("Synthetic composition refused");
+        getSystemService(android.view.inputmethod.InputMethodManager.class).updateSelection(normal,normal.getSelectionStart(),normal.getSelectionEnd(),start,end);
+    }
+    private static boolean editingNavigationKey(int code){return code==android.view.KeyEvent.KEYCODE_DPAD_LEFT||code==android.view.KeyEvent.KEYCODE_DPAD_RIGHT||code==android.view.KeyEvent.KEYCODE_DPAD_UP||code==android.view.KeyEvent.KEYCODE_DPAD_DOWN||code==android.view.KeyEvent.KEYCODE_MOVE_HOME||code==android.view.KeyEvent.KEYCODE_MOVE_END;}
     public boolean refuseWordSelection,delayWordSelection,refuseWordCommit,ambiguousWordCommit;
     public int wordSelectRequests,wordDeleteCommits;
     public int slowWordReadAfter=Integer.MAX_VALUE;
@@ -92,7 +137,15 @@ public final class ImeFixtureActivity extends Activity {
                         else normal.post(response);
                         return true;
                     }
-                    @Override public boolean sendKeyEvent(android.view.KeyEvent event){if(event.getKeyCode()==android.view.KeyEvent.KEYCODE_DPAD_LEFT||event.getKeyCode()==android.view.KeyEvent.KEYCODE_DPAD_RIGHT)cursorArrowDispatches++;return super.sendKeyEvent(event);}
+                    @Override public boolean sendKeyEvent(android.view.KeyEvent event){
+                        if(event.getKeyCode()==android.view.KeyEvent.KEYCODE_DPAD_LEFT||event.getKeyCode()==android.view.KeyEvent.KEYCODE_DPAD_RIGHT)cursorArrowDispatches++;
+                        if(event.getDeviceId()==android.view.KeyCharacterMap.VIRTUAL_KEYBOARD&&(event.getKeyCode()==android.view.KeyEvent.KEYCODE_SHIFT_LEFT||event.getKeyCode()==android.view.KeyEvent.KEYCODE_SHIFT_RIGHT)){
+                            if(event.getAction()==android.view.KeyEvent.ACTION_DOWN)editingSyntheticShiftDowns++;
+                            if(event.getAction()==android.view.KeyEvent.ACTION_UP)editingSyntheticShiftUps++;
+                        }
+                        if(editingNavigationKey(event.getKeyCode())){editingNavigationCommands++;if(event.getAction()==android.view.KeyEvent.ACTION_DOWN)editingNavigationDowns++;if(refuseEditingNavigation)return false;}
+                        return super.sendKeyEvent(event);
+                    }
                     @Override public CharSequence getTextBeforeCursor(int n,int flags){cursorContextReads++;return super.getTextBeforeCursor(n,flags);}
                     @Override public CharSequence getTextAfterCursor(int n,int flags){cursorContextReads++;return super.getTextAfterCursor(n,flags);}
                     @Override public android.view.inputmethod.SurroundingText getSurroundingText(int before,int after,int flags){cursorContextReads++;if(slowInitialWordRead){slowInitialWordRead=false;android.os.SystemClock.sleep(300);}if(wordSelectRequests>=slowWordReadAfter)android.os.SystemClock.sleep(300);return super.getSurroundingText(before,after,flags);}
@@ -137,6 +190,11 @@ public final class ImeFixtureActivity extends Activity {
                     }
                     @Override public boolean performContextMenuAction(int id) {
                         if(id==android.R.id.copy||id==android.R.id.paste){clipboardHostCommands++;if(refuseClipboardActions)return false;}
+                        if(id==android.R.id.selectAll)editingSelectAllCommands++;
+                        if(id==android.R.id.cut)editingCutCommands++;
+                        if(id==android.R.id.copy)editingCopyCommands++;
+                        if(id==android.R.id.paste)editingPasteCommands++;
+                        if(refuseEditingContextCommands&&(id==android.R.id.selectAll||id==android.R.id.cut||id==android.R.id.copy||id==android.R.id.paste))return false;
                         return super.performContextMenuAction(id);
                     }
                     @Override public boolean setComposingText(CharSequence text,int position) {
@@ -148,8 +206,11 @@ public final class ImeFixtureActivity extends Activity {
         normal.setOnEditorActionListener((v, action, event) -> { actions++; return true; });
         password = new EditText(this){
             @Override public android.view.inputmethod.InputConnection onCreateInputConnection(EditorInfo out){
+                editingPasswordConnectionCreations++;
                 android.view.inputmethod.InputConnection base=super.onCreateInputConnection(out);
-                return base==null?null:new android.view.inputmethod.InputConnectionWrapper(base,false){
+                final long token=base==null?0:editingPrivateConnectionOpened(this);
+                return base==null?null:new android.view.inputmethod.InputConnectionWrapper(auditPrivateConnection(base,editingPasswordAudit),false){
+                    @Override public void closeConnection(){editingPrivateConnectionClosed(token);super.closeConnection();}
                     @Override public CharSequence getTextBeforeCursor(int n,int flags){passwordCursorContextReads++;return super.getTextBeforeCursor(n,flags);}
                     @Override public CharSequence getTextAfterCursor(int n,int flags){passwordCursorContextReads++;return super.getTextAfterCursor(n,flags);}
                     @Override public android.view.inputmethod.SurroundingText getSurroundingText(int before,int after,int flags){passwordCursorContextReads++;return super.getSurroundingText(before,after,flags);}
@@ -162,13 +223,42 @@ public final class ImeFixtureActivity extends Activity {
         signedNumber = new EditText(this); signedNumber.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_SIGNED | InputType.TYPE_NUMBER_FLAG_DECIMAL);
         phone = new EditText(this); phone.setInputType(InputType.TYPE_CLASS_PHONE);
         time = new EditText(this); time.setInputType(InputType.TYPE_CLASS_DATETIME | InputType.TYPE_DATETIME_VARIATION_TIME);
-        multiline = new EditText(this); multiline.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        multiline = new EditText(this){
+            @Override public android.view.inputmethod.InputConnection onCreateInputConnection(EditorInfo out){
+                editingMultilineConnectionCreations++;
+                android.view.inputmethod.InputConnection base=super.onCreateInputConnection(out);
+                return base==null?null:new android.view.inputmethod.InputConnectionWrapper(base,false){
+                    @Override public boolean sendKeyEvent(android.view.KeyEvent event){
+                        if(editingNavigationKey(event.getKeyCode())){editingMultilineNavigationCommands++;if(event.getAction()==android.view.KeyEvent.ACTION_DOWN)editingMultilineNavigationDowns++;}
+                        return super.sendKeyEvent(event);
+                    }
+                };
+            }
+        }; multiline.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
         multiline.setImeOptions(EditorInfo.IME_ACTION_SEND | EditorInfo.IME_FLAG_NO_ENTER_ACTION);
         multiline.setOnEditorActionListener((v, action, event) -> { actions++; return true; });
         custom = new EditText(this); custom.setInputType(InputType.TYPE_CLASS_TEXT); custom.setImeActionLabel("Run fixture", 42);
         custom.setOnEditorActionListener((v, action, event) -> { lastCustomAction = action; return true; });
-        incognito = new EditText(this); incognito.setInputType(InputType.TYPE_CLASS_TEXT); incognito.setImeOptions(EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING);
-        for (EditText edit : new EditText[]{normal,password,number,signedNumber,phone,time,multiline,custom,incognito}) root.addView(edit, new LinearLayout.LayoutParams(-1,height));
+        incognito = new EditText(this){
+            @Override public android.view.inputmethod.InputConnection onCreateInputConnection(EditorInfo out){
+                editingIncognitoConnectionCreations++;
+                android.view.inputmethod.InputConnection base=super.onCreateInputConnection(out);
+                final long token=base==null?0:editingPrivateConnectionOpened(this);
+                return base==null?null:new android.view.inputmethod.InputConnectionWrapper(auditPrivateConnection(base,editingIncognitoAudit),false){
+                    @Override public void closeConnection(){editingPrivateConnectionClosed(token);super.closeConnection();}
+                    @Override public CharSequence getTextBeforeCursor(int n,int flags){incognitoCursorContextReads++;return super.getTextBeforeCursor(n,flags);}
+                    @Override public CharSequence getTextAfterCursor(int n,int flags){incognitoCursorContextReads++;return super.getTextAfterCursor(n,flags);}
+                    @Override public android.view.inputmethod.SurroundingText getSurroundingText(int before,int after,int flags){incognitoCursorContextReads++;return super.getSurroundingText(before,after,flags);}
+                    @Override public android.view.inputmethod.ExtractedText getExtractedText(android.view.inputmethod.ExtractedTextRequest request,int flags){incognitoCursorContextReads++;return super.getExtractedText(request,flags);}
+                };
+            }
+        }; incognito.setInputType(InputType.TYPE_CLASS_TEXT); incognito.setImeOptions(EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING);
+        for (EditText edit : new EditText[]{normal,password,number,signedNumber,phone,time,multiline,custom,incognito}) {
+            // This explicit test mode makes three short native multiline rows visible;
+            // all original fixture dimensions and single-line ordinary cases remain.
+            int editHeight=getIntent().getBooleanExtra("textEditingFixture",false)&&edit==multiline?(int)(120*getResources().getDisplayMetrics().density):height;
+            root.addView(edit,new LinearLayout.LayoutParams(-1,editHeight));
+        }
         android.widget.Button compose=new android.widget.Button(this);compose.setText("Synthetic composition");compose.setContentDescription("Start synthetic host composition");
         compose.setFocusable(false);compose.setFocusableInTouchMode(false);
         compose.setOnClickListener(v->{if(hostConnection!=null)hostConnection.setComposingRegion(0,4);});root.addView(compose);

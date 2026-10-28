@@ -56,6 +56,7 @@
     <instrumentation android:name="dev.lip.StickerImeActionDriver" android:targetPackage="${lipInstrumentationTestTarget}" android:functionalTest="true" />
     <instrumentation android:name="dev.lip.StickerReadBarrierRunner" android:targetPackage="${lipInstrumentationTarget}" android:functionalTest="true" />
     <instrumentation android:name="dev.lip.OwnedUndoRedoRunner" android:targetPackage="${lipInstrumentationTestTarget}" android:functionalTest="true" />
+    <instrumentation android:name="dev.lip.TextEditingRunner" android:targetPackage="${lipInstrumentationTestTarget}" android:functionalTest="true" />
     <application>
         <activity android:name="dev.lip.StickerEditorFixtureActivity" android:enabled="${stickerFixtureEnabled}"
             android:exported="true" android:windowSoftInputMode="adjustResize|stateAlwaysVisible"

@@ -1,7 +1,7 @@
 package dev.lip.keyboard
 
 /** Original implementation of the geometry in Jared's supplied Gboard references. */
-enum class KeyboardPage { LETTERS, SYMBOLS, EXTRA_SYMBOLS, NUMBER_PAD, EMOJI, CLIPBOARD, GIF, STICKERS }
+enum class KeyboardPage { LETTERS, SYMBOLS, EXTRA_SYMBOLS, NUMBER_PAD, EMOJI, CLIPBOARD, GIF, STICKERS, TEXT_EDITING }
 enum class KeyAction { TYPE, SHIFT, DELETE, MODE, EMOJI, SPACE, EDITOR_ACTION, EXTRA_SYMBOLS, NUMBER_PAD, SPACER }
 data class KeySpec(val label: String, val action: KeyAction = KeyAction.TYPE, val units: Float = 1f, val hint: String? = null)
 
