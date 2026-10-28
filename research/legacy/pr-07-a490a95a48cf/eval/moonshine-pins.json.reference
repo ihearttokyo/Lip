@@ -1,0 +1,126 @@
+{
+  "schema_version": 1,
+  "source_revision": "234f60faa0eb388b01cdf7e60aca232af37aefda",
+  "asset_revision": "0bf2f2e5aff22e6fbba4300b00a4e00bbc4f8aae",
+  "runtime_revision": "306c88f4d1286aec1bf96e544632897886af5501",
+  "initial_pins_sha256": "1f4e05b8b8d8fb7907789e6c3709ae7cd6e7cd014010dd4c47651f4fdbd6df6c",
+  "initial_ci_sha256": "04adcd5d695b6ebdbc94cafcb1cd459fd801736a54a8ca04c828afef04c19c73",
+  "source_sha256": {
+    "eval/corpus.json": "46b5595291997beda8b5648541400640a80b458a411c2572bd9d4f83f49c01ef",
+    "eval/controls.json": "eb8a7133e3dcd11d056bc2324384b3d7b664fff29d700f052b1cb67d9e6a0620",
+    "eval/benchmark.py": "a681b82e4c444756bda0f3440a84c0ef3df47819e9da0af5628f6f4db4621e76",
+    "eval/fetch_corpus.py": "6a1eaa51507aff890c5c334c632b0e5fdd6634acdd109c26207a2c5e2a3a50bf",
+    "eval/vad_holdouts.py": "15e880e14aea1e93210e7f9dfd744cddce9ae12bad11906010325eba2f17b435",
+    "eval/observe_vad.py": "f4a05cb94ed37e751da117135eb99b999753444332160b25ce724be28baade9b",
+    "eval/controls.py": "a8a842b294cc0d465ff173925d737fbc7b66944527041efe8fbe123fc52ca93a",
+    "eval/qwen17_ci.py": "081d9043960f3edfb612678580c1348ee81b0567870ee3f270158d9e9642448e",
+    "eval/qwen17_cli.py": "baab465befce891e41138ed146da9975c75aadadf0bbb3b2861430d09a0215b1",
+    "eval/sensevoice_cli.py": "e9688330565adf99a794b4b2e89397b0568c69a56ac51a7a5bb835ac7eaa0b0a"
+  },
+  "wheel": {
+    "name": "moonshine_voice-0.1.5-py3-none-manylinux_2_34_x86_64.whl",
+    "url": "https://files.pythonhosted.org/packages/a9/9d/228f738b48e0e7cc1de97c3f842b5470c6a3c5f7a0bffbf13c3d00eefb87/moonshine_voice-0.1.5-py3-none-manylinux_2_34_x86_64.whl",
+    "bytes": 19897307,
+    "sha256": "1ed9e0ccf94be4845d69e7fa862dcf4c8b5801a758796966494c694f48184496"
+  },
+  "publisher_python_sha256": {
+    "moonshine_voice/__init__.py": "d913b5d44f564c2afc999216687aa03e66577a392b2bb088a67e3894901de04e",
+    "moonshine_voice/moonshine_api.py": "19e1a22cd7087c8c70802322e80ebad560101428a10a9153f22571362ee51db6",
+    "moonshine_voice/transcriber.py": "d96159533259267aa9ce7bd98721ebbdd375431f806fa06fdb3fb1c5a40e435f",
+    "moonshine_voice/utils.py": "0175e37e2fc69888cb230ed4390f9f22589bc4469e646b1a5e3d3ad96a6fa391",
+    "moonshine_voice/download.py": "d55833e734b041d656bd3ad393d3fde5a1dbb0ad63b15b0d4827782b1264642f",
+    "moonshine_voice/errors.py": "90eb15bb1c5c60f687b08af9efa1bee6d8271b55b80c877a836a0981718cbf0f",
+    "moonshine_voice/download_file.py": "b54b70037f8af1ad9d85bcd54960b399200f7fd6489eb3b36b7a83cb13fe86d3"
+  },
+  "models": [
+    {
+      "name": "adapter.ort",
+      "bytes": 3651296,
+      "url": "https://huggingface.co/moonshine-ai/moonshine-voice-assets/resolve/0bf2f2e5aff22e6fbba4300b00a4e00bbc4f8aae/model/medium-streaming-en/quantized_26_08_21/adapter.ort",
+      "sha256": "3f2a287def57cc094367a0eec3c4f5fc36a32ec420e86764b696920991b20281"
+    },
+    {
+      "name": "cross_kv.ort",
+      "bytes": 11643776,
+      "url": "https://huggingface.co/moonshine-ai/moonshine-voice-assets/resolve/0bf2f2e5aff22e6fbba4300b00a4e00bbc4f8aae/model/medium-streaming-en/quantized_26_08_21/cross_kv.ort",
+      "sha256": "642f6e21cd305be79342207c6f9e6b681d469d55bc48c72b27b84846fb71fd1e"
+    },
+    {
+      "name": "decoder_kv.ort",
+      "bytes": 146972408,
+      "url": "https://huggingface.co/moonshine-ai/moonshine-voice-assets/resolve/0bf2f2e5aff22e6fbba4300b00a4e00bbc4f8aae/model/medium-streaming-en/quantized_26_08_21/decoder_kv.ort",
+      "sha256": "193bb366492b74fc4ad338c6778e8d8eb916aaa11b5aa264f9057f4db7759486"
+    },
+    {
+      "name": "encoder.ort",
+      "bytes": 94705376,
+      "url": "https://huggingface.co/moonshine-ai/moonshine-voice-assets/resolve/0bf2f2e5aff22e6fbba4300b00a4e00bbc4f8aae/model/medium-streaming-en/quantized_26_08_21/encoder.ort",
+      "sha256": "12915e76ebac7dd287c5ea63965d06103a53ba1ce242a4a34f318f3958c60c37"
+    },
+    {
+      "name": "frontend.model.ort",
+      "bytes": 28720,
+      "url": "https://huggingface.co/moonshine-ai/moonshine-voice-assets/resolve/0bf2f2e5aff22e6fbba4300b00a4e00bbc4f8aae/model/medium-streaming-en/quantized_26_08_21/frontend.model.ort",
+      "git_blob_sha1": "e8fdaceff0c9f6bb54d9407d92b5afa25a959505"
+    },
+    {
+      "name": "frontend.weights.ort",
+      "bytes": 11889560,
+      "url": "https://huggingface.co/moonshine-ai/moonshine-voice-assets/resolve/0bf2f2e5aff22e6fbba4300b00a4e00bbc4f8aae/model/medium-streaming-en/quantized_26_08_21/frontend.weights.ort",
+      "sha256": "5ac941f490cbe035b335b99a414cc393d62d4c6f9f2423495b286870d271d709"
+    },
+    {
+      "name": "streaming_config.json",
+      "bytes": 513,
+      "url": "https://huggingface.co/moonshine-ai/moonshine-voice-assets/resolve/0bf2f2e5aff22e6fbba4300b00a4e00bbc4f8aae/model/medium-streaming-en/quantized_26_08_21/streaming_config.json",
+      "sha256": "28e83b7a28e91472692a035e0dae3116422ae43aeb2bef5ed822c44ce89b88af"
+    },
+    {
+      "name": "tokenizer.bin",
+      "bytes": 249974,
+      "url": "https://huggingface.co/moonshine-ai/moonshine-voice-assets/resolve/0bf2f2e5aff22e6fbba4300b00a4e00bbc4f8aae/model/medium-streaming-en/quantized_26_08_21/tokenizer.bin",
+      "sha256": "6884b35fd6377d4c4d32336a0bc152f36b64d1e45b6503683cdc238250a8472d"
+    }
+  ],
+  "options": {
+    "vad_threshold": "0",
+    "vad_max_segment_duration": "0",
+    "use_speculative_decoding": "false",
+    "word_timestamps": "false",
+    "identify_speakers": "false",
+    "return_audio_data": "false",
+    "ort_providers": "CPU"
+  },
+  "model_arch": 5,
+  "native_header_version": 30000,
+  "dependency_policy": "Only installed platformdirs; freeze full Python-source and distribution metadata readback before inference. No pip or transitive downloads. Other third-party Python imports are not needed by this path.",
+  "qualification": {
+    "quality_passed": false,
+    "native_completion_verified": false,
+    "three_language_parity": false,
+    "android_verified": false,
+    "promotion_allowed": false
+  },
+  "attribution": {
+    "runtime_models": "Moonshine publisher MIT source/model catalog at pinned revision; no redistribution claim",
+    "audio": "Google FLEURS, Conneau et al. (2022), CC BY 4.0; see eval/README.md. Frozen nonspeech controls MIT."
+  },
+  "native_controls": {
+    "environment": {
+      "MOONSHINE_ORT_SINGLE_THREAD": "1"
+    },
+    "source_sha256": {
+      "core/ort-utils/ort-utils.h": "ee77f361dfa3312ae8b74763bdec0e80161917262fb83e85a4b77fba3e9f5dc4",
+      "core/ort-utils/ort-utils.cpp": "919d3879378a1e9aa66c3420b09917f01b652b3faa7a36df1b18dbf6e6583906",
+      "core/ort-utils/ort-utils-ep.cpp": "e856dc24658a68c15ec4eb06eb84438daa56c02baa3d2ce7546f587e9c4b547f",
+      "core/moonshine-streaming-model.cpp": "a30c1e159ca806e055ff0086ab1da5b6b1c5a11f644d347fc8eb40078bf80f49"
+    },
+    "intra_op_threads": 1,
+    "inter_op_threads": 1,
+    "execution_mode": "ORT_SEQUENTIAL",
+    "cpu_affinity_count": 3,
+    "observed_process_thread_limit": 3,
+    "continuous_thread_bound_verified": false,
+    "scope": "RAW EN reliability observation only; publisher ThreadSanitizer escape hatch, not production performance proof"
+  }
+}

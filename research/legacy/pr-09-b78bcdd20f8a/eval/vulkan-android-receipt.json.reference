@@ -1,0 +1,306 @@
+{
+  "schema_version": 1,
+  "scope": "Hosted ARM64/API33 same-binary CPU/Vulkan CLI build and static package verification only",
+  "source_sha": "b36dc77c0697985b4563ee708ea786308d78c519",
+  "source_branch": "codex/lip-vulkan-android",
+  "run_id": 37990048176,
+  "run_url": "https://github.com/ihearttokyo/Lip/actions/runs/37990048176",
+  "status": "PASSED",
+  "collection_status": "COMPLETE",
+  "prior_failure": {
+    "run_id": 37988715217,
+    "source_sha": "5d863b900f85bb39ac430a1dbe4e0d1068fb3f91",
+    "stage": "admission before SDK/build",
+    "artifacts": 0,
+    "exact_first_trigger": "not established from retained generic diagnostic",
+    "source_incompatibility_repaired": "Parent Python soft2GiB/hard8GiB now allows unchanged qualified native child8GiB hard limit"
+  },
+  "artifacts": [
+    {
+      "id": 11644598617,
+      "bytes": 476875,
+      "sha256": "cc375b29d6d0e6bc832d234a9f70daaa4c712b111253810de44212ee1d344a84",
+      "files": 56,
+      "expanded_bytes": 3620392
+    },
+    {
+      "id": 11644368740,
+      "bytes": 20571331,
+      "sha256": "84af7829976e8a11aa5a8101f877d15bcbfa2c08ae7cd2a4fcff87423e16f7fb",
+      "files": 1,
+      "expanded_bytes": 20973231
+    }
+  ],
+  "helper_pins": {
+    "eval/vulkan_android_ci.py": {
+      "bytes": 48402,
+      "sha256": "4ee847b9a4ef6ad36ef7cd3fa769169695ef3d217da15282ff30d1972f41c910"
+    },
+    "eval/test_vulkan_android_ci.py": {
+      "bytes": 34635,
+      "sha256": "7424f8afaeeb6547929fd9a054805e1f055058cffad4ce47ba53d1c7de982fe9"
+    },
+    ".github/workflows/vulkan-android-bench.yml": {
+      "bytes": 2797,
+      "sha256": "ea0cf3f95a51342821a1333d89cc448c09ac8d69c2e513de8d76ca9dc5475b4e"
+    },
+    "eval/vulkan_build_ci.py": {
+      "bytes": 37476,
+      "sha256": "14044b958c9cf2a456c544ef7e568791f852c10f78917efd26368e0ce2960682"
+    },
+    "eval/vulkan_preflight.py": {
+      "bytes": 50342,
+      "sha256": "0611787a3a24c8fde2ff247df89ce8be9ce868512c38edc31586ad2247d41bba"
+    },
+    "eval/vulkan-preflight-pins.json": {
+      "bytes": 4274,
+      "sha256": "b7ae8eedcd6c00cebbf6608a3151ad7893f02682040edee21c2fd213aac1e3f2"
+    },
+    "eval/qwen17_cli.py": {
+      "bytes": 18256,
+      "sha256": "baab465befce891e41138ed146da9975c75aadadf0bbb3b2861430d09a0215b1"
+    },
+    "app/src/main/cpp/patches/whisper-scheduler-abort.json": {
+      "bytes": 836,
+      "sha256": "c53d9166c8a4bb02166aba432b46631415cb26dc92baad8fb8996de6b3f64048"
+    }
+  },
+  "source_revision": "306c88f4d1286aec1bf96e544632897886af5501",
+  "generated_source": {
+    "cli": {
+      "bytes": 68597,
+      "sha256": "f263fa01e06e9a1abd4d7398d0e9bb923dca66e60089fb058814f3a0c65a26b5"
+    },
+    "parent": {
+      "bytes": 636,
+      "sha256": "4074f6df9e6265d4ed3482b4b7b00464db460d208ed2ee7e4cef67ad3e32ea68"
+    },
+    "pristine_cli_sha256": "840f331f80a98c41fc21eb4cf109c4c6a5496b8f248e9bbce58dd733dece76b2",
+    "cancellation_output_sha256": "4cee50443113fab137c0ae6c93fcf5a701c92c600588ba7f1bc840ed3dfacdd7"
+  },
+  "qualification": {
+    "abi": "arm64-v8a",
+    "api": 33,
+    "load_alignment": 16384,
+    "cli_interpreter": "/system/bin/linker64",
+    "cpu_arch": "armv8-a",
+    "ndk": "30.0.16248370",
+    "cmake": "4.1.2",
+    "vulkan_header_revision": 335,
+    "configured_compile_rows": 176,
+    "required_compiled_rows": 167,
+    "configured_unbuilt_unrelated_rows": 9,
+    "native_object_witnesses": 161,
+    "all_compile_object_witnesses": 167,
+    "ninja_cli_command_count": 318,
+    "spirv_variants": 1393,
+    "system_stubs_packaged": false,
+    "shader_translation_units": 135,
+    "linked_spirv_bytes": 32511564,
+    "q5_spirv_variants": 138,
+    "ndk_runtime_notes": {
+      "api": 21,
+      "ndk_major": "r28",
+      "scope": "r30 bundled libc++ payload; not misrepresented as r30-built API33"
+    }
+  },
+  "package": {
+    "bytes": 20973231,
+    "sha256": "95b9bb721fb71eab9170943b20401c47fcf43650c1adcf40f8be891722a61f40"
+  },
+  "package_expanded_bytes": 77867205,
+  "package_members": [
+    "NOTICES.txt",
+    "libc++_shared.so",
+    "libggml-base.so",
+    "libggml-cpu.so",
+    "libggml-vulkan.so",
+    "libggml.so",
+    "libwhisper.so",
+    "manifest.json",
+    "whisper-cli"
+  ],
+  "package_files": {
+    "whisper-cli": {
+      "bytes": 5820304,
+      "sha256": "fcb948dc0b72d755e7188be5ff9147c02db48b4306541feaa608dda4d01236fb"
+    },
+    "libc++_shared.so": {
+      "bytes": 9485032,
+      "sha256": "7466ed097631a564ed6bff0b47768caa76bf03270d2047b5a65c03f497b824df"
+    },
+    "libggml-base.so": {
+      "bytes": 5191104,
+      "sha256": "d9ffea1c5fdf9c56341bb260898e7abe8971dc33f23a1326b9c6e26fd2f144d0"
+    },
+    "libggml-cpu.so": {
+      "bytes": 4119720,
+      "sha256": "9b2d76327686d9baf4185950cdc0e1337a9d43df877be6ff9aeedebb4befa012"
+    },
+    "libggml-vulkan.so": {
+      "bytes": 45167784,
+      "sha256": "5058ebff83479fcf079b7f4ab82042dbda18f13f57a497397e3570191ce7b94f"
+    },
+    "libggml.so": {
+      "bytes": 446576,
+      "sha256": "cd81109ab2f281215d9c2cfe7026acb3de134aa65f117384a2ef9c0ef01e42f2"
+    },
+    "libwhisper.so": {
+      "bytes": 6312344,
+      "sha256": "996951fc3266381715d13b85d80b2ff916453a319b5008d6725c255e38fcfd6f"
+    },
+    "NOTICES.txt": {
+      "bytes": 1309901,
+      "sha256": "b2d0e04d5a72872f6b9fa6b5526e0910010a4d573f63cceae36efa316db798e9"
+    }
+  },
+  "parameters": {
+    "cpu": {
+      "max_initial_ts": 1.0,
+      "n_threads": 4,
+      "best_of": 5,
+      "audio_ctx": 0,
+      "n_max_text_ctx": 224,
+      "no_context": 1,
+      "no_timestamps": 0,
+      "token_timestamps": 0,
+      "use_gpu": 0,
+      "flash_attn": 1,
+      "vad": 0,
+      "translate": 0,
+      "temperature": 0,
+      "temperature_inc": 0.2,
+      "entropy_thold": 2.4,
+      "logprob_thold": -1,
+      "no_speech_thold": 0.6,
+      "prompt_bytes": 0,
+      "n_processors": 1,
+      "strategy": "GREEDY"
+    },
+    "gpu": {
+      "max_initial_ts": 1.0,
+      "n_threads": 4,
+      "best_of": 5,
+      "audio_ctx": 0,
+      "n_max_text_ctx": 224,
+      "no_context": 1,
+      "no_timestamps": 0,
+      "token_timestamps": 0,
+      "use_gpu": 1,
+      "flash_attn": 1,
+      "vad": 0,
+      "translate": 0,
+      "temperature": 0,
+      "temperature_inc": 0.2,
+      "entropy_thold": 2.4,
+      "logprob_thold": -1,
+      "no_speech_thold": 0.6,
+      "prompt_bytes": 0,
+      "n_processors": 1,
+      "strategy": "GREEDY"
+    }
+  },
+  "system_dependencies_not_packaged": [
+    "libc.so",
+    "libdl.so",
+    "libm.so",
+    "libvulkan.so"
+  ],
+  "license_members": [
+    "whisper-license.txt",
+    "Vulkan-Hpp-license.txt",
+    "SPIRV-Headers-license.txt",
+    "ndk-notices.txt",
+    "ndk-toolchain-notices.txt"
+  ],
+  "runtime_guards": {
+    "permitted_after_explicit_reconnect_only": true,
+    "normal_platform_permissions_only": true,
+    "same_binary_and_libraries": true,
+    "variable": "use_gpu only",
+    "q5_execution_witness": "completed positive Vulkan Q5 matrix timestamp block, not enumeration",
+    "full_wave": "signed PCM16 /32768f; no crop/VAD/gain/prompt",
+    "isolated_process_hardkill": "containment only, not cooperative production cancellation"
+  },
+  "acceptance": {
+    "android_or_gpu_acceptance": false,
+    "gpu_execution_acceptance": false,
+    "quality_acceptance": false,
+    "latency_acceptance": false,
+    "cancellation_acceptance": false
+  },
+  "not_checked": [
+    "Phone GPU execution or driver support",
+    "Any speech accuracy or timing",
+    "Warm app/JNI, microphone, preview, Stop or bubble/Gboard path",
+    "Production Vulkan cooperative cancellation",
+    "Authenticated ChatGPT formatting"
+  ],
+  "promotion": "none; isolated draft only",
+  "component_attribution": [
+    {
+      "name": "whisper.cpp / GGML",
+      "author": "The ggml authors",
+      "license": "MIT",
+      "source": "https://github.com/ggml-org/whisper.cpp/tree/306c88f4d1286aec1bf96e544632897886af5501"
+    },
+    {
+      "name": "miniaudio 0.11.24",
+      "author": "David Reid",
+      "license": "Public Domain or MIT-0 (both original texts retained)",
+      "source": "https://github.com/ggml-org/whisper.cpp/blob/306c88f4d1286aec1bf96e544632897886af5501/examples/miniaudio.h"
+    },
+    {
+      "name": "stb_vorbis 1.22",
+      "author": "Sean Barrett and contributors",
+      "license": "Public Domain alternative (original source also offers MIT)",
+      "source": "https://github.com/ggml-org/whisper.cpp/blob/306c88f4d1286aec1bf96e544632897886af5501/examples/stb_vorbis.c",
+      "notice_scope": "Attribution recorded here; original dual-license text retained in pinned public vendor source"
+    },
+    {
+      "name": "Vulkan-Hpp and SPIRV-Headers",
+      "author": "Khronos Group and contributors",
+      "license": "Original pinned licenses retained in NOTICES.txt"
+    },
+    {
+      "name": "Android NDK shared C++ runtime",
+      "license": "Original NDK and toolchain notices retained in NOTICES.txt"
+    }
+  ],
+  "evidence_report": {
+    "bytes": 929914,
+    "sha256": "ae6cdc37586284597458e9da76291ed70427473da23ca3b980f8fe35bd5a2b83"
+  },
+  "source_identity_counts": {
+    "pinned_sources": 32,
+    "helpers": 8,
+    "connected_source": 1739
+  },
+  "hosted_probes": {
+    "count": 46,
+    "complete_outputs": 46,
+    "joined_cleanup": 46,
+    "expected_unsupported_extensions": 7,
+    "retained_warnings": {
+      "missing_depfile": 5,
+      "upstream_stb_vorbis": 1
+    }
+  },
+  "independent_audit": {
+    "child_id": "01a12281-64e7-7cc1-a73e-9c016bf18f8c",
+    "verdict": "clean in hosted/static package scope",
+    "peak_observed_rss_bytes": 215040000,
+    "fixture_passes": 13,
+    "actual_checks": [
+      "full56filesZIPCRC/byte hashes/UTF8",
+      "complete167objectNinja/build graph closure",
+      "every1393linkedSPIRVarray hash from actual ELF symbols",
+      "actualELFdynamicSONAME/DT_NEEDED/16KiB/interpreter/closure",
+      "complete package manifest/notices/hash readback"
+    ],
+    "limits": [
+      "raw hosted event/environment and unavailable host object/toolchain/archive bytes not independently retrieved",
+      "no Android or native execution"
+    ]
+  }
+}

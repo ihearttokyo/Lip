@@ -1,0 +1,3624 @@
+{
+  "schema_version": 1,
+  "outcome": "rejected_for_quality_and_nonregression_not_promoted",
+  "acceptance": "not_assessed",
+  "evidence_class": "actual_public_hosted_CPU_inference_with_independently_recomputed_text_scores",
+  "scope": "Frozen public read-speech and quiet derivatives; not Android, microphone, spontaneous dictation, warm latency or authenticated formatting evidence.",
+  "source_commit": "74eb294a1d26661178bd32d6aa5ed22311ce011c",
+  "runtime_revision": "306c88f4d1286aec1bf96e544632897886af5501",
+  "run_url": "https://github.com/ihearttokyo/Lip/actions/runs/37996614044",
+  "artifact_id": 11648454276,
+  "artifact_zip_bytes": 354365,
+  "artifact_zip_sha256": "af3221509b35c9c6d370b3ab3018ab11aee2689f6e79ccd046c3ed63525569db",
+  "verified_text_files": 378,
+  "verified_text_bytes": 953206,
+  "source_sha256": {
+    ".github/workflows/initial-ts-experiment.yml": "6c94851def3805a53fcd3c0e7270d4dd1149f37184ebe40cdb39afc5102c1fc9",
+    ".github/workflows/normalization-experiment.yml": "4d4bbf1d3142ac368b67fd65730aee078fbb99d9eacf1726a052ad86c8b0fabf",
+    "NOTICE.md": "ee599072fb1086cf84455c7a6680e2096ca06718f114e47909114615be596911",
+    "app/src/main/cpp/whisper_jni.cpp": "7f6e5ed3587b7ed1bb7a1cb4da81290caef35db8042e9d36e7a7c823727b2d04",
+    "eval/benchmark.py": "a681b82e4c444756bda0f3440a84c0ef3df47819e9da0af5628f6f4db4621e76",
+    "eval/controls.json": "eb8a7133e3dcd11d056bc2324384b3d7b664fff29d700f052b1cb67d9e6a0620",
+    "eval/controls.py": "a8a842b294cc0d465ff173925d737fbc7b66944527041efe8fbe123fc52ca93a",
+    "eval/corpus.json": "46b5595291997beda8b5648541400640a80b458a411c2572bd9d4f83f49c01ef",
+    "eval/fetch_corpus.py": "6a1eaa51507aff890c5c334c632b0e5fdd6634acdd109c26207a2c5e2a3a50bf",
+    "eval/initial-ts-pins.json": "1f4e05b8b8d8fb7907789e6c3709ae7cd6e7cd014010dd4c47651f4fdbd6df6c",
+    "eval/initial_ts_ci.py": "04adcd5d695b6ebdbc94cafcb1cd459fd801736a54a8ca04c828afef04c19c73",
+    "eval/normalization_ci.py": "018d48708046daa7327ccaed90eef9718f2537e1a84a01aeb171c11f9e7ab4b0",
+    "eval/observe_vad.py": "f4a05cb94ed37e751da117135eb99b999753444332160b25ce724be28baade9b",
+    "eval/quant_ci.py": "e9dba7eef60e232dfd7ab6cfecac60783176d35ff88b0237c0a376cbfead47f0",
+    "eval/qwen17_ci.py": "081d9043960f3edfb612678580c1348ee81b0567870ee3f270158d9e9642448e",
+    "eval/qwen17_cli.py": "baab465befce891e41138ed146da9975c75aadadf0bbb3b2861430d09a0215b1",
+    "eval/sensevoice_cli.py": "e9688330565adf99a794b4b2e89397b0568c69a56ac51a7a5bb835ac7eaa0b0a",
+    "eval/test_initial_ts_ci.py": "1059cc41c91ef5fad5b99a5a04f6128b4c5c2b1276b5456f4698afd5bbb1a785",
+    "eval/test_normalization_ci.py": "35d4e5003d7c8f7178a80a984727880efebacbf3e340a69e550cbae9695d5e01",
+    "eval/test_quant_ci.py": "4f7c219c95c3dd0db24f736d701c7f417fde266240e83989a5d6d307227ca041",
+    "eval/vad_holdouts.py": "15e880e14aea1e93210e7f9dfd744cddce9ae12bad11906010325eba2f17b435",
+    "third_party/whisper.cpp/examples/cli/cli.cpp": "840f331f80a98c41fc21eb4cf109c4c6a5496b8f248e9bbce58dd733dece76b2",
+    "third_party/whisper.cpp/examples/common-whisper.cpp": "852fbc77d2461322a82b9c571cf4703bac3c78c5c51d3a90e80792ce0c04e313",
+    "third_party/whisper.cpp/examples/miniaudio.h": "c029554572ae71a94b7825ef1ab9bd7e646344a79e2e852a03f8b18e428c1443",
+    "third_party/whisper.cpp/src/whisper.cpp": "00d02d64b6818ef24ab97cc2184794634668e7cb0343ede2791d78a3f651dc45"
+  },
+  "pins_sha256": "ac88a146c242547721c98f97035f137bb3a382278e68d1b49e96dc1e5328417e",
+  "model": {
+    "bytes": 574041195,
+    "sha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+    "revision": "5359861c739e955e79d9a303bcbc70fb988958b1"
+  },
+  "common_decoder_parameters": {
+    "max_initial_ts": 1.0,
+    "n_threads": 4,
+    "best_of": 5,
+    "audio_ctx": 0,
+    "n_max_text_ctx": 224,
+    "no_context": 1,
+    "no_timestamps": 0,
+    "token_timestamps": 0,
+    "use_gpu": 0,
+    "flash_attn": 1,
+    "vad": 0,
+    "translate": 0,
+    "temperature": 0,
+    "temperature_inc": 0.200000003,
+    "entropy_thold": 2.4000001,
+    "logprob_thold": -1,
+    "no_speech_thold": 0.600000024,
+    "prompt_bytes": 0,
+    "n_processors": 1
+  },
+  "variable": "Only full-wave peak0.5 gain. Same complete Q5 model, common CPU binary/backend/decoder; adjacent pairs alternate first arm. Encoding, every sample/frame and safe metadata retained. No VAD, cropping, reference hints or noise filtering.",
+  "results_verified": 72,
+  "normalization_records_verified": 36,
+  "summary": {
+    "baseline": {
+      "original": {
+        "total": 18,
+        "strict_passes": 15,
+        "errors": 20,
+        "reference_units": 503
+      },
+      "quiet": {
+        "total": 12,
+        "strict_passes": 1,
+        "errors": 179,
+        "reference_units": 356
+      },
+      "controls": {
+        "total": 6,
+        "strict_passes": 0,
+        "errors": 39,
+        "reference_units": 0
+      }
+    },
+    "normalized": {
+      "original": {
+        "total": 18,
+        "strict_passes": 15,
+        "errors": 21,
+        "reference_units": 503
+      },
+      "quiet": {
+        "total": 12,
+        "strict_passes": 1,
+        "errors": 205,
+        "reference_units": 356
+      },
+      "controls": {
+        "total": 6,
+        "strict_passes": 0,
+        "errors": 39,
+        "reference_units": 0
+      }
+    }
+  },
+  "quality_passed": false,
+  "per_case_nonregression_passed": false,
+  "candidate_controls_exact_empty": false,
+  "quiet_strict_passes_increased": false,
+  "acceptance_flags": {
+    "phone": false,
+    "warm_live": false,
+    "cancellation": false,
+    "cloud_parity": false,
+    "full_acceptance": false
+  },
+  "regressions": [
+    {
+      "id": "fleurs-en-011-minus24db-pause-before",
+      "population": "quiet",
+      "errors_baseline": 23,
+      "errors_normalized": 2,
+      "reference_units": 24,
+      "increased_errors": false,
+      "new_failed_anchors": [],
+      "lost_strict_pass": false,
+      "duplicate_segment_increase": true,
+      "raw_changed": true,
+      "fact_anchor_outcomes": {
+        "baseline": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "normalized": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ]
+      },
+      "measured_regression": true,
+      "historical_regression_case": false
+    },
+    {
+      "id": "fleurs-ja-010-minus24db-pause-after",
+      "population": "quiet",
+      "errors_baseline": 31,
+      "errors_normalized": 61,
+      "reference_units": 30,
+      "increased_errors": true,
+      "new_failed_anchors": [],
+      "lost_strict_pass": false,
+      "duplicate_segment_increase": true,
+      "raw_changed": true,
+      "fact_anchor_outcomes": {
+        "baseline": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "normalized": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ]
+      },
+      "measured_regression": true,
+      "historical_regression_case": false
+    },
+    {
+      "id": "fleurs-ja-010-minus42db-pause-before",
+      "population": "quiet",
+      "errors_baseline": 1,
+      "errors_normalized": 31,
+      "reference_units": 30,
+      "increased_errors": true,
+      "new_failed_anchors": [],
+      "lost_strict_pass": true,
+      "duplicate_segment_increase": true,
+      "raw_changed": true,
+      "fact_anchor_outcomes": {
+        "baseline": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "normalized": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ]
+      },
+      "measured_regression": true,
+      "historical_regression_case": false
+    },
+    {
+      "id": "fleurs-zh-001-minus42db-pause-before",
+      "population": "quiet",
+      "errors_baseline": 3,
+      "errors_normalized": 4,
+      "reference_units": 35,
+      "increased_errors": true,
+      "new_failed_anchors": [],
+      "lost_strict_pass": false,
+      "duplicate_segment_increase": false,
+      "raw_changed": true,
+      "fact_anchor_outcomes": {
+        "baseline": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "normalized": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ]
+      },
+      "measured_regression": true,
+      "historical_regression_case": false
+    },
+    {
+      "id": "fleurs-zh-034",
+      "population": "original",
+      "errors_baseline": 2,
+      "errors_normalized": 3,
+      "reference_units": 13,
+      "increased_errors": true,
+      "new_failed_anchors": [
+        "name"
+      ],
+      "lost_strict_pass": false,
+      "duplicate_segment_increase": false,
+      "raw_changed": true,
+      "fact_anchor_outcomes": {
+        "baseline": [
+          {
+            "name": "name",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "normalized": [
+          {
+            "name": "name",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ]
+      },
+      "measured_regression": true,
+      "historical_regression_case": false
+    }
+  ],
+  "semantic_review": {
+    "coverage": "All 36 paired raw/segment outputs independently reviewed; model review, not human certification.",
+    "english_gain": "EN011 -24 dB pause-after loses unsupported trailing words and becomes a strict pass; pause-before recovers the sentence but adds two unsupported sound labels.",
+    "japanese_loss": "JA010 -42 dB pause-before loses its strict pass by repeating the complete sentence. -24 dB pause-after goes from two copies to three. Count three and negation remain; these are repetitions, not negation loss.",
+    "mandarin_name": "ZH034 original changes 辛格 to 新格 and loses the frozen spelling/name anchor. Both arms already misrecognize the song word; this is not proof of a different person.",
+    "unchanged_semantic_limits": "JA025 substitutes 適用 for 適応; ZH001 substitutes 克隆 for 科隆. Passing the frozen error threshold does not prove perfect meaning.",
+    "anchor_label_limits": "Mandarin -42 dB outputs retain 无法. The negation-labelled anchor requires the entire exact phrase 无法长途跋涉, so lexical corruption also fails it; no polarity reversal demonstrated."
+  },
+  "control_scope": "Six language labels reuse two WAVs. Strict empty requires no text AND no segments, not punctuation-normalized scoring. All six outputs are identical between arms and fail. Exact-zero WAV bytes are unchanged. Standard CLI omits production exact-zero bypass; these silence hallucinations establish no JNI/Kotlin zero-guard bug.",
+  "median_cold_seconds": {
+    "baseline": 29.959501069999988,
+    "normalized": 30.00760852799999
+  },
+  "maximum_recorded_native_peak_rss_bytes": {
+    "baseline": 841773056,
+    "normalized": 840593408
+  },
+  "timing_scope": "Cold fresh-process x86 CLI; not warm Android, real-time factor, preview or Stop-to-final latency.",
+  "experiment_elapsed_seconds": 2277.555213168,
+  "attribution": {
+    "public_audio": "Google FLEURS, Conneau et al. (2022); CC BY 4.0. Fixed public -24/-42 dB PCM16 quiet variants with seeded leading/trailing noise. Full-wave peak gain only; no audio redistributed here.",
+    "source_card": "https://huggingface.co/datasets/google/fleurs",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "native": "ggml/whisper.cpp authors; MIT; upstream license retained.",
+    "model": "OpenAI Whisper large-v3-turbo, ggerganov Q5_0 whole-artifact publisher; no weights distributed or new model adopted."
+  },
+  "limits": [
+    "All references, anchors and per-clip 5% ceilings unchanged.",
+    "Peak gain amplifies noise, cannot improve signal-to-noise ratio and cannot recover samples quantized to zero.",
+    "Original 15/18 and quiet 1/12 do not establish perfect transcription.",
+    "No confidence/no-speech probabilities or detailed decoder traces collected.",
+    "No Android cancellation patch, phone test, release, merge or production promotion."
+  ],
+  "normalization_records": [
+    {
+      "source_sha256": "577a635c2261680c61dda5fecbc4f83bff6f37f453665b8d9d1a68f210f57c0a",
+      "derived_sha256": "b6d31bb7438422eb0c70d294ed6c7b8ef36b51621eb29034ccf5b2c39c683d0d",
+      "size_bytes": 476218,
+      "format": {
+        "encoding": "ieee_float32",
+        "tag": 3,
+        "bits": 32,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 4,
+        "byte_rate": 64000
+      },
+      "frame_count": 119040,
+      "sample_count": 119040,
+      "gain": 1.3756642494252083,
+      "peak_before": 0.3634607791900635,
+      "peak_after": 0.5,
+      "zero_before": 2,
+      "zero_after": 2,
+      "nonzero_before": 119038,
+      "nonzero_after": 119038,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "929236249046fa2e0103ec47465af55fff1846ce377731ace505ceb8c1c5150f",
+      "derived_decoded_pcm_sha256": "cf31eb3e1e0b51662fd1b691f038f36c4fa4810e99fe6fcfd1f63a8831fe1cea",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "fleurs-zh-001"
+    },
+    {
+      "source_sha256": "602f0fc4a334f4927b221b836f1735a09888f017956d02e1aaf97526a10cc964",
+      "derived_sha256": "8db90251970b73bc47d5fc1bfe2d3eab1d051bdd4f7fb4209437c86378402f3a",
+      "size_bytes": 733498,
+      "format": {
+        "encoding": "ieee_float32",
+        "tag": 3,
+        "bits": 32,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 4,
+        "byte_rate": 64000
+      },
+      "frame_count": 183360,
+      "sample_count": 183360,
+      "gain": 5.176465941964595,
+      "peak_before": 0.09659099578857422,
+      "peak_after": 0.5,
+      "zero_before": 82,
+      "zero_after": 82,
+      "nonzero_before": 183278,
+      "nonzero_after": 183278,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "0445f5816aacbbcf2c70a0b3ded9055322e82d3cc182fc0bfb43360400db48c6",
+      "derived_decoded_pcm_sha256": "34f3c40ff7e81c91f1b4f2ec1349c034bc655c0bc0fbb34a4a29779b0585448f",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "fleurs-zh-008"
+    },
+    {
+      "source_sha256": "740b099bcbe2ef18d0605505bdf34494086b2422ce9677b4ab92bc056780aeff",
+      "derived_sha256": "7464affbb00499a500e3390b978d9c7690fca2cef63aaaa061401bf34f2142d4",
+      "size_bytes": 357178,
+      "format": {
+        "encoding": "ieee_float32",
+        "tag": 3,
+        "bits": 32,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 4,
+        "byte_rate": 64000
+      },
+      "frame_count": 89280,
+      "sample_count": 89280,
+      "gain": 4.41060445297852,
+      "peak_before": 0.11336314678192139,
+      "peak_after": 0.5,
+      "zero_before": 76,
+      "zero_after": 76,
+      "nonzero_before": 89204,
+      "nonzero_after": 89204,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "0a61d6c89eefb984c3bbccde0fb95497e5a1b3508f3f2c70da9996a5faf5d695",
+      "derived_decoded_pcm_sha256": "312686ccc9807781f88533827445131873477ad6e0e62022cd48ca7035386bfc",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "fleurs-zh-011"
+    },
+    {
+      "source_sha256": "46a8db323b5e51dcbb06813f5ebb303d7688326b6cc51ba6e609296c75973f59",
+      "derived_sha256": "b13f8cda83ec34cf4b46a491839161cb069adb0e822714495e426362f6bced2b",
+      "size_bytes": 825658,
+      "format": {
+        "encoding": "ieee_float32",
+        "tag": 3,
+        "bits": 32,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 4,
+        "byte_rate": 64000
+      },
+      "frame_count": 206400,
+      "sample_count": 206400,
+      "gain": 1.2094769521082995,
+      "peak_before": 0.41340184211730957,
+      "peak_after": 0.5,
+      "zero_before": 2,
+      "zero_after": 2,
+      "nonzero_before": 206398,
+      "nonzero_after": 206398,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "5120c4ac65b3a669f01e93b80be780f28e695053b781f600d9517dfe7680d453",
+      "derived_decoded_pcm_sha256": "bbd0a8cf2fb1507f94d7697feb238e575f4fa6f5e38382a268168d3255a3d3bf",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "fleurs-zh-020"
+    },
+    {
+      "source_sha256": "7cda86aca73eac3283e3e12a90a550b3eb2c3ac33d6c202d7c0759eea384f7b4",
+      "derived_sha256": "4747f399cf52478f138aac1194e8595eb78d7fb954532179a7871973343361d5",
+      "size_bytes": 533818,
+      "format": {
+        "encoding": "ieee_float32",
+        "tag": 3,
+        "bits": 32,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 4,
+        "byte_rate": 64000
+      },
+      "frame_count": 133440,
+      "sample_count": 133440,
+      "gain": 1.0279377091370152,
+      "peak_before": 0.48641079664230347,
+      "peak_after": 0.5,
+      "zero_before": 3,
+      "zero_after": 3,
+      "nonzero_before": 133437,
+      "nonzero_after": 133437,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "4822ea83f807f7713147060e0a912290f769cf89ee3a8f50eafee990dc348cda",
+      "derived_decoded_pcm_sha256": "56c6b80356ab381144a849d2b7d7bcc08a269201e65779a706818f4873d2380b",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "fleurs-zh-022"
+    },
+    {
+      "source_sha256": "eba0b68aa12dd62c40f78ea201be03e51f790c1811c8f6b5a646c17a1a9691ed",
+      "derived_sha256": "b5e7f93a015b78643b2767d962a65fbeb8d1e28cb5eefbece69b286df2a31473",
+      "size_bytes": 318778,
+      "format": {
+        "encoding": "ieee_float32",
+        "tag": 3,
+        "bits": 32,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 4,
+        "byte_rate": 64000
+      },
+      "frame_count": 79680,
+      "sample_count": 79680,
+      "gain": 4.203214815408667,
+      "peak_before": 0.1189565658569336,
+      "peak_after": 0.5,
+      "zero_before": 36,
+      "zero_after": 36,
+      "nonzero_before": 79644,
+      "nonzero_after": 79644,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "03c165ddf9f6feec7478bf689d5822cdc88a687f45ab7741b262231446587ff7",
+      "derived_decoded_pcm_sha256": "34320c4fa7cfd325679c21b4bc3129eac1888eaed51e20efe18391ee6361f8ab",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "fleurs-zh-034"
+    },
+    {
+      "source_sha256": "048169439c0328b758349af74aeb54a82a7a476e309709eb791dced06db25d48",
+      "derived_sha256": "7b73163bb27266fc3ed6c0d93af4455c80b44dd1f250213ccfd7464cba3360a2",
+      "size_bytes": 418618,
+      "format": {
+        "encoding": "ieee_float32",
+        "tag": 3,
+        "bits": 32,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 4,
+        "byte_rate": 64000
+      },
+      "frame_count": 104640,
+      "sample_count": 104640,
+      "gain": 21.16448721215684,
+      "peak_before": 0.0236244797706604,
+      "peak_after": 0.5,
+      "zero_before": 5,
+      "zero_after": 5,
+      "nonzero_before": 104635,
+      "nonzero_after": 104635,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "c2e20eb18368277ab53cc1434dc46ed20264a1076ecb779adc9210367a0181c1",
+      "derived_decoded_pcm_sha256": "750dbb570b79c2b100bee33747f9c45c6ac73e2474d53f7f52ed073201bb651d",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "fleurs-en-000"
+    },
+    {
+      "source_sha256": "7172cc6e8a7b006a8175c57df13bb69db0c6249dc09d7b015c98722d5af9734c",
+      "derived_sha256": "21e098a02235ecdc732622a50a18fb02c2f966597ddb22549d04b42e764c27cf",
+      "size_bytes": 265018,
+      "format": {
+        "encoding": "ieee_float32",
+        "tag": 3,
+        "bits": 32,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 4,
+        "byte_rate": 64000
+      },
+      "frame_count": 66240,
+      "sample_count": 66240,
+      "gain": 87.9170780275638,
+      "peak_before": 0.0056871771812438965,
+      "peak_after": 0.5,
+      "zero_before": 187,
+      "zero_after": 187,
+      "nonzero_before": 66053,
+      "nonzero_after": 66053,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "7880d7c9f96d88714d8db323b51c421fe776775e224130ee00f75dd0a5cb6363",
+      "derived_decoded_pcm_sha256": "bb84d3733511212c6bb7cceda689b74891ba3c0c85928ce065a286ee9cace2a6",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "fleurs-en-003"
+    },
+    {
+      "source_sha256": "409c1b0f2e86fbc7996c1122e8ccbd0ff30bae145395b456e4ffa6b8c8279c12",
+      "derived_sha256": "49f9b89393098812a3c2059502c903735bb91521432f181f42c4b5be580d2509",
+      "size_bytes": 522298,
+      "format": {
+        "encoding": "ieee_float32",
+        "tag": 3,
+        "bits": 32,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 4,
+        "byte_rate": 64000
+      },
+      "frame_count": 130560,
+      "sample_count": 130560,
+      "gain": 71.83441944903534,
+      "peak_before": 0.006960451602935791,
+      "peak_after": 0.5,
+      "zero_before": 299,
+      "zero_after": 299,
+      "nonzero_before": 130261,
+      "nonzero_after": 130261,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "32caccc9eba10604eb41ca90b8485b41e6f7a20071d2a2c5c9e93517e9dd6a1a",
+      "derived_decoded_pcm_sha256": "f34bf719f4fa7b0238172ca78c0e5c6de06a11335a58f56ecb988d52646e82b3",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "fleurs-en-011"
+    },
+    {
+      "source_sha256": "431d013d01d25cbf8d42587f4a14df57d09dbe9cbc2af4ea91ba93f9bd290ec4",
+      "derived_sha256": "51cbe5db9370a7c2aa41819a99f47f01b4508b3bc68cc95e149a2d62b57b79d1",
+      "size_bytes": 482618,
+      "format": {
+        "encoding": "ieee_float32",
+        "tag": 3,
+        "bits": 32,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 4,
+        "byte_rate": 64000
+      },
+      "frame_count": 120640,
+      "sample_count": 120640,
+      "gain": 1.171567443064804,
+      "peak_before": 0.4267786741256714,
+      "peak_after": 0.5,
+      "zero_before": 2139,
+      "zero_after": 2139,
+      "nonzero_before": 118501,
+      "nonzero_after": 118501,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "06cc04ae48489b7b21000a2c3bfb6f21d687757791824dd16a5288998aaeed3f",
+      "derived_decoded_pcm_sha256": "f12cf092e7bfcd6442d3174eab629cfcb12dedb42d85e7ec8ea4c8b666ae572c",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "fleurs-en-013"
+    },
+    {
+      "source_sha256": "952145e2808bf8ea6354ec0ea656652a0eeff61438a466fa4f0f3568f89c23a3",
+      "derived_sha256": "820f0dbca83ac98c633de1a1275890272dd2018b1850adf920bd1639b12d7b27",
+      "size_bytes": 545338,
+      "format": {
+        "encoding": "ieee_float32",
+        "tag": 3,
+        "bits": 32,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 4,
+        "byte_rate": 64000
+      },
+      "frame_count": 136320,
+      "sample_count": 136320,
+      "gain": 86.85657486021951,
+      "peak_before": 0.0057566165924072266,
+      "peak_after": 0.5,
+      "zero_before": 269,
+      "zero_after": 269,
+      "nonzero_before": 136051,
+      "nonzero_after": 136051,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "345d068a7afa6506b108e6d4edc937e333ac69a656cb1e8c3f4836b443a0f4fe",
+      "derived_decoded_pcm_sha256": "f2964a7cbec81adf0659ea2efdcfd5620ead443bac901ef9cf35d7f7c3628cd4",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "fleurs-en-017"
+    },
+    {
+      "source_sha256": "df7a78f49dc92468b8e79a2ffb98d78622ead12f70f567eca0ac472a81ba21b6",
+      "derived_sha256": "baab82afa24ee67645a7a7ab2ac8018ca3d02319f531f09d2d7fb42a136ec4aa",
+      "size_bytes": 522298,
+      "format": {
+        "encoding": "ieee_float32",
+        "tag": 3,
+        "bits": 32,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 4,
+        "byte_rate": 64000
+      },
+      "frame_count": 130560,
+      "sample_count": 130560,
+      "gain": 76.53909250996816,
+      "peak_before": 0.006532609462738037,
+      "peak_after": 0.5,
+      "zero_before": 283,
+      "zero_after": 283,
+      "nonzero_before": 130277,
+      "nonzero_after": 130277,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "32753b14aed3a7cc96eeb5ee3d511caedbdaeeab4e9483c84b0e4287b4d65e29",
+      "derived_decoded_pcm_sha256": "6c8c5fd2f9cb98a7a0cadab7fe05680428da8f07b35bfb6441762519a42e3852",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "fleurs-en-021"
+    },
+    {
+      "source_sha256": "88391f365cdecc51a56ef5f9322c441c0107ab8d0c6f7a3a09f2334ffe8c56ff",
+      "derived_sha256": "491e179b3a9ce875f321630d106cd2706cdedd0b606e26ad0827b378a0730db4",
+      "size_bytes": 510778,
+      "format": {
+        "encoding": "ieee_float32",
+        "tag": 3,
+        "bits": 32,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 4,
+        "byte_rate": 64000
+      },
+      "frame_count": 127680,
+      "sample_count": 127680,
+      "gain": 0.5,
+      "peak_before": 1.0,
+      "peak_after": 0.5,
+      "zero_before": 4,
+      "zero_after": 4,
+      "nonzero_before": 127676,
+      "nonzero_after": 127676,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "cb94173070e8055f9a5915b1183540d60f8d38d91148f38f350cf23e032b0598",
+      "derived_decoded_pcm_sha256": "f2b887e97966772a27a62ecc061adb3dabbb85d64a661d306435e06ce69edd61",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "fleurs-ja-002"
+    },
+    {
+      "source_sha256": "79f4e7148a35d78e986911d939c1664737209e33c4e46dae944e28bb624afdfb",
+      "derived_sha256": "a5dc2809f16c66fdeb847902aae8a4cb66a3762f7015af110091394d256831fd",
+      "size_bytes": 591418,
+      "format": {
+        "encoding": "ieee_float32",
+        "tag": 3,
+        "bits": 32,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 4,
+        "byte_rate": 64000
+      },
+      "frame_count": 147840,
+      "sample_count": 147840,
+      "gain": 0.9121688951638545,
+      "peak_before": 0.5481441020965576,
+      "peak_after": 0.5,
+      "zero_before": 70,
+      "zero_after": 70,
+      "nonzero_before": 147770,
+      "nonzero_after": 147770,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "e35ab2413333f9477b9106207fb99a6f5e8ffd1489b45ae8ae3b7e426adf97d7",
+      "derived_decoded_pcm_sha256": "579fc35727af2bb88d990c3e79489587e6ce5b3b0f22924a023d35f46a2ff772",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "fleurs-ja-010"
+    },
+    {
+      "source_sha256": "66b2cadee94dcfd09ab9d64e0872510377435a855fcf93f27c296caecdefefec",
+      "derived_sha256": "0c203dcb14a728eebe27db3a155fbfbbf696e21859b1fa35154f1493273313e7",
+      "size_bytes": 652858,
+      "format": {
+        "encoding": "ieee_float32",
+        "tag": 3,
+        "bits": 32,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 4,
+        "byte_rate": 64000
+      },
+      "frame_count": 163200,
+      "sample_count": 163200,
+      "gain": 0.6927923843949337,
+      "peak_before": 0.7217169404029846,
+      "peak_after": 0.5,
+      "zero_before": 70,
+      "zero_after": 70,
+      "nonzero_before": 163130,
+      "nonzero_after": 163130,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "f8c422a44c68ce5de1f171cd60e1f3b9dbb70b8420e6b35433800536232a719c",
+      "derived_decoded_pcm_sha256": "69b72fb1933503d93b737deed386cbc5fb28e6ab2158892d4ff10dbbef875716",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "fleurs-ja-013"
+    },
+    {
+      "source_sha256": "791a961a253abc6af431fbf7a2e63376ba573bbc4ce4f32f2d690316bdf82357",
+      "derived_sha256": "d49a431848a33a1d1420ea48d38a3ac9491d13d4cb5d4f2bc9135d3e4c6a8c79",
+      "size_bytes": 637498,
+      "format": {
+        "encoding": "ieee_float32",
+        "tag": 3,
+        "bits": 32,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 4,
+        "byte_rate": 64000
+      },
+      "frame_count": 159360,
+      "sample_count": 159360,
+      "gain": 53.73420535125198,
+      "peak_before": 0.009305059909820557,
+      "peak_after": 0.5,
+      "zero_before": 563,
+      "zero_after": 563,
+      "nonzero_before": 158797,
+      "nonzero_after": 158797,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "834279e10a14d7f7d9471c606c75c5d043741d1a6b0902a25f381ee8e30b0aeb",
+      "derived_decoded_pcm_sha256": "35099f1f906d0477a108b63717a3aa9dcc957aabf10c359591e94471c050b8a2",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "fleurs-ja-025"
+    },
+    {
+      "source_sha256": "a548ddfc95de96b390e9b491cef0884ecb3aaec0ea773085baa40c16450b019d",
+      "derived_sha256": "0b9302354496f8986b04a462986d8ce1edb35eb32bde78419cff4897022f88c4",
+      "size_bytes": 698938,
+      "format": {
+        "encoding": "ieee_float32",
+        "tag": 3,
+        "bits": 32,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 4,
+        "byte_rate": 64000
+      },
+      "frame_count": 174720,
+      "sample_count": 174720,
+      "gain": 51.46890492318264,
+      "peak_before": 0.009714603424072266,
+      "peak_after": 0.5,
+      "zero_before": 516,
+      "zero_after": 516,
+      "nonzero_before": 174204,
+      "nonzero_after": 174204,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "9ee6f2362b57777cfd4f664b4c184ee03c01c6e559228974fdb3816e328e988e",
+      "derived_decoded_pcm_sha256": "0ace6d6cd46bd571a8a2bf14344fd060e08f660961166ee5181ba39cfc2396d2",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "fleurs-ja-030"
+    },
+    {
+      "source_sha256": "287ea58715c3a94b2751d960d823b67060878a6861ba7f5643dacc30fb2c8c8b",
+      "derived_sha256": "5920c7cf51efa9632d5085dbd32ae26214b11906c03b54d9883974249c5351cd",
+      "size_bytes": 522298,
+      "format": {
+        "encoding": "ieee_float32",
+        "tag": 3,
+        "bits": 32,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 4,
+        "byte_rate": 64000
+      },
+      "frame_count": 130560,
+      "sample_count": 130560,
+      "gain": 44.73757246396134,
+      "peak_before": 0.01117628812789917,
+      "peak_after": 0.5,
+      "zero_before": 515,
+      "zero_after": 515,
+      "nonzero_before": 130045,
+      "nonzero_after": 130045,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "9008f5293645a0b501cd4a8b8155d147b8b9f8d13ee563ef7dcba7f6689921f0",
+      "derived_decoded_pcm_sha256": "4c773c97d5dbf6110bc166281325e2706d46e798fb2a11dcd2ea8895ad592529",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "fleurs-ja-034"
+    },
+    {
+      "source_sha256": "3ccce5c4a5860dba16dbb75904a49ac36f5d426da8f2f0ab6af1577cbcd23bd6",
+      "derived_sha256": "6d4c93ad8ddef4f1c89bc8b274287917c36db15849e13dd09f3b7950ed73afbe",
+      "size_bytes": 917164,
+      "format": {
+        "encoding": "pcm16",
+        "tag": 1,
+        "bits": 16,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 2,
+        "byte_rate": 32000
+      },
+      "frame_count": 458560,
+      "sample_count": 458560,
+      "gain": 25.013740458015267,
+      "peak_before": 0.019989013671875,
+      "peak_after": 0.5,
+      "zero_before": 68336,
+      "zero_after": 68336,
+      "nonzero_before": 390224,
+      "nonzero_after": 390224,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "8c42f3bcbcee1631dc2958e57d306f890ef70f05c1e335c9edc8af346e49331f",
+      "derived_decoded_pcm_sha256": "f4918c2222b00c8b6f6f91337d7e7ade10285e9613a8a3812d94ab4933fef1d7",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "fleurs-en-011-minus24db-pause-before"
+    },
+    {
+      "source_sha256": "a1753cfe60369b5075f9d6ecb1181ab5000eaedeaa119862b3d1453c4579e3bc",
+      "derived_sha256": "a5bc08e419d5d1ab6442a67d58f65d990f906e16d81fc2e237a7f9dfd2589957",
+      "size_bytes": 917164,
+      "format": {
+        "encoding": "pcm16",
+        "tag": 1,
+        "bits": 16,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 2,
+        "byte_rate": 32000
+      },
+      "frame_count": 458560,
+      "sample_count": 458560,
+      "gain": 25.013740458015267,
+      "peak_before": 0.019989013671875,
+      "peak_after": 0.5,
+      "zero_before": 68336,
+      "zero_after": 68336,
+      "nonzero_before": 390224,
+      "nonzero_after": 390224,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "73e3029de8b18bdd4c1b753a106aa88ae729b7cdeab84d4dfc112d44eb90fdf5",
+      "derived_decoded_pcm_sha256": "3a1495230906b5fa317180a5d74dc219eb093a10b1a87dd8cd3ce122eecca576",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "fleurs-en-011-minus24db-pause-after"
+    },
+    {
+      "source_sha256": "eb9a358a7debbec967b67faa65cf3fd398f0545177589e5f94cabdc42dc7f9cc",
+      "derived_sha256": "07d302888ffab322c4bf02e8989f12431abbb143c5bfd5bf3d311d47b8845bba",
+      "size_bytes": 917164,
+      "format": {
+        "encoding": "pcm16",
+        "tag": 1,
+        "bits": 16,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 2,
+        "byte_rate": 32000
+      },
+      "frame_count": 458560,
+      "sample_count": 458560,
+      "gain": 25.013740458015267,
+      "peak_before": 0.019989013671875,
+      "peak_after": 0.5,
+      "zero_before": 121760,
+      "zero_after": 121760,
+      "nonzero_before": 336800,
+      "nonzero_after": 336800,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "79c02845af2879da31992232daa9afc97754a976458ac4e21e5fbe6f4afb85bb",
+      "derived_decoded_pcm_sha256": "67e3af59afb7a82224b0343e9aba731dff3e56bf07d5ef0d12cbe0738fde82d9",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "fleurs-en-011-minus42db-pause-before"
+    },
+    {
+      "source_sha256": "1b45beb9f53a8789b91b2ea66081854dd787f85a66a76d100fa429063e9dbd48",
+      "derived_sha256": "ccf89f235f062dce4c00a7c74ebe532cafd0c8a46d4be9f344c783258f0595c6",
+      "size_bytes": 917164,
+      "format": {
+        "encoding": "pcm16",
+        "tag": 1,
+        "bits": 16,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 2,
+        "byte_rate": 32000
+      },
+      "frame_count": 458560,
+      "sample_count": 458560,
+      "gain": 25.013740458015267,
+      "peak_before": 0.019989013671875,
+      "peak_after": 0.5,
+      "zero_before": 121760,
+      "zero_after": 121760,
+      "nonzero_before": 336800,
+      "nonzero_after": 336800,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "2919999be1785d26b0ea2baa9fc6abbe6d9da861b4e82f7949ae4dd2958e953e",
+      "derived_decoded_pcm_sha256": "4edfc59a9ff6b0e1df399f0b860d324fd0d746ca275aa62963ffe081a9e0a9fa",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "fleurs-en-011-minus42db-pause-after"
+    },
+    {
+      "source_sha256": "57381b0849eef52e5db1ee0016be718deb7b942fff495275d67f32795d5ae193",
+      "derived_sha256": "71f1d2f2718688f7ae685405d072290d844ba285ad833b0a3543613fc29841c6",
+      "size_bytes": 951724,
+      "format": {
+        "encoding": "pcm16",
+        "tag": 1,
+        "bits": 16,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 2,
+        "byte_rate": 32000
+      },
+      "frame_count": 475840,
+      "sample_count": 475840,
+      "gain": 14.46072374227714,
+      "peak_before": 0.034576416015625,
+      "peak_after": 0.5,
+      "zero_before": 1347,
+      "zero_after": 1347,
+      "nonzero_before": 474493,
+      "nonzero_after": 474493,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "0eb6e140362f3703f866022fc712fbfa24d4861d74a9507e5aa6cd79517dfba8",
+      "derived_decoded_pcm_sha256": "9057e29067df6e4671d0a0f7fc1bfc21dbcabf469063b61a8ca8f2f26d44870e",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "fleurs-ja-010-minus24db-pause-before"
+    },
+    {
+      "source_sha256": "a9736f3a19f41e85797dc595b247a29940a80c8977d519ecfcd2aa52ca5d0543",
+      "derived_sha256": "1b08def024c001de831693b0d1ec903d743d6ba334569f70ac1e0b02cf99041b",
+      "size_bytes": 951724,
+      "format": {
+        "encoding": "pcm16",
+        "tag": 1,
+        "bits": 16,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 2,
+        "byte_rate": 32000
+      },
+      "frame_count": 475840,
+      "sample_count": 475840,
+      "gain": 14.46072374227714,
+      "peak_before": 0.034576416015625,
+      "peak_after": 0.5,
+      "zero_before": 1347,
+      "zero_after": 1347,
+      "nonzero_before": 474493,
+      "nonzero_after": 474493,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "6b4c2be18fc3aad7051987bb88f88c5af983145fe80d479b820b7e279eb2c99c",
+      "derived_decoded_pcm_sha256": "b4128d07acd42206db20f560a7529e46973a7660f2c1a8c5688f62aed041381e",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "fleurs-ja-010-minus24db-pause-after"
+    },
+    {
+      "source_sha256": "23e34ac5ae1690aabe13b227c4197c47061d8de0f629b0b586ded483c67785da",
+      "derived_sha256": "3fd787048bd4fbe40fbcb8dc5e63b039ca871a4dabaed0e0eafe97df078a7bf0",
+      "size_bytes": 951724,
+      "format": {
+        "encoding": "pcm16",
+        "tag": 1,
+        "bits": 16,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 2,
+        "byte_rate": 32000
+      },
+      "frame_count": 475840,
+      "sample_count": 475840,
+      "gain": 25.013740458015267,
+      "peak_before": 0.019989013671875,
+      "peak_after": 0.5,
+      "zero_before": 7040,
+      "zero_after": 7040,
+      "nonzero_before": 468800,
+      "nonzero_after": 468800,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "727e8b235ec59cc37dbca00ad61e5d8fdd5b74a19a0f3c584b861b5f26554b9c",
+      "derived_decoded_pcm_sha256": "8c236d0602d002611b6385bcc9d2d515a4bf288d565e25e8d72e1e79ce180a3f",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "fleurs-ja-010-minus42db-pause-before"
+    },
+    {
+      "source_sha256": "6d862898fb6201478f4f3b8ac1d7381e0d96488875e67ea77f0f43a80685ec90",
+      "derived_sha256": "feb63ad53a0744298d1a53bb45a03ad3fe5222a9ca1d8a55ed207f88028a905f",
+      "size_bytes": 951724,
+      "format": {
+        "encoding": "pcm16",
+        "tag": 1,
+        "bits": 16,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 2,
+        "byte_rate": 32000
+      },
+      "frame_count": 475840,
+      "sample_count": 475840,
+      "gain": 25.013740458015267,
+      "peak_before": 0.019989013671875,
+      "peak_after": 0.5,
+      "zero_before": 7040,
+      "zero_after": 7040,
+      "nonzero_before": 468800,
+      "nonzero_after": 468800,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "e86f20da4183b1d4a48a1c7fbd350db8a02573de14f41f33d71a3b7270bfdcc5",
+      "derived_decoded_pcm_sha256": "215a2fa93ada2a888affdca3f3416e48fb029fdc6fa387e624e4f3e336c887af",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "fleurs-ja-010-minus42db-pause-after"
+    },
+    {
+      "source_sha256": "4b4c4b30de8c0832b58cc5059497022dad1075baedb5afd5eccaa824572b0d53",
+      "derived_sha256": "019499b045de14b8f2cbd1232da4a9b15eda7c871be02871de2cc29f17bc1a41",
+      "size_bytes": 894124,
+      "format": {
+        "encoding": "pcm16",
+        "tag": 1,
+        "bits": 16,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 2,
+        "byte_rate": 32000
+      },
+      "frame_count": 447040,
+      "sample_count": 447040,
+      "gain": 21.81624500665779,
+      "peak_before": 0.022918701171875,
+      "peak_after": 0.5,
+      "zero_before": 5369,
+      "zero_after": 5369,
+      "nonzero_before": 441671,
+      "nonzero_after": 441671,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "5e51cadf2b38bd94a11afb0fb818bf6663ee4e1620f11f8d4824784bc987415a",
+      "derived_decoded_pcm_sha256": "4b399610e5d9e33376fd4eac3302816709127b4b96ce12296badcdfc24d47ce2",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "fleurs-zh-001-minus24db-pause-before"
+    },
+    {
+      "source_sha256": "947bcde389236492077f20f5210ef21fe556569633354f148f62f6ac316adf00",
+      "derived_sha256": "6fd1c5a59113dcabcca7546160680ac06f1a8d09df44585bf0bf7ceee2b22e40",
+      "size_bytes": 894124,
+      "format": {
+        "encoding": "pcm16",
+        "tag": 1,
+        "bits": 16,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 2,
+        "byte_rate": 32000
+      },
+      "frame_count": 447040,
+      "sample_count": 447040,
+      "gain": 21.81624500665779,
+      "peak_before": 0.022918701171875,
+      "peak_after": 0.5,
+      "zero_before": 5369,
+      "zero_after": 5369,
+      "nonzero_before": 441671,
+      "nonzero_after": 441671,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "9b2faa88574e4aaf3620b3497559ddddbd9e9c8a2b9235fa4229c5236e02ff5c",
+      "derived_decoded_pcm_sha256": "2456c383485baeb0f6febc8110346bb383f4bb667b4a1f9f9bd5792577bfa53b",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "fleurs-zh-001-minus24db-pause-after"
+    },
+    {
+      "source_sha256": "634c55c5f1e981fd5b52265b2384bdf327f08a3aee55eecb0f61f6d9de0ed529",
+      "derived_sha256": "67beb747fad431b6c3658e267279fd225edda8ba4397d52a9e98eaeca7ca08f6",
+      "size_bytes": 894124,
+      "format": {
+        "encoding": "pcm16",
+        "tag": 1,
+        "bits": 16,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 2,
+        "byte_rate": 32000
+      },
+      "frame_count": 447040,
+      "sample_count": 447040,
+      "gain": 25.013740458015267,
+      "peak_before": 0.019989013671875,
+      "peak_after": 0.5,
+      "zero_before": 31625,
+      "zero_after": 31625,
+      "nonzero_before": 415415,
+      "nonzero_after": 415415,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "cd2309f074a54914846c5f8030dc96b9993e4bf2f1352e39aa33ebcb255a2190",
+      "derived_decoded_pcm_sha256": "6997a8e3114315eb5e338b3bb6fc5eba5946ee96e2f5647f29a6dde5d35094f8",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "fleurs-zh-001-minus42db-pause-before"
+    },
+    {
+      "source_sha256": "6b0e2b4da500e0cbdcd80798a9531a55a63b47d4b533d8a01a211feb570d37f5",
+      "derived_sha256": "633cccbc3dad44032217b2b66b18a9abb97d2e4f7be635e7d16e77e94885ee33",
+      "size_bytes": 894124,
+      "format": {
+        "encoding": "pcm16",
+        "tag": 1,
+        "bits": 16,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 2,
+        "byte_rate": 32000
+      },
+      "frame_count": 447040,
+      "sample_count": 447040,
+      "gain": 25.013740458015267,
+      "peak_before": 0.019989013671875,
+      "peak_after": 0.5,
+      "zero_before": 31625,
+      "zero_after": 31625,
+      "nonzero_before": 415415,
+      "nonzero_after": 415415,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "018af565652490841a9c91d9793a1b65b55cd8290fa752d668cd3ab49756a764",
+      "derived_decoded_pcm_sha256": "432efa1d3e65bb27e336acf1505754c60ba01473597c923cddb8aa4e6e811b1f",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "fleurs-zh-001-minus42db-pause-after"
+    },
+    {
+      "source_sha256": "262d1f34f300560a4c82ba8127ddea9e1d72946f187fdbd3e8f70ee096077aec",
+      "derived_sha256": "262d1f34f300560a4c82ba8127ddea9e1d72946f187fdbd3e8f70ee096077aec",
+      "size_bytes": 160044,
+      "format": {
+        "encoding": "pcm16",
+        "tag": 1,
+        "bits": 16,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 2,
+        "byte_rate": 32000
+      },
+      "frame_count": 80000,
+      "sample_count": 80000,
+      "gain": 1.0,
+      "peak_before": 0.0,
+      "peak_after": 0.0,
+      "zero_before": 80000,
+      "zero_after": 80000,
+      "nonzero_before": 0,
+      "nonzero_after": 0,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": true,
+      "source_decoded_pcm_sha256": "ac2878215ad33205d1732578c89f25ededaad1b676911c540825bcf4baa42d9b",
+      "derived_decoded_pcm_sha256": "ac2878215ad33205d1732578c89f25ededaad1b676911c540825bcf4baa42d9b",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "silence-en"
+    },
+    {
+      "source_sha256": "262d1f34f300560a4c82ba8127ddea9e1d72946f187fdbd3e8f70ee096077aec",
+      "derived_sha256": "262d1f34f300560a4c82ba8127ddea9e1d72946f187fdbd3e8f70ee096077aec",
+      "size_bytes": 160044,
+      "format": {
+        "encoding": "pcm16",
+        "tag": 1,
+        "bits": 16,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 2,
+        "byte_rate": 32000
+      },
+      "frame_count": 80000,
+      "sample_count": 80000,
+      "gain": 1.0,
+      "peak_before": 0.0,
+      "peak_after": 0.0,
+      "zero_before": 80000,
+      "zero_after": 80000,
+      "nonzero_before": 0,
+      "nonzero_after": 0,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": true,
+      "source_decoded_pcm_sha256": "ac2878215ad33205d1732578c89f25ededaad1b676911c540825bcf4baa42d9b",
+      "derived_decoded_pcm_sha256": "ac2878215ad33205d1732578c89f25ededaad1b676911c540825bcf4baa42d9b",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "silence-ja"
+    },
+    {
+      "source_sha256": "262d1f34f300560a4c82ba8127ddea9e1d72946f187fdbd3e8f70ee096077aec",
+      "derived_sha256": "262d1f34f300560a4c82ba8127ddea9e1d72946f187fdbd3e8f70ee096077aec",
+      "size_bytes": 160044,
+      "format": {
+        "encoding": "pcm16",
+        "tag": 1,
+        "bits": 16,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 2,
+        "byte_rate": 32000
+      },
+      "frame_count": 80000,
+      "sample_count": 80000,
+      "gain": 1.0,
+      "peak_before": 0.0,
+      "peak_after": 0.0,
+      "zero_before": 80000,
+      "zero_after": 80000,
+      "nonzero_before": 0,
+      "nonzero_after": 0,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": true,
+      "source_decoded_pcm_sha256": "ac2878215ad33205d1732578c89f25ededaad1b676911c540825bcf4baa42d9b",
+      "derived_decoded_pcm_sha256": "ac2878215ad33205d1732578c89f25ededaad1b676911c540825bcf4baa42d9b",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "silence-zh"
+    },
+    {
+      "source_sha256": "af9a9dfee9e45c53834a5258369d5308d95f47ea7e423f0a44c8cb8b147b5d45",
+      "derived_sha256": "9726cd3a4968e8325d2c93becf14aa64cb5cbcc02bab2814e5743c4ffc6d57a2",
+      "size_bytes": 160044,
+      "format": {
+        "encoding": "pcm16",
+        "tag": 1,
+        "bits": 16,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 2,
+        "byte_rate": 32000
+      },
+      "frame_count": 80000,
+      "sample_count": 80000,
+      "gain": 25.013740458015267,
+      "peak_before": 0.019989013671875,
+      "peak_after": 0.5,
+      "zero_before": 59,
+      "zero_after": 59,
+      "nonzero_before": 79941,
+      "nonzero_after": 79941,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "1ee1a53c9832e21c42877de702e977475ec881d73deb28ded512fac32a627f2b",
+      "derived_decoded_pcm_sha256": "3811b2dc64567c2b2182c9a751c6913c9f93d77e4f462ee5324044637a241bbe",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "noise-en"
+    },
+    {
+      "source_sha256": "af9a9dfee9e45c53834a5258369d5308d95f47ea7e423f0a44c8cb8b147b5d45",
+      "derived_sha256": "9726cd3a4968e8325d2c93becf14aa64cb5cbcc02bab2814e5743c4ffc6d57a2",
+      "size_bytes": 160044,
+      "format": {
+        "encoding": "pcm16",
+        "tag": 1,
+        "bits": 16,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 2,
+        "byte_rate": 32000
+      },
+      "frame_count": 80000,
+      "sample_count": 80000,
+      "gain": 25.013740458015267,
+      "peak_before": 0.019989013671875,
+      "peak_after": 0.5,
+      "zero_before": 59,
+      "zero_after": 59,
+      "nonzero_before": 79941,
+      "nonzero_after": 79941,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "1ee1a53c9832e21c42877de702e977475ec881d73deb28ded512fac32a627f2b",
+      "derived_decoded_pcm_sha256": "3811b2dc64567c2b2182c9a751c6913c9f93d77e4f462ee5324044637a241bbe",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "noise-ja"
+    },
+    {
+      "source_sha256": "af9a9dfee9e45c53834a5258369d5308d95f47ea7e423f0a44c8cb8b147b5d45",
+      "derived_sha256": "9726cd3a4968e8325d2c93becf14aa64cb5cbcc02bab2814e5743c4ffc6d57a2",
+      "size_bytes": 160044,
+      "format": {
+        "encoding": "pcm16",
+        "tag": 1,
+        "bits": 16,
+        "channels": 1,
+        "sample_rate": 16000,
+        "block_align": 2,
+        "byte_rate": 32000
+      },
+      "frame_count": 80000,
+      "sample_count": 80000,
+      "gain": 25.013740458015267,
+      "peak_before": 0.019989013671875,
+      "peak_after": 0.5,
+      "zero_before": 59,
+      "zero_after": 59,
+      "nonzero_before": 79941,
+      "nonzero_after": 79941,
+      "round_to_zero": 0,
+      "clipped_samples": 0,
+      "exact_zero_identity": false,
+      "source_decoded_pcm_sha256": "1ee1a53c9832e21c42877de702e977475ec881d73deb28ded512fac32a627f2b",
+      "derived_decoded_pcm_sha256": "3811b2dc64567c2b2182c9a751c6913c9f93d77e4f462ee5324044637a241bbe",
+      "decoder_scale": "PCM16/32768; IEEE float32 unchanged",
+      "quantization": "PCM16 round nearest ties even; float32 IEEE rounding",
+      "id": "noise-zh"
+    }
+  ],
+  "cases": [
+    {
+      "id": "fleurs-en-000",
+      "arm": "baseline",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "048169439c0328b758349af74aeb54a82a7a476e309709eb791dced06db25d48",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 15,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "satellite",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.909834482999997,
+      "peak_rss_bytes": 765501440,
+      "strict_passed": true,
+      "raw_sha256": "5414588c40aaca6face4fea72a1f5d2a04472de8372c9114edd5a7d303dc57e8",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-000",
+      "arm": "normalized",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "7b73163bb27266fc3ed6c0d93af4455c80b44dd1f250213ccfd7464cba3360a2",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 15,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "satellite",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 30.078130610000017,
+      "peak_rss_bytes": 765341696,
+      "strict_passed": true,
+      "raw_sha256": "5414588c40aaca6face4fea72a1f5d2a04472de8372c9114edd5a7d303dc57e8",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-003",
+      "arm": "normalized",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "21e098a02235ecdc732622a50a18fb02c2f966597ddb22549d04b42e764c27cf",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 5,
+          "reference_units": 10,
+          "rate": 0.5
+        },
+        "checks": [
+          {
+            "name": "name",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 29.774085440999983,
+      "peak_rss_bytes": 770564096,
+      "strict_passed": false,
+      "raw_sha256": "4ea2152d742d53343832e24df91d2242b43eb958364366368a8b8eb0f5f67d07",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-003",
+      "arm": "baseline",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "7172cc6e8a7b006a8175c57df13bb69db0c6249dc09d7b015c98722d5af9734c",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 5,
+          "reference_units": 10,
+          "rate": 0.5
+        },
+        "checks": [
+          {
+            "name": "name",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 30.066824714999996,
+      "peak_rss_bytes": 770248704,
+      "strict_passed": false,
+      "raw_sha256": "18326e7f575c9c3274b032baf7cdc74f316438426da77d80612c46c88c1d3889",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-011",
+      "arm": "baseline",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "409c1b0f2e86fbc7996c1122e8ccbd0ff30bae145395b456e4ffa6b8c8279c12",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 24,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 30.477791290000027,
+      "peak_rss_bytes": 770805760,
+      "strict_passed": true,
+      "raw_sha256": "3d47bd0c696114db7fafbbf8adbbdaaf1f4c86c58a14ff049e6a9b14a1277f48",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-en-011",
+      "arm": "normalized",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "49f9b89393098812a3c2059502c903735bb91521432f181f42c4b5be580d2509",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 24,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 30.352050703999964,
+      "peak_rss_bytes": 771096576,
+      "strict_passed": true,
+      "raw_sha256": "43ee6c62c3009583caf4c8927ab534ef6755af172d86c437b6968c0ee590690e",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-011-minus24db-pause-after",
+      "arm": "normalized",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "a5bc08e419d5d1ab6442a67d58f65d990f906e16d81fc2e237a7f9dfd2589957",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 24,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 32.968614962000004,
+      "peak_rss_bytes": 840445952,
+      "strict_passed": true,
+      "raw_sha256": "43ee6c62c3009583caf4c8927ab534ef6755af172d86c437b6968c0ee590690e",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-011-minus24db-pause-after",
+      "arm": "baseline",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "a1753cfe60369b5075f9d6ecb1181ab5000eaedeaa119862b3d1453c4579e3bc",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 3,
+          "reference_units": 24,
+          "rate": 0.125
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 30.569245126,
+      "peak_rss_bytes": 774426624,
+      "strict_passed": false,
+      "raw_sha256": "1cada5e273c98af91ed0e2311172eafe950f70bca56c3b4b15e254eeb5b92c3f",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-en-011-minus24db-pause-before",
+      "arm": "baseline",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "3ccce5c4a5860dba16dbb75904a49ac36f5d426da8f2f0ab6af1577cbcd23bd6",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 23,
+          "reference_units": 24,
+          "rate": 0.9583333333333334
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 30.237322801999994,
+      "peak_rss_bytes": 841773056,
+      "strict_passed": false,
+      "raw_sha256": "f16346b87d5e10c3dba5863105b98ef623412033ede9d42239067531c8f9bc6e",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-011-minus24db-pause-before",
+      "arm": "normalized",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "6d4c93ad8ddef4f1c89bc8b274287917c36db15849e13dd09f3b7950ed73afbe",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 2,
+          "reference_units": 24,
+          "rate": 0.08333333333333333
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 31.410696109000014,
+      "peak_rss_bytes": 840396800,
+      "strict_passed": false,
+      "raw_sha256": "1e4e6d37baefc8f1f8b9b3e2a40ead4a0ed5adc7ab4a9955cecea5607fe0a31d",
+      "segment_count": 3
+    },
+    {
+      "id": "fleurs-en-011-minus42db-pause-after",
+      "arm": "normalized",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "ccf89f235f062dce4c00a7c74ebe532cafd0c8a46d4be9f344c783258f0595c6",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 24,
+          "reference_units": 24,
+          "rate": 1.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 29.95753005900002,
+      "peak_rss_bytes": 840593408,
+      "strict_passed": false,
+      "raw_sha256": "77cd08f93f4e7b112a92dc0857bf360af7561028022c183bd218d5934f00360b",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-011-minus42db-pause-after",
+      "arm": "baseline",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "1b45beb9f53a8789b91b2ea66081854dd787f85a66a76d100fa429063e9dbd48",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 24,
+          "reference_units": 24,
+          "rate": 1.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 29.91152065099999,
+      "peak_rss_bytes": 841158656,
+      "strict_passed": false,
+      "raw_sha256": "bccb36421c32fd24fe7d39b410b0f4edbe696599236548fac942263bbc8f8be0",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-011-minus42db-pause-before",
+      "arm": "baseline",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "eb9a358a7debbec967b67faa65cf3fd398f0545177589e5f94cabdc42dc7f9cc",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 24,
+          "reference_units": 24,
+          "rate": 1.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 35.440965866,
+      "peak_rss_bytes": 841506816,
+      "strict_passed": false,
+      "raw_sha256": "c7213e9b64b315c73cb768d0da8876bd067d2f517cfc83df7f0ac1fc644d8163",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-011-minus42db-pause-before",
+      "arm": "normalized",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "07d302888ffab322c4bf02e8989f12431abbb143c5bfd5bf3d311d47b8845bba",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 24,
+          "reference_units": 24,
+          "rate": 1.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 30.233144536000054,
+      "peak_rss_bytes": 836345856,
+      "strict_passed": false,
+      "raw_sha256": "c7213e9b64b315c73cb768d0da8876bd067d2f517cfc83df7f0ac1fc644d8163",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-013",
+      "arm": "normalized",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "51cbe5db9370a7c2aa41819a99f47f01b4508b3bc68cc95e149a2d62b57b79d1",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 17,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.543636407000008,
+      "peak_rss_bytes": 765419520,
+      "strict_passed": true,
+      "raw_sha256": "3089534c00a191bcc34cb2ec3f98358f82cd7eab257db71cfac6d5c0183e6abf",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-en-013",
+      "arm": "baseline",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "431d013d01d25cbf8d42587f4a14df57d09dbe9cbc2af4ea91ba93f9bd290ec4",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 17,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.57396336399995,
+      "peak_rss_bytes": 765669376,
+      "strict_passed": true,
+      "raw_sha256": "3089534c00a191bcc34cb2ec3f98358f82cd7eab257db71cfac6d5c0183e6abf",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-en-017",
+      "arm": "baseline",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "952145e2808bf8ea6354ec0ea656652a0eeff61438a466fa4f0f3568f89c23a3",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 17,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "year",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.645289439000067,
+      "peak_rss_bytes": 767557632,
+      "strict_passed": true,
+      "raw_sha256": "aff85e8e4502bb57efd09d96bda05c47443c091d5dc5baf3d6a7a78a68c8c076",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-017",
+      "arm": "normalized",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "820f0dbca83ac98c633de1a1275890272dd2018b1850adf920bd1639b12d7b27",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 17,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "year",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.772937432999925,
+      "peak_rss_bytes": 767934464,
+      "strict_passed": true,
+      "raw_sha256": "d804345cc3baaca92277cbb17d479ff88befae3d7190fd6b228afafb69409aee",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-021",
+      "arm": "normalized",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "baab82afa24ee67645a7a7ab2ac8018ca3d02319f531f09d2d7fb42a136ec4aa",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 26,
+          "rate": 0.038461538461538464
+        },
+        "checks": [
+          {
+            "name": "counts",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "injured",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "uncertainty",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.79076769300002,
+      "peak_rss_bytes": 767438848,
+      "strict_passed": true,
+      "raw_sha256": "1961f52d5a93aa6434d6b38d8c251135bdf375c992a7cbe2c474d1b0e698f7cb",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-en-021",
+      "arm": "baseline",
+      "language": "en",
+      "origin": "human_recording",
+      "audio_sha256": "df7a78f49dc92468b8e79a2ffb98d78622ead12f70f567eca0ac472a81ba21b6",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 26,
+          "rate": 0.038461538461538464
+        },
+        "checks": [
+          {
+            "name": "counts",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "injured",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "uncertainty",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.687231953999913,
+      "peak_rss_bytes": 770883584,
+      "strict_passed": true,
+      "raw_sha256": "4c15316a8ac449c4e1dbd564f56335da4c5d521c367f5954f8f879a8a4338948",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-002",
+      "arm": "baseline",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "88391f365cdecc51a56ef5f9322c441c0107ab8d0c6f7a3a09f2334ffe8c56ff",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 28,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "duration",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.877030465000075,
+      "peak_rss_bytes": 771014656,
+      "strict_passed": true,
+      "raw_sha256": "76063982909f72d8a57d30d6337ea1fda466eee942d5ede36b6e09b34df724b1",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-002",
+      "arm": "normalized",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "491e179b3a9ce875f321630d106cd2706cdedd0b606e26ad0827b378a0730db4",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 28,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "duration",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.91515983299996,
+      "peak_rss_bytes": 771006464,
+      "strict_passed": true,
+      "raw_sha256": "76063982909f72d8a57d30d6337ea1fda466eee942d5ede36b6e09b34df724b1",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-010",
+      "arm": "normalized",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "a5dc2809f16c66fdeb847902aae8a4cb66a3762f7015af110091394d256831fd",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 30,
+          "rate": 0.03333333333333333
+        },
+        "checks": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.95832247499993,
+      "peak_rss_bytes": 771256320,
+      "strict_passed": true,
+      "raw_sha256": "0ae22edecc76cde1833313aec281c7a2f8d0ce794680b164d38ac675a648eb10",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-010",
+      "arm": "baseline",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "79f4e7148a35d78e986911d939c1664737209e33c4e46dae944e28bb624afdfb",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 30,
+          "rate": 0.03333333333333333
+        },
+        "checks": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.801345431000072,
+      "peak_rss_bytes": 771289088,
+      "strict_passed": true,
+      "raw_sha256": "0ae22edecc76cde1833313aec281c7a2f8d0ce794680b164d38ac675a648eb10",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-010-minus24db-pause-after",
+      "arm": "baseline",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "a9736f3a19f41e85797dc595b247a29940a80c8977d519ecfcd2aa52ca5d0543",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 31,
+          "reference_units": 30,
+          "rate": 1.0333333333333334
+        },
+        "checks": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 30.25484454299999,
+      "peak_rss_bytes": 770129920,
+      "strict_passed": false,
+      "raw_sha256": "f7b6c5e34be23eb859361a0708e3635e070d62b45169a14bdc8acda555cb2d2c",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-ja-010-minus24db-pause-after",
+      "arm": "normalized",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "1b08def024c001de831693b0d1ec903d743d6ba334569f70ac1e0b02cf99041b",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 61,
+          "reference_units": 30,
+          "rate": 2.033333333333333
+        },
+        "checks": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 30.699860049999984,
+      "peak_rss_bytes": 774017024,
+      "strict_passed": false,
+      "raw_sha256": "b5b76dee402f9f1f0f5a84eb6dc18e9d71c1960dfef816b954d6ad431502e42a",
+      "segment_count": 6
+    },
+    {
+      "id": "fleurs-ja-010-minus24db-pause-before",
+      "arm": "normalized",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "71f1d2f2718688f7ae685405d072290d844ba285ad833b0a3543613fc29841c6",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 31,
+          "reference_units": 30,
+          "rate": 1.0333333333333334
+        },
+        "checks": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 30.115317618000063,
+      "peak_rss_bytes": 774139904,
+      "strict_passed": false,
+      "raw_sha256": "f7b6c5e34be23eb859361a0708e3635e070d62b45169a14bdc8acda555cb2d2c",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-ja-010-minus24db-pause-before",
+      "arm": "baseline",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "57381b0849eef52e5db1ee0016be718deb7b942fff495275d67f32795d5ae193",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 31,
+          "reference_units": 30,
+          "rate": 1.0333333333333334
+        },
+        "checks": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 30.191298324999934,
+      "peak_rss_bytes": 774234112,
+      "strict_passed": false,
+      "raw_sha256": "f7b6c5e34be23eb859361a0708e3635e070d62b45169a14bdc8acda555cb2d2c",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-ja-010-minus42db-pause-after",
+      "arm": "baseline",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "6d862898fb6201478f4f3b8ac1d7381e0d96488875e67ea77f0f43a80685ec90",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 31,
+          "reference_units": 30,
+          "rate": 1.0333333333333334
+        },
+        "checks": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 30.177700265,
+      "peak_rss_bytes": 775065600,
+      "strict_passed": false,
+      "raw_sha256": "f7b6c5e34be23eb859361a0708e3635e070d62b45169a14bdc8acda555cb2d2c",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-ja-010-minus42db-pause-after",
+      "arm": "normalized",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "feb63ad53a0744298d1a53bb45a03ad3fe5222a9ca1d8a55ed207f88028a905f",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 20,
+          "reference_units": 30,
+          "rate": 0.6666666666666666
+        },
+        "checks": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 30.105332125000018,
+      "peak_rss_bytes": 775262208,
+      "strict_passed": false,
+      "raw_sha256": "90e860d221f163326b5f755310fc89f016198614f3101765f0e3ba97275968a7",
+      "segment_count": 3
+    },
+    {
+      "id": "fleurs-ja-010-minus42db-pause-before",
+      "arm": "normalized",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "3fd787048bd4fbe40fbcb8dc5e63b039ca871a4dabaed0e0eafe97df078a7bf0",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 31,
+          "reference_units": 30,
+          "rate": 1.0333333333333334
+        },
+        "checks": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 30.27395474900004,
+      "peak_rss_bytes": 775168000,
+      "strict_passed": false,
+      "raw_sha256": "f7b6c5e34be23eb859361a0708e3635e070d62b45169a14bdc8acda555cb2d2c",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-ja-010-minus42db-pause-before",
+      "arm": "baseline",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "23e34ac5ae1690aabe13b227c4197c47061d8de0f629b0b586ded483c67785da",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 30,
+          "rate": 0.03333333333333333
+        },
+        "checks": [
+          {
+            "name": "count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.96696500200005,
+      "peak_rss_bytes": 774045696,
+      "strict_passed": true,
+      "raw_sha256": "0ae22edecc76cde1833313aec281c7a2f8d0ce794680b164d38ac675a648eb10",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-013",
+      "arm": "baseline",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "66b2cadee94dcfd09ab9d64e0872510377435a855fcf93f27c296caecdefefec",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 41,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "name",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.89507840200008,
+      "peak_rss_bytes": 771485696,
+      "strict_passed": true,
+      "raw_sha256": "9bf2d92cfa9cf8dc6efb1546a2d4dd1149026749f9673e7fa5b4db08751e72d5",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-013",
+      "arm": "normalized",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "0c203dcb14a728eebe27db3a155fbfbbf696e21859b1fa35154f1493273313e7",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 41,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "name",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.905612023000003,
+      "peak_rss_bytes": 771371008,
+      "strict_passed": true,
+      "raw_sha256": "9bf2d92cfa9cf8dc6efb1546a2d4dd1149026749f9673e7fa5b4db08751e72d5",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-025",
+      "arm": "normalized",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "d49a431848a33a1d1420ea48d38a3ac9491d13d4cb5d4f2bc9135d3e4c6a8c79",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 35,
+          "rate": 0.02857142857142857
+        },
+        "checks": [
+          {
+            "name": "unchanged",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.84444937599983,
+      "peak_rss_bytes": 770973696,
+      "strict_passed": true,
+      "raw_sha256": "a3c932b16de7e96548ce619806e50a7f7d74f11fc8fd1269888e4d645583eb0a",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-025",
+      "arm": "baseline",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "791a961a253abc6af431fbf7a2e63376ba573bbc4ce4f32f2d690316bdf82357",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 35,
+          "rate": 0.02857142857142857
+        },
+        "checks": [
+          {
+            "name": "unchanged",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.905995604000054,
+      "peak_rss_bytes": 765927424,
+      "strict_passed": true,
+      "raw_sha256": "a3c932b16de7e96548ce619806e50a7f7d74f11fc8fd1269888e4d645583eb0a",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-030",
+      "arm": "baseline",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "a548ddfc95de96b390e9b491cef0884ecb3aaec0ea773085baa40c16450b019d",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 41,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "score",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "streak",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.985464024000066,
+      "peak_rss_bytes": 771452928,
+      "strict_passed": true,
+      "raw_sha256": "b0fb257ee6d16eee6e9cf1f578719bca4dffc1508e7b978d32433d27e711cab5",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-030",
+      "arm": "normalized",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "0b9302354496f8986b04a462986d8ce1edb35eb32bde78419cff4897022f88c4",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 41,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "score",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "streak",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.981581648999963,
+      "peak_rss_bytes": 771407872,
+      "strict_passed": true,
+      "raw_sha256": "ed633c879cdb864dc8d78ab2519f82cc53b6c5fcd4832bc2cbaea0fd217dde7e",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-034",
+      "arm": "normalized",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "5920c7cf51efa9632d5085dbd32ae26214b11906c03b54d9883974249c5351cd",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 32,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "width",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.537328114000047,
+      "peak_rss_bytes": 771112960,
+      "strict_passed": true,
+      "raw_sha256": "d3663df0f46a17518bb223f3fccdcecb5c4443f76e43d10090df4005c977c929",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-ja-034",
+      "arm": "baseline",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio_sha256": "287ea58715c3a94b2751d960d823b67060878a6861ba7f5643dacc30fb2c8c8b",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 32,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "width",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.952037137999923,
+      "peak_rss_bytes": 770985984,
+      "strict_passed": true,
+      "raw_sha256": "d3663df0f46a17518bb223f3fccdcecb5c4443f76e43d10090df4005c977c929",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-001",
+      "arm": "baseline",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "577a635c2261680c61dda5fecbc4f83bff6f37f453665b8d9d1a68f210f57c0a",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 35,
+          "rate": 0.02857142857142857
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 30.010324408000088,
+      "peak_rss_bytes": 771223552,
+      "strict_passed": true,
+      "raw_sha256": "9d06af0f58950620ba7ccae8410baee5d41078ea6cca80049b8ce3f7dafe67b6",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-001",
+      "arm": "normalized",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "b6d31bb7438422eb0c70d294ed6c7b8ef36b51621eb29034ccf5b2c39c683d0d",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 35,
+          "rate": 0.02857142857142857
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.951476072000105,
+      "peak_rss_bytes": 770916352,
+      "strict_passed": true,
+      "raw_sha256": "9d06af0f58950620ba7ccae8410baee5d41078ea6cca80049b8ce3f7dafe67b6",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-001-minus24db-pause-after",
+      "arm": "normalized",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "6fd1c5a59113dcabcca7546160680ac06f1a8d09df44585bf0bf7ceee2b22e40",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 2,
+          "reference_units": 35,
+          "rate": 0.05714285714285714
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 30.375515812000003,
+      "peak_rss_bytes": 774090752,
+      "strict_passed": false,
+      "raw_sha256": "6a6207a7b5a33b68931b04eb76681037e8e5c55e4da64127de4ac8289a29dbeb",
+      "segment_count": 4
+    },
+    {
+      "id": "fleurs-zh-001-minus24db-pause-after",
+      "arm": "baseline",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "947bcde389236492077f20f5210ef21fe556569633354f148f62f6ac316adf00",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 2,
+          "reference_units": 35,
+          "rate": 0.05714285714285714
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 30.22827611999992,
+      "peak_rss_bytes": 773550080,
+      "strict_passed": false,
+      "raw_sha256": "c20e6e225c4b452dc0ac35656b788eac7ba9fe25203261381cc66e586c0c859e",
+      "segment_count": 4
+    },
+    {
+      "id": "fleurs-zh-001-minus24db-pause-before",
+      "arm": "baseline",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "4b4c4b30de8c0832b58cc5059497022dad1075baedb5afd5eccaa824572b0d53",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 3,
+          "reference_units": 35,
+          "rate": 0.08571428571428572
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 30.513975466000147,
+      "peak_rss_bytes": 773853184,
+      "strict_passed": false,
+      "raw_sha256": "a57e6897b9672f139c418f89802c989fabf55a08e132c049d7468846dad34144",
+      "segment_count": 4
+    },
+    {
+      "id": "fleurs-zh-001-minus24db-pause-before",
+      "arm": "normalized",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "019499b045de14b8f2cbd1232da4a9b15eda7c871be02871de2cc29f17bc1a41",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 3,
+          "reference_units": 35,
+          "rate": 0.08571428571428572
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 30.450041219000013,
+      "peak_rss_bytes": 771043328,
+      "strict_passed": false,
+      "raw_sha256": "a57e6897b9672f139c418f89802c989fabf55a08e132c049d7468846dad34144",
+      "segment_count": 4
+    },
+    {
+      "id": "fleurs-zh-001-minus42db-pause-after",
+      "arm": "normalized",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "633cccbc3dad44032217b2b66b18a9abb97d2e4f7be635e7d16e77e94885ee33",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 3,
+          "reference_units": 35,
+          "rate": 0.08571428571428572
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 30.336468350000132,
+      "peak_rss_bytes": 769966080,
+      "strict_passed": false,
+      "raw_sha256": "ea8b857c622c89336344f0cbf17ab9325b754abd780afe178aa891a6bbdaeac4",
+      "segment_count": 4
+    },
+    {
+      "id": "fleurs-zh-001-minus42db-pause-after",
+      "arm": "baseline",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "6b0e2b4da500e0cbdcd80798a9531a55a63b47d4b533d8a01a211feb570d37f5",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 3,
+          "reference_units": 35,
+          "rate": 0.08571428571428572
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 30.274452902999883,
+      "peak_rss_bytes": 770060288,
+      "strict_passed": false,
+      "raw_sha256": "754ffee69560412ab5569a034a6a661bdd3af94008c816cc044348453229e208",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-001-minus42db-pause-before",
+      "arm": "baseline",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "634c55c5f1e981fd5b52265b2384bdf327f08a3aee55eecb0f61f6d9de0ed529",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 3,
+          "reference_units": 35,
+          "rate": 0.08571428571428572
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 30.08920914799978,
+      "peak_rss_bytes": 770232320,
+      "strict_passed": false,
+      "raw_sha256": "37c848b0cf5fb4529adcfda3fad0a9ebf038d264d56704fa559c3dd9577e6317",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-001-minus42db-pause-before",
+      "arm": "normalized",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "67beb747fad431b6c3658e267279fd225edda8ba4397d52a9e98eaeca7ca08f6",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 4,
+          "reference_units": 35,
+          "rate": 0.11428571428571428
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 30.18499162000012,
+      "peak_rss_bytes": 769765376,
+      "strict_passed": false,
+      "raw_sha256": "643ec9c4f60ad04dc5d1dd1569324be270a354ba22fbda763c47fe315ee9556d",
+      "segment_count": 4
+    },
+    {
+      "id": "fleurs-zh-008",
+      "arm": "normalized",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "8db90251970b73bc47d5fc1bfe2d3eab1d051bdd4f7fb4209437c86378402f3a",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 31,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "score",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "streak",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.828292595999983,
+      "peak_rss_bytes": 768065536,
+      "strict_passed": true,
+      "raw_sha256": "d5ff9594ccdf10518af8227e29217c17386ca71981d96bc6d160dc580fd1d1f8",
+      "segment_count": 3
+    },
+    {
+      "id": "fleurs-zh-008",
+      "arm": "baseline",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "602f0fc4a334f4927b221b836f1735a09888f017956d02e1aaf97526a10cc964",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 31,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "score",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "streak",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.913766482000028,
+      "peak_rss_bytes": 766541824,
+      "strict_passed": true,
+      "raw_sha256": "d5ff9594ccdf10518af8227e29217c17386ca71981d96bc6d160dc580fd1d1f8",
+      "segment_count": 3
+    },
+    {
+      "id": "fleurs-zh-011",
+      "arm": "baseline",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "740b099bcbe2ef18d0605505bdf34494086b2422ce9677b4ab92bc056780aeff",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 14,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "term",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.529782394999984,
+      "peak_rss_bytes": 770605056,
+      "strict_passed": true,
+      "raw_sha256": "67ab43dbf1823c552bf9b0d32f6b336420cbc328d68398132bb40d349f8eaa38",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-011",
+      "arm": "normalized",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "7464affbb00499a500e3390b978d9c7690fca2cef63aaaa061401bf34f2142d4",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 14,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "term",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 29.327444209000078,
+      "peak_rss_bytes": 770883584,
+      "strict_passed": true,
+      "raw_sha256": "67ab43dbf1823c552bf9b0d32f6b336420cbc328d68398132bb40d349f8eaa38",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-020",
+      "arm": "normalized",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "b13f8cda83ec34cf4b46a491839161cb069adb0e822714495e426362f6bced2b",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 9,
+          "reference_units": 58,
+          "rate": 0.15517241379310345
+        },
+        "checks": [
+          {
+            "name": "year",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "stamp count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "name",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 30.48059189200012,
+      "peak_rss_bytes": 773283840,
+      "strict_passed": false,
+      "raw_sha256": "4d9d85fc27981f8c88aebad6ba18d41013d91acebb0ed40b221801c82302cab1",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-020",
+      "arm": "baseline",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "46a8db323b5e51dcbb06813f5ebb303d7688326b6cc51ba6e609296c75973f59",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 9,
+          "reference_units": 58,
+          "rate": 0.15517241379310345
+        },
+        "checks": [
+          {
+            "name": "year",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "stamp count",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          },
+          {
+            "name": "name",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 30.477533846000142,
+      "peak_rss_bytes": 768430080,
+      "strict_passed": false,
+      "raw_sha256": "4d9d85fc27981f8c88aebad6ba18d41013d91acebb0ed40b221801c82302cab1",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-022",
+      "arm": "baseline",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "7cda86aca73eac3283e3e12a90a550b3eb2c3ac33d6c202d7c0759eea384f7b4",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 36,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 30.015743750999945,
+      "peak_rss_bytes": 767782912,
+      "strict_passed": true,
+      "raw_sha256": "5e7165c3c0e3811c7603e9619a3a23502e2e1c38b9b12115bc2a3525c9c4d8d1",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-zh-022",
+      "arm": "normalized",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "4747f399cf52478f138aac1194e8595eb78d7fb954532179a7871973343361d5",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 36,
+          "rate": 0.0
+        },
+        "checks": [
+          {
+            "name": "negation",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      "elapsed_seconds": 30.135036262999847,
+      "peak_rss_bytes": 767668224,
+      "strict_passed": true,
+      "raw_sha256": "5e7165c3c0e3811c7603e9619a3a23502e2e1c38b9b12115bc2a3525c9c4d8d1",
+      "segment_count": 2
+    },
+    {
+      "id": "fleurs-zh-034",
+      "arm": "normalized",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "b5e7f93a015b78643b2767d962a65fbeb8d1e28cb5eefbece69b286df2a31473",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 3,
+          "reference_units": 13,
+          "rate": 0.23076923076923078
+        },
+        "checks": [
+          {
+            "name": "name",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": false
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 29.663378427999987,
+      "peak_rss_bytes": 767369216,
+      "strict_passed": false,
+      "raw_sha256": "ea023d400897151aa007d30140af0808ca8f09635993a0321490912fe9cdd1dc",
+      "segment_count": 1
+    },
+    {
+      "id": "fleurs-zh-034",
+      "arm": "baseline",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio_sha256": "eba0b68aa12dd62c40f78ea201be03e51f790c1811c8f6b5a646c17a1a9691ed",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 2,
+          "reference_units": 13,
+          "rate": 0.15384615384615385
+        },
+        "checks": [
+          {
+            "name": "name",
+            "target": "raw",
+            "matching_view": "narrative_whitespace",
+            "passed": true
+          }
+        ],
+        "passed": false
+      },
+      "elapsed_seconds": 29.686980794999954,
+      "peak_rss_bytes": 767406080,
+      "strict_passed": false,
+      "raw_sha256": "684f04e8d68be7cb53e6251dc014e16a3fa5ca85010bbdaf4c85964ba5eb3589",
+      "segment_count": 1
+    },
+    {
+      "id": "noise-en",
+      "arm": "baseline",
+      "language": "en",
+      "origin": "negative_control",
+      "audio_sha256": "af9a9dfee9e45c53834a5258369d5308d95f47ea7e423f0a44c8cb8b147b5d45",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 0,
+          "rate": 0.0
+        },
+        "checks": [],
+        "passed": true
+      },
+      "elapsed_seconds": 29.659786565000104,
+      "peak_rss_bytes": 767315968,
+      "strict_passed": false,
+      "raw_sha256": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8",
+      "segment_count": 1
+    },
+    {
+      "id": "noise-en",
+      "arm": "normalized",
+      "language": "en",
+      "origin": "negative_control",
+      "audio_sha256": "9726cd3a4968e8325d2c93becf14aa64cb5cbcc02bab2814e5743c4ffc6d57a2",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 0,
+          "reference_units": 0,
+          "rate": 0.0
+        },
+        "checks": [],
+        "passed": true
+      },
+      "elapsed_seconds": 29.73420156599991,
+      "peak_rss_bytes": 833699840,
+      "strict_passed": false,
+      "raw_sha256": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8",
+      "segment_count": 1
+    },
+    {
+      "id": "noise-ja",
+      "arm": "normalized",
+      "language": "ja",
+      "origin": "negative_control",
+      "audio_sha256": "9726cd3a4968e8325d2c93becf14aa64cb5cbcc02bab2814e5743c4ffc6d57a2",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 2,
+          "reference_units": 0,
+          "rate": null
+        },
+        "checks": [],
+        "passed": false
+      },
+      "elapsed_seconds": 29.57470726800011,
+      "peak_rss_bytes": 836956160,
+      "strict_passed": false,
+      "raw_sha256": "8f90d85ec13a0b1b12d81203f2f3262ca156028a94aeaf91ae52fcd5a9de4170",
+      "segment_count": 1
+    },
+    {
+      "id": "noise-ja",
+      "arm": "baseline",
+      "language": "ja",
+      "origin": "negative_control",
+      "audio_sha256": "af9a9dfee9e45c53834a5258369d5308d95f47ea7e423f0a44c8cb8b147b5d45",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 2,
+          "reference_units": 0,
+          "rate": null
+        },
+        "checks": [],
+        "passed": false
+      },
+      "elapsed_seconds": 29.554785109999784,
+      "peak_rss_bytes": 836935680,
+      "strict_passed": false,
+      "raw_sha256": "8f90d85ec13a0b1b12d81203f2f3262ca156028a94aeaf91ae52fcd5a9de4170",
+      "segment_count": 1
+    },
+    {
+      "id": "noise-zh",
+      "arm": "baseline",
+      "language": "zh",
+      "origin": "negative_control",
+      "audio_sha256": "af9a9dfee9e45c53834a5258369d5308d95f47ea7e423f0a44c8cb8b147b5d45",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 0,
+          "rate": null
+        },
+        "checks": [],
+        "passed": false
+      },
+      "elapsed_seconds": 29.702203577999626,
+      "peak_rss_bytes": 838950912,
+      "strict_passed": false,
+      "raw_sha256": "f867f34178594f891eb70a4260f62b1d9289cfa60394f9fee1cbbe4a8b4bf436",
+      "segment_count": 1
+    },
+    {
+      "id": "noise-zh",
+      "arm": "normalized",
+      "language": "zh",
+      "origin": "negative_control",
+      "audio_sha256": "9726cd3a4968e8325d2c93becf14aa64cb5cbcc02bab2814e5743c4ffc6d57a2",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 1,
+          "reference_units": 0,
+          "rate": null
+        },
+        "checks": [],
+        "passed": false
+      },
+      "elapsed_seconds": 29.75796015800006,
+      "peak_rss_bytes": 836976640,
+      "strict_passed": false,
+      "raw_sha256": "f867f34178594f891eb70a4260f62b1d9289cfa60394f9fee1cbbe4a8b4bf436",
+      "segment_count": 1
+    },
+    {
+      "id": "silence-en",
+      "arm": "normalized",
+      "language": "en",
+      "origin": "negative_control",
+      "audio_sha256": "262d1f34f300560a4c82ba8127ddea9e1d72946f187fdbd3e8f70ee096077aec",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 2,
+          "reference_units": 0,
+          "rate": null
+        },
+        "checks": [],
+        "passed": false
+      },
+      "elapsed_seconds": 30.03363540700002,
+      "peak_rss_bytes": 770732032,
+      "strict_passed": false,
+      "raw_sha256": "8569efc4ed5a6273140c2b6ec0ab8d99f4398210808fbb7c0cbbae4fbcc21350",
+      "segment_count": 1
+    },
+    {
+      "id": "silence-en",
+      "arm": "baseline",
+      "language": "en",
+      "origin": "negative_control",
+      "audio_sha256": "262d1f34f300560a4c82ba8127ddea9e1d72946f187fdbd3e8f70ee096077aec",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 2,
+          "reference_units": 0,
+          "rate": null
+        },
+        "checks": [],
+        "passed": false
+      },
+      "elapsed_seconds": 29.869183736000195,
+      "peak_rss_bytes": 770658304,
+      "strict_passed": false,
+      "raw_sha256": "8569efc4ed5a6273140c2b6ec0ab8d99f4398210808fbb7c0cbbae4fbcc21350",
+      "segment_count": 1
+    },
+    {
+      "id": "silence-ja",
+      "arm": "baseline",
+      "language": "ja",
+      "origin": "negative_control",
+      "audio_sha256": "262d1f34f300560a4c82ba8127ddea9e1d72946f187fdbd3e8f70ee096077aec",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 14,
+          "reference_units": 0,
+          "rate": null
+        },
+        "checks": [],
+        "passed": false
+      },
+      "elapsed_seconds": 29.866294982,
+      "peak_rss_bytes": 770715648,
+      "strict_passed": false,
+      "raw_sha256": "0b60f62b46171b8625b7f25a66c4d8072d12e6b62786a283d8665a86d73791c2",
+      "segment_count": 1
+    },
+    {
+      "id": "silence-ja",
+      "arm": "normalized",
+      "language": "ja",
+      "origin": "negative_control",
+      "audio_sha256": "262d1f34f300560a4c82ba8127ddea9e1d72946f187fdbd3e8f70ee096077aec",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 14,
+          "reference_units": 0,
+          "rate": null
+        },
+        "checks": [],
+        "passed": false
+      },
+      "elapsed_seconds": 30.47044185499999,
+      "peak_rss_bytes": 770785280,
+      "strict_passed": false,
+      "raw_sha256": "0b60f62b46171b8625b7f25a66c4d8072d12e6b62786a283d8665a86d73791c2",
+      "segment_count": 1
+    },
+    {
+      "id": "silence-zh",
+      "arm": "normalized",
+      "language": "zh",
+      "origin": "negative_control",
+      "audio_sha256": "262d1f34f300560a4c82ba8127ddea9e1d72946f187fdbd3e8f70ee096077aec",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 20,
+          "reference_units": 0,
+          "rate": null
+        },
+        "checks": [],
+        "passed": false
+      },
+      "elapsed_seconds": 30.158347464000144,
+      "peak_rss_bytes": 770588672,
+      "strict_passed": false,
+      "raw_sha256": "f8aea53f45f5ee2d5be723939c20b25e7fc30b8cfca87933b4130a9a7933cac3",
+      "segment_count": 1
+    },
+    {
+      "id": "silence-zh",
+      "arm": "baseline",
+      "language": "zh",
+      "origin": "negative_control",
+      "audio_sha256": "262d1f34f300560a4c82ba8127ddea9e1d72946f187fdbd3e8f70ee096077aec",
+      "score": {
+        "scorer_version": 2,
+        "raw": {
+          "errors": 20,
+          "reference_units": 0,
+          "rate": null
+        },
+        "checks": [],
+        "passed": false
+      },
+      "elapsed_seconds": 30.022608528999626,
+      "peak_rss_bytes": 770605056,
+      "strict_passed": false,
+      "raw_sha256": "f8aea53f45f5ee2d5be723939c20b25e7fc30b8cfca87933b4130a9a7933cac3",
+      "segment_count": 1
+    }
+  ],
+  "aggregation_scope": "English word errors and Japanese/Mandarin character errors are mixed diagnostic counts, not pooled accuracy or WER. Control error rates with zero reference units are undefined.",
+  "sample_dependence": "Quiet derivatives reuse three originals; six control labels reuse two generated inputs. This single run establishes no statistical generalization.",
+  "evidence_limits": "Binary/model and native source-tree identities are retained hosted witnesses, not a fresh external attestation or a local binary/model reread. Every complete native text/JSON output and score was independently reread.",
+  "independent_review": {
+    "status": "CLEAN evidence; candidate rejected",
+    "child_id": "01a122d1-77db-73f2-894b-948b710bbaa2",
+    "receipt_sha256": "1fb75e5ec5baa08219e7c99dd9cbd76ad9a43cb332e499e9db8720441c60f97d",
+    "coverage": "378 full UTF8 files;72 outputs;36 semantic pairs; independent aggregation and frozen scorer",
+    "role": "Model review, not human certification"
+  }
+}

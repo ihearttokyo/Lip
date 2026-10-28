@@ -1,0 +1,72 @@
+{
+  "schema": "lip-build-iterations-v1",
+  "seed": {
+    "source_commit": "13d87e4439d38811a4c82a8bab747f1d7443d88c",
+    "reachable_commits": 10,
+    "empty_states": 0,
+    "distinct_production_states": 6,
+    "first_parent_states": 4,
+    "additional_branch_states": 2,
+    "missing_trees": 0,
+    "projection_identity_set_sha256": "26cb9dcf14b2729b5fec1d89bf9e0b9d30a43cb28d40956f9e83e7e1bd0f6a25",
+    "ordinal": 6,
+    "projection": {
+      "method": "All anchor/HEAD-reachable commits, including merged-branch development; sorted raw git ls-tree -r -z mode/type/object/path entries; omit empty projections and globally deduplicate identical projected trees. No blob reads or lazy fetching.",
+      "fixed_paths": [
+        ".gitmodules",
+        "LICENSE",
+        "NOTICE.md",
+        "app/build.gradle.kts",
+        "app/proguard-rules.pro",
+        "build.gradle.kts",
+        "desktop/Info.plist",
+        "desktop/Package.resolved",
+        "desktop/Package.swift",
+        "gradle.properties",
+        "gradlew",
+        "gradlew.bat",
+        "settings.gradle.kts"
+      ],
+      "prefixes": [
+        "app/src/main/",
+        "desktop/Sources/",
+        "desktop/scripts/",
+        "third_party/",
+        "tools/"
+      ],
+      "excluded_components": [
+        "test",
+        "tests",
+        "androidTest",
+        "sharedTest",
+        "offlinePreviewAndroidTest",
+        "debug",
+        "__pycache__"
+      ],
+      "excluded_names": [
+        "test_*",
+        "*Tests.swift"
+      ],
+      "excluded_prefixes": [
+        "tools/source_delivery/",
+        "tools/site/"
+      ],
+      "identity": "SHA256 of path-byte-sorted raw ls-tree records, each followed by NUL; set digest is SHA256 of sorted distinct nonempty identity hex lines with final LF. Gitlinks are opaque pinned identities, not recursively audited upstream history."
+    },
+    "scope": "Distinct committed Lip production-input states through the audited anchor, including branch development. Not a lifetime/uncommitted count, exported-build count, PR number, test count or run count."
+  },
+  "policy": "New admitted production-source candidates consume one ordinal. Retain failed issued ordinals forever. Same-candidate source-identical packaging/signing/CI retries do not advance; docs/tests-only or identical projected states cannot allocate. Minimum three decimal digits, no Alpha/Preview suffix. Final source/artifact binding is external after commit; reservations are not releases.",
+  "upgrade_floor": {
+    "android_application_id": "dev.lip.android.preview",
+    "android_version_code": 50003,
+    "macos_bundle_id": "dev.lip.local.mac",
+    "macos_build": 10
+  },
+  "allocations": [
+    {
+      "ordinal": 7,
+      "candidate": "canonical-release-identity",
+      "status": "reserved"
+    }
+  ]
+}

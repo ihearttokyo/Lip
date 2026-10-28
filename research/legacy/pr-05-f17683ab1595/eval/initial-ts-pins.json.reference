@@ -1,0 +1,983 @@
+{
+  "schema_version": 1,
+  "runtime_revision": "306c88f4d1286aec1bf96e544632897886af5501",
+  "cli_sha256": "840f331f80a98c41fc21eb4cf109c4c6a5496b8f248e9bbce58dd733dece76b2",
+  "full_quiet_manifest_sha256": "fe8e6e84918e1afc24515c37d3f970fb22348542c138f4d7af457b6e0f26a085",
+  "source_sha256": {
+    "eval/corpus.json": "46b5595291997beda8b5648541400640a80b458a411c2572bd9d4f83f49c01ef",
+    "eval/controls.json": "eb8a7133e3dcd11d056bc2324384b3d7b664fff29d700f052b1cb67d9e6a0620",
+    "eval/benchmark.py": "a681b82e4c444756bda0f3440a84c0ef3df47819e9da0af5628f6f4db4621e76",
+    "eval/fetch_corpus.py": "6a1eaa51507aff890c5c334c632b0e5fdd6634acdd109c26207a2c5e2a3a50bf",
+    "eval/vad_holdouts.py": "15e880e14aea1e93210e7f9dfd744cddce9ae12bad11906010325eba2f17b435",
+    "eval/observe_vad.py": "f4a05cb94ed37e751da117135eb99b999753444332160b25ce724be28baade9b",
+    "eval/controls.py": "a8a842b294cc0d465ff173925d737fbc7b66944527041efe8fbe123fc52ca93a",
+    "eval/qwen17_ci.py": "081d9043960f3edfb612678580c1348ee81b0567870ee3f270158d9e9642448e",
+    "eval/qwen17_cli.py": "baab465befce891e41138ed146da9975c75aadadf0bbb3b2861430d09a0215b1",
+    "eval/sensevoice_cli.py": "e9688330565adf99a794b4b2e89397b0568c69a56ac51a7a5bb835ac7eaa0b0a"
+  },
+  "model": {
+    "name": "ggml-large-v3-turbo-q5_0.bin",
+    "revision": "5359861c739e955e79d9a303bcbc70fb988958b1",
+    "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-large-v3-turbo-q5_0.bin",
+    "bytes": 574041195,
+    "sha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2"
+  },
+  "quiet_cases": [
+    {
+      "size_bytes": 917164,
+      "sha256": "3ccce5c4a5860dba16dbb75904a49ac36f5d426da8f2f0ab6af1577cbcd23bd6",
+      "id": "fleurs-en-011-minus24db-pause-before",
+      "language": "en",
+      "origin": "human_recording",
+      "audio": "audio/fleurs-en-011-minus24db-pause-before.wav",
+      "reference_raw": "Local authorities are warning residents in the vicinity of the plant to stay indoors, turn off air-conditioners and not to drink tap water.",
+      "max_error_rate": 0.05,
+      "checks": [
+        {
+          "name": "negation",
+          "target": "raw",
+          "required": [
+            "(?i)\\bnot to drink tap water\\b"
+          ]
+        }
+      ],
+      "license": "CC-BY-4.0",
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+        "config": "en_us",
+        "split": "validation",
+        "row_index": 11,
+        "utterance_id": 1536,
+        "source_file": "10408474834696432538.wav",
+        "source_raw_transcription": "Local authorities are warning residents in the vicinity of the plant to stay indoors, turn off air-conditioners and not to drink tap water.",
+        "source_asr_transcription": "local authorities are warning residents in the vicinity of the plant to stay indoors turn off air-conditioners and not to drink tap water",
+        "gender_label": "female",
+        "num_samples": 130560,
+        "rows_url": "https://datasets-server.huggingface.co/rows?dataset=google/fleurs&config=en_us&split=validation&offset=0&length=36",
+        "cached_audio_size_bytes": 522298,
+        "size_evidence": "previous HEAD matched frame count *4 +58",
+        "cached_audio_etag": "\"91c5ad045db914aae90a971ef441e81d\"",
+        "case_id": "fleurs-en-011",
+        "audio_sha256": "409c1b0f2e86fbc7996c1122e8ccbd0ff30bae145395b456e4ffa6b8c8279c12",
+        "frozen_audio": "sources/fleurs-en-011.wav"
+      },
+      "transform": {
+        "gain_db": -24,
+        "gain_factor": 0.06309573444801933,
+        "clipped_samples": 0,
+        "sample_rate": 16000,
+        "quantization": "round_nearest_ties_even_then_saturate_pcm16_no_renormalization",
+        "noise": {
+          "size_bytes": 640044,
+          "sha256": "952567db9dfe06c68e88794d3aa763e3d24e9226afd9093059c81593161fe0cd",
+          "frozen_audio": "sources/seeded-noise-20s.wav",
+          "kind": "seeded_uniform_pcm16",
+          "seed": 20261008,
+          "amplitude_int16": 655,
+          "actual_room_tone": false,
+          "shares_seed_with_existing_controls": true
+        },
+        "pause_position": "before",
+        "long_pause_samples": 320000,
+        "opposite_edge_samples": 8000
+      },
+      "truth": {
+        "source_envelope_samples": [
+          320000,
+          450560
+        ],
+        "voiced_alignment_claimed": false,
+        "known_synthetic_noise_samples": [
+          [
+            0,
+            320000
+          ],
+          [
+            450560,
+            458560
+          ]
+        ],
+        "reference_raw": "Local authorities are warning residents in the vicinity of the plant to stay indoors, turn off air-conditioners and not to drink tap water."
+      }
+    },
+    {
+      "size_bytes": 917164,
+      "sha256": "a1753cfe60369b5075f9d6ecb1181ab5000eaedeaa119862b3d1453c4579e3bc",
+      "id": "fleurs-en-011-minus24db-pause-after",
+      "language": "en",
+      "origin": "human_recording",
+      "audio": "audio/fleurs-en-011-minus24db-pause-after.wav",
+      "reference_raw": "Local authorities are warning residents in the vicinity of the plant to stay indoors, turn off air-conditioners and not to drink tap water.",
+      "max_error_rate": 0.05,
+      "checks": [
+        {
+          "name": "negation",
+          "target": "raw",
+          "required": [
+            "(?i)\\bnot to drink tap water\\b"
+          ]
+        }
+      ],
+      "license": "CC-BY-4.0",
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+        "config": "en_us",
+        "split": "validation",
+        "row_index": 11,
+        "utterance_id": 1536,
+        "source_file": "10408474834696432538.wav",
+        "source_raw_transcription": "Local authorities are warning residents in the vicinity of the plant to stay indoors, turn off air-conditioners and not to drink tap water.",
+        "source_asr_transcription": "local authorities are warning residents in the vicinity of the plant to stay indoors turn off air-conditioners and not to drink tap water",
+        "gender_label": "female",
+        "num_samples": 130560,
+        "rows_url": "https://datasets-server.huggingface.co/rows?dataset=google/fleurs&config=en_us&split=validation&offset=0&length=36",
+        "cached_audio_size_bytes": 522298,
+        "size_evidence": "previous HEAD matched frame count *4 +58",
+        "cached_audio_etag": "\"91c5ad045db914aae90a971ef441e81d\"",
+        "case_id": "fleurs-en-011",
+        "audio_sha256": "409c1b0f2e86fbc7996c1122e8ccbd0ff30bae145395b456e4ffa6b8c8279c12",
+        "frozen_audio": "sources/fleurs-en-011.wav"
+      },
+      "transform": {
+        "gain_db": -24,
+        "gain_factor": 0.06309573444801933,
+        "clipped_samples": 0,
+        "sample_rate": 16000,
+        "quantization": "round_nearest_ties_even_then_saturate_pcm16_no_renormalization",
+        "noise": {
+          "size_bytes": 640044,
+          "sha256": "952567db9dfe06c68e88794d3aa763e3d24e9226afd9093059c81593161fe0cd",
+          "frozen_audio": "sources/seeded-noise-20s.wav",
+          "kind": "seeded_uniform_pcm16",
+          "seed": 20261008,
+          "amplitude_int16": 655,
+          "actual_room_tone": false,
+          "shares_seed_with_existing_controls": true
+        },
+        "pause_position": "after",
+        "long_pause_samples": 320000,
+        "opposite_edge_samples": 8000
+      },
+      "truth": {
+        "source_envelope_samples": [
+          8000,
+          138560
+        ],
+        "voiced_alignment_claimed": false,
+        "known_synthetic_noise_samples": [
+          [
+            0,
+            8000
+          ],
+          [
+            138560,
+            458560
+          ]
+        ],
+        "reference_raw": "Local authorities are warning residents in the vicinity of the plant to stay indoors, turn off air-conditioners and not to drink tap water."
+      }
+    },
+    {
+      "size_bytes": 917164,
+      "sha256": "eb9a358a7debbec967b67faa65cf3fd398f0545177589e5f94cabdc42dc7f9cc",
+      "id": "fleurs-en-011-minus42db-pause-before",
+      "language": "en",
+      "origin": "human_recording",
+      "audio": "audio/fleurs-en-011-minus42db-pause-before.wav",
+      "reference_raw": "Local authorities are warning residents in the vicinity of the plant to stay indoors, turn off air-conditioners and not to drink tap water.",
+      "max_error_rate": 0.05,
+      "checks": [
+        {
+          "name": "negation",
+          "target": "raw",
+          "required": [
+            "(?i)\\bnot to drink tap water\\b"
+          ]
+        }
+      ],
+      "license": "CC-BY-4.0",
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+        "config": "en_us",
+        "split": "validation",
+        "row_index": 11,
+        "utterance_id": 1536,
+        "source_file": "10408474834696432538.wav",
+        "source_raw_transcription": "Local authorities are warning residents in the vicinity of the plant to stay indoors, turn off air-conditioners and not to drink tap water.",
+        "source_asr_transcription": "local authorities are warning residents in the vicinity of the plant to stay indoors turn off air-conditioners and not to drink tap water",
+        "gender_label": "female",
+        "num_samples": 130560,
+        "rows_url": "https://datasets-server.huggingface.co/rows?dataset=google/fleurs&config=en_us&split=validation&offset=0&length=36",
+        "cached_audio_size_bytes": 522298,
+        "size_evidence": "previous HEAD matched frame count *4 +58",
+        "cached_audio_etag": "\"91c5ad045db914aae90a971ef441e81d\"",
+        "case_id": "fleurs-en-011",
+        "audio_sha256": "409c1b0f2e86fbc7996c1122e8ccbd0ff30bae145395b456e4ffa6b8c8279c12",
+        "frozen_audio": "sources/fleurs-en-011.wav"
+      },
+      "transform": {
+        "gain_db": -42,
+        "gain_factor": 0.007943282347242814,
+        "clipped_samples": 0,
+        "sample_rate": 16000,
+        "quantization": "round_nearest_ties_even_then_saturate_pcm16_no_renormalization",
+        "noise": {
+          "size_bytes": 640044,
+          "sha256": "952567db9dfe06c68e88794d3aa763e3d24e9226afd9093059c81593161fe0cd",
+          "frozen_audio": "sources/seeded-noise-20s.wav",
+          "kind": "seeded_uniform_pcm16",
+          "seed": 20261008,
+          "amplitude_int16": 655,
+          "actual_room_tone": false,
+          "shares_seed_with_existing_controls": true
+        },
+        "pause_position": "before",
+        "long_pause_samples": 320000,
+        "opposite_edge_samples": 8000
+      },
+      "truth": {
+        "source_envelope_samples": [
+          320000,
+          450560
+        ],
+        "voiced_alignment_claimed": false,
+        "known_synthetic_noise_samples": [
+          [
+            0,
+            320000
+          ],
+          [
+            450560,
+            458560
+          ]
+        ],
+        "reference_raw": "Local authorities are warning residents in the vicinity of the plant to stay indoors, turn off air-conditioners and not to drink tap water."
+      }
+    },
+    {
+      "size_bytes": 917164,
+      "sha256": "1b45beb9f53a8789b91b2ea66081854dd787f85a66a76d100fa429063e9dbd48",
+      "id": "fleurs-en-011-minus42db-pause-after",
+      "language": "en",
+      "origin": "human_recording",
+      "audio": "audio/fleurs-en-011-minus42db-pause-after.wav",
+      "reference_raw": "Local authorities are warning residents in the vicinity of the plant to stay indoors, turn off air-conditioners and not to drink tap water.",
+      "max_error_rate": 0.05,
+      "checks": [
+        {
+          "name": "negation",
+          "target": "raw",
+          "required": [
+            "(?i)\\bnot to drink tap water\\b"
+          ]
+        }
+      ],
+      "license": "CC-BY-4.0",
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+        "config": "en_us",
+        "split": "validation",
+        "row_index": 11,
+        "utterance_id": 1536,
+        "source_file": "10408474834696432538.wav",
+        "source_raw_transcription": "Local authorities are warning residents in the vicinity of the plant to stay indoors, turn off air-conditioners and not to drink tap water.",
+        "source_asr_transcription": "local authorities are warning residents in the vicinity of the plant to stay indoors turn off air-conditioners and not to drink tap water",
+        "gender_label": "female",
+        "num_samples": 130560,
+        "rows_url": "https://datasets-server.huggingface.co/rows?dataset=google/fleurs&config=en_us&split=validation&offset=0&length=36",
+        "cached_audio_size_bytes": 522298,
+        "size_evidence": "previous HEAD matched frame count *4 +58",
+        "cached_audio_etag": "\"91c5ad045db914aae90a971ef441e81d\"",
+        "case_id": "fleurs-en-011",
+        "audio_sha256": "409c1b0f2e86fbc7996c1122e8ccbd0ff30bae145395b456e4ffa6b8c8279c12",
+        "frozen_audio": "sources/fleurs-en-011.wav"
+      },
+      "transform": {
+        "gain_db": -42,
+        "gain_factor": 0.007943282347242814,
+        "clipped_samples": 0,
+        "sample_rate": 16000,
+        "quantization": "round_nearest_ties_even_then_saturate_pcm16_no_renormalization",
+        "noise": {
+          "size_bytes": 640044,
+          "sha256": "952567db9dfe06c68e88794d3aa763e3d24e9226afd9093059c81593161fe0cd",
+          "frozen_audio": "sources/seeded-noise-20s.wav",
+          "kind": "seeded_uniform_pcm16",
+          "seed": 20261008,
+          "amplitude_int16": 655,
+          "actual_room_tone": false,
+          "shares_seed_with_existing_controls": true
+        },
+        "pause_position": "after",
+        "long_pause_samples": 320000,
+        "opposite_edge_samples": 8000
+      },
+      "truth": {
+        "source_envelope_samples": [
+          8000,
+          138560
+        ],
+        "voiced_alignment_claimed": false,
+        "known_synthetic_noise_samples": [
+          [
+            0,
+            8000
+          ],
+          [
+            138560,
+            458560
+          ]
+        ],
+        "reference_raw": "Local authorities are warning residents in the vicinity of the plant to stay indoors, turn off air-conditioners and not to drink tap water."
+      }
+    },
+    {
+      "size_bytes": 951724,
+      "sha256": "57381b0849eef52e5db1ee0016be718deb7b942fff495275d67f32795d5ae193",
+      "id": "fleurs-ja-010-minus24db-pause-before",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio": "audio/fleurs-ja-010-minus24db-pause-before.wav",
+      "reference_raw": "車の衝突時には３人が家の中にいましたが、怪我人はいませんでした。",
+      "max_error_rate": 0.05,
+      "checks": [
+        {
+          "name": "count",
+          "target": "raw",
+          "required": [
+            "(?:3|３|三)人"
+          ]
+        },
+        {
+          "name": "negation",
+          "target": "raw",
+          "required": [
+            "怪我人はいません"
+          ]
+        }
+      ],
+      "license": "CC-BY-4.0",
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+        "config": "ja_jp",
+        "split": "validation",
+        "row_index": 10,
+        "utterance_id": 1598,
+        "source_file": "1103709099852339896.wav",
+        "source_raw_transcription": "車の衝突時には３人が家の中にいましたが、怪我人はいませんでした。",
+        "source_asr_transcription": "車の衝突時には３人が家の中にいましたが 怪我人はいませんでした",
+        "gender_label": "male",
+        "num_samples": 147840,
+        "rows_url": "https://datasets-server.huggingface.co/rows?dataset=google/fleurs&config=ja_jp&split=validation&offset=0&length=35",
+        "cached_audio_size_bytes": 591418,
+        "cached_audio_etag": "\"d0858825a0714940d8a355920111fae2\"",
+        "case_id": "fleurs-ja-010",
+        "audio_sha256": "79f4e7148a35d78e986911d939c1664737209e33c4e46dae944e28bb624afdfb",
+        "frozen_audio": "sources/fleurs-ja-010.wav"
+      },
+      "transform": {
+        "gain_db": -24,
+        "gain_factor": 0.06309573444801933,
+        "clipped_samples": 0,
+        "sample_rate": 16000,
+        "quantization": "round_nearest_ties_even_then_saturate_pcm16_no_renormalization",
+        "noise": {
+          "size_bytes": 640044,
+          "sha256": "952567db9dfe06c68e88794d3aa763e3d24e9226afd9093059c81593161fe0cd",
+          "frozen_audio": "sources/seeded-noise-20s.wav",
+          "kind": "seeded_uniform_pcm16",
+          "seed": 20261008,
+          "amplitude_int16": 655,
+          "actual_room_tone": false,
+          "shares_seed_with_existing_controls": true
+        },
+        "pause_position": "before",
+        "long_pause_samples": 320000,
+        "opposite_edge_samples": 8000
+      },
+      "truth": {
+        "source_envelope_samples": [
+          320000,
+          467840
+        ],
+        "voiced_alignment_claimed": false,
+        "known_synthetic_noise_samples": [
+          [
+            0,
+            320000
+          ],
+          [
+            467840,
+            475840
+          ]
+        ],
+        "reference_raw": "車の衝突時には３人が家の中にいましたが、怪我人はいませんでした。"
+      }
+    },
+    {
+      "size_bytes": 951724,
+      "sha256": "a9736f3a19f41e85797dc595b247a29940a80c8977d519ecfcd2aa52ca5d0543",
+      "id": "fleurs-ja-010-minus24db-pause-after",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio": "audio/fleurs-ja-010-minus24db-pause-after.wav",
+      "reference_raw": "車の衝突時には３人が家の中にいましたが、怪我人はいませんでした。",
+      "max_error_rate": 0.05,
+      "checks": [
+        {
+          "name": "count",
+          "target": "raw",
+          "required": [
+            "(?:3|３|三)人"
+          ]
+        },
+        {
+          "name": "negation",
+          "target": "raw",
+          "required": [
+            "怪我人はいません"
+          ]
+        }
+      ],
+      "license": "CC-BY-4.0",
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+        "config": "ja_jp",
+        "split": "validation",
+        "row_index": 10,
+        "utterance_id": 1598,
+        "source_file": "1103709099852339896.wav",
+        "source_raw_transcription": "車の衝突時には３人が家の中にいましたが、怪我人はいませんでした。",
+        "source_asr_transcription": "車の衝突時には３人が家の中にいましたが 怪我人はいませんでした",
+        "gender_label": "male",
+        "num_samples": 147840,
+        "rows_url": "https://datasets-server.huggingface.co/rows?dataset=google/fleurs&config=ja_jp&split=validation&offset=0&length=35",
+        "cached_audio_size_bytes": 591418,
+        "cached_audio_etag": "\"d0858825a0714940d8a355920111fae2\"",
+        "case_id": "fleurs-ja-010",
+        "audio_sha256": "79f4e7148a35d78e986911d939c1664737209e33c4e46dae944e28bb624afdfb",
+        "frozen_audio": "sources/fleurs-ja-010.wav"
+      },
+      "transform": {
+        "gain_db": -24,
+        "gain_factor": 0.06309573444801933,
+        "clipped_samples": 0,
+        "sample_rate": 16000,
+        "quantization": "round_nearest_ties_even_then_saturate_pcm16_no_renormalization",
+        "noise": {
+          "size_bytes": 640044,
+          "sha256": "952567db9dfe06c68e88794d3aa763e3d24e9226afd9093059c81593161fe0cd",
+          "frozen_audio": "sources/seeded-noise-20s.wav",
+          "kind": "seeded_uniform_pcm16",
+          "seed": 20261008,
+          "amplitude_int16": 655,
+          "actual_room_tone": false,
+          "shares_seed_with_existing_controls": true
+        },
+        "pause_position": "after",
+        "long_pause_samples": 320000,
+        "opposite_edge_samples": 8000
+      },
+      "truth": {
+        "source_envelope_samples": [
+          8000,
+          155840
+        ],
+        "voiced_alignment_claimed": false,
+        "known_synthetic_noise_samples": [
+          [
+            0,
+            8000
+          ],
+          [
+            155840,
+            475840
+          ]
+        ],
+        "reference_raw": "車の衝突時には３人が家の中にいましたが、怪我人はいませんでした。"
+      }
+    },
+    {
+      "size_bytes": 951724,
+      "sha256": "23e34ac5ae1690aabe13b227c4197c47061d8de0f629b0b586ded483c67785da",
+      "id": "fleurs-ja-010-minus42db-pause-before",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio": "audio/fleurs-ja-010-minus42db-pause-before.wav",
+      "reference_raw": "車の衝突時には３人が家の中にいましたが、怪我人はいませんでした。",
+      "max_error_rate": 0.05,
+      "checks": [
+        {
+          "name": "count",
+          "target": "raw",
+          "required": [
+            "(?:3|３|三)人"
+          ]
+        },
+        {
+          "name": "negation",
+          "target": "raw",
+          "required": [
+            "怪我人はいません"
+          ]
+        }
+      ],
+      "license": "CC-BY-4.0",
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+        "config": "ja_jp",
+        "split": "validation",
+        "row_index": 10,
+        "utterance_id": 1598,
+        "source_file": "1103709099852339896.wav",
+        "source_raw_transcription": "車の衝突時には３人が家の中にいましたが、怪我人はいませんでした。",
+        "source_asr_transcription": "車の衝突時には３人が家の中にいましたが 怪我人はいませんでした",
+        "gender_label": "male",
+        "num_samples": 147840,
+        "rows_url": "https://datasets-server.huggingface.co/rows?dataset=google/fleurs&config=ja_jp&split=validation&offset=0&length=35",
+        "cached_audio_size_bytes": 591418,
+        "cached_audio_etag": "\"d0858825a0714940d8a355920111fae2\"",
+        "case_id": "fleurs-ja-010",
+        "audio_sha256": "79f4e7148a35d78e986911d939c1664737209e33c4e46dae944e28bb624afdfb",
+        "frozen_audio": "sources/fleurs-ja-010.wav"
+      },
+      "transform": {
+        "gain_db": -42,
+        "gain_factor": 0.007943282347242814,
+        "clipped_samples": 0,
+        "sample_rate": 16000,
+        "quantization": "round_nearest_ties_even_then_saturate_pcm16_no_renormalization",
+        "noise": {
+          "size_bytes": 640044,
+          "sha256": "952567db9dfe06c68e88794d3aa763e3d24e9226afd9093059c81593161fe0cd",
+          "frozen_audio": "sources/seeded-noise-20s.wav",
+          "kind": "seeded_uniform_pcm16",
+          "seed": 20261008,
+          "amplitude_int16": 655,
+          "actual_room_tone": false,
+          "shares_seed_with_existing_controls": true
+        },
+        "pause_position": "before",
+        "long_pause_samples": 320000,
+        "opposite_edge_samples": 8000
+      },
+      "truth": {
+        "source_envelope_samples": [
+          320000,
+          467840
+        ],
+        "voiced_alignment_claimed": false,
+        "known_synthetic_noise_samples": [
+          [
+            0,
+            320000
+          ],
+          [
+            467840,
+            475840
+          ]
+        ],
+        "reference_raw": "車の衝突時には３人が家の中にいましたが、怪我人はいませんでした。"
+      }
+    },
+    {
+      "size_bytes": 951724,
+      "sha256": "6d862898fb6201478f4f3b8ac1d7381e0d96488875e67ea77f0f43a80685ec90",
+      "id": "fleurs-ja-010-minus42db-pause-after",
+      "language": "ja",
+      "origin": "human_recording",
+      "audio": "audio/fleurs-ja-010-minus42db-pause-after.wav",
+      "reference_raw": "車の衝突時には３人が家の中にいましたが、怪我人はいませんでした。",
+      "max_error_rate": 0.05,
+      "checks": [
+        {
+          "name": "count",
+          "target": "raw",
+          "required": [
+            "(?:3|３|三)人"
+          ]
+        },
+        {
+          "name": "negation",
+          "target": "raw",
+          "required": [
+            "怪我人はいません"
+          ]
+        }
+      ],
+      "license": "CC-BY-4.0",
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+        "config": "ja_jp",
+        "split": "validation",
+        "row_index": 10,
+        "utterance_id": 1598,
+        "source_file": "1103709099852339896.wav",
+        "source_raw_transcription": "車の衝突時には３人が家の中にいましたが、怪我人はいませんでした。",
+        "source_asr_transcription": "車の衝突時には３人が家の中にいましたが 怪我人はいませんでした",
+        "gender_label": "male",
+        "num_samples": 147840,
+        "rows_url": "https://datasets-server.huggingface.co/rows?dataset=google/fleurs&config=ja_jp&split=validation&offset=0&length=35",
+        "cached_audio_size_bytes": 591418,
+        "cached_audio_etag": "\"d0858825a0714940d8a355920111fae2\"",
+        "case_id": "fleurs-ja-010",
+        "audio_sha256": "79f4e7148a35d78e986911d939c1664737209e33c4e46dae944e28bb624afdfb",
+        "frozen_audio": "sources/fleurs-ja-010.wav"
+      },
+      "transform": {
+        "gain_db": -42,
+        "gain_factor": 0.007943282347242814,
+        "clipped_samples": 0,
+        "sample_rate": 16000,
+        "quantization": "round_nearest_ties_even_then_saturate_pcm16_no_renormalization",
+        "noise": {
+          "size_bytes": 640044,
+          "sha256": "952567db9dfe06c68e88794d3aa763e3d24e9226afd9093059c81593161fe0cd",
+          "frozen_audio": "sources/seeded-noise-20s.wav",
+          "kind": "seeded_uniform_pcm16",
+          "seed": 20261008,
+          "amplitude_int16": 655,
+          "actual_room_tone": false,
+          "shares_seed_with_existing_controls": true
+        },
+        "pause_position": "after",
+        "long_pause_samples": 320000,
+        "opposite_edge_samples": 8000
+      },
+      "truth": {
+        "source_envelope_samples": [
+          8000,
+          155840
+        ],
+        "voiced_alignment_claimed": false,
+        "known_synthetic_noise_samples": [
+          [
+            0,
+            8000
+          ],
+          [
+            155840,
+            475840
+          ]
+        ],
+        "reference_raw": "車の衝突時には３人が家の中にいましたが、怪我人はいませんでした。"
+      }
+    },
+    {
+      "size_bytes": 894124,
+      "sha256": "4b4c4b30de8c0832b58cc5059497022dad1075baedb5afd5eccaa824572b0d53",
+      "id": "fleurs-zh-001-minus24db-pause-before",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio": "audio/fleurs-zh-001-minus24db-pause-before.wav",
+      "reference_raw": "因为远离大陆，哺乳动物无法长途跋涉而来，使得巨龟成为科隆群岛主要的食草动物。",
+      "max_error_rate": 0.05,
+      "checks": [
+        {
+          "name": "negation",
+          "target": "raw",
+          "required": [
+            "无法长途跋涉"
+          ]
+        }
+      ],
+      "license": "CC-BY-4.0",
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+        "config": "cmn_hans_cn",
+        "split": "validation",
+        "row_index": 1,
+        "utterance_id": 1605,
+        "source_file": "10149760684641961155.wav",
+        "source_raw_transcription": "因为远离大陆，哺乳动物无法长途跋涉而来，使得巨龟成为科隆群岛主要的食草动物。",
+        "source_asr_transcription": "因 为 远 离 大 陆 哺 乳 动 物 无 法 长 途 跋 涉 而 来 使 得 巨 龟 成 为 科 隆 群 岛 主 要 的 食 草 动 物",
+        "gender_label": "female",
+        "num_samples": 119040,
+        "rows_url": "https://datasets-server.huggingface.co/rows?dataset=google/fleurs&config=cmn_hans_cn&split=validation&offset=0&length=35",
+        "cached_audio_size_bytes": 476218,
+        "cached_audio_etag": "\"082c11a24092c650226a29ced3ffc582\"",
+        "case_id": "fleurs-zh-001",
+        "audio_sha256": "577a635c2261680c61dda5fecbc4f83bff6f37f453665b8d9d1a68f210f57c0a",
+        "frozen_audio": "sources/fleurs-zh-001.wav"
+      },
+      "transform": {
+        "gain_db": -24,
+        "gain_factor": 0.06309573444801933,
+        "clipped_samples": 0,
+        "sample_rate": 16000,
+        "quantization": "round_nearest_ties_even_then_saturate_pcm16_no_renormalization",
+        "noise": {
+          "size_bytes": 640044,
+          "sha256": "952567db9dfe06c68e88794d3aa763e3d24e9226afd9093059c81593161fe0cd",
+          "frozen_audio": "sources/seeded-noise-20s.wav",
+          "kind": "seeded_uniform_pcm16",
+          "seed": 20261008,
+          "amplitude_int16": 655,
+          "actual_room_tone": false,
+          "shares_seed_with_existing_controls": true
+        },
+        "pause_position": "before",
+        "long_pause_samples": 320000,
+        "opposite_edge_samples": 8000
+      },
+      "truth": {
+        "source_envelope_samples": [
+          320000,
+          439040
+        ],
+        "voiced_alignment_claimed": false,
+        "known_synthetic_noise_samples": [
+          [
+            0,
+            320000
+          ],
+          [
+            439040,
+            447040
+          ]
+        ],
+        "reference_raw": "因为远离大陆，哺乳动物无法长途跋涉而来，使得巨龟成为科隆群岛主要的食草动物。"
+      }
+    },
+    {
+      "size_bytes": 894124,
+      "sha256": "947bcde389236492077f20f5210ef21fe556569633354f148f62f6ac316adf00",
+      "id": "fleurs-zh-001-minus24db-pause-after",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio": "audio/fleurs-zh-001-minus24db-pause-after.wav",
+      "reference_raw": "因为远离大陆，哺乳动物无法长途跋涉而来，使得巨龟成为科隆群岛主要的食草动物。",
+      "max_error_rate": 0.05,
+      "checks": [
+        {
+          "name": "negation",
+          "target": "raw",
+          "required": [
+            "无法长途跋涉"
+          ]
+        }
+      ],
+      "license": "CC-BY-4.0",
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+        "config": "cmn_hans_cn",
+        "split": "validation",
+        "row_index": 1,
+        "utterance_id": 1605,
+        "source_file": "10149760684641961155.wav",
+        "source_raw_transcription": "因为远离大陆，哺乳动物无法长途跋涉而来，使得巨龟成为科隆群岛主要的食草动物。",
+        "source_asr_transcription": "因 为 远 离 大 陆 哺 乳 动 物 无 法 长 途 跋 涉 而 来 使 得 巨 龟 成 为 科 隆 群 岛 主 要 的 食 草 动 物",
+        "gender_label": "female",
+        "num_samples": 119040,
+        "rows_url": "https://datasets-server.huggingface.co/rows?dataset=google/fleurs&config=cmn_hans_cn&split=validation&offset=0&length=35",
+        "cached_audio_size_bytes": 476218,
+        "cached_audio_etag": "\"082c11a24092c650226a29ced3ffc582\"",
+        "case_id": "fleurs-zh-001",
+        "audio_sha256": "577a635c2261680c61dda5fecbc4f83bff6f37f453665b8d9d1a68f210f57c0a",
+        "frozen_audio": "sources/fleurs-zh-001.wav"
+      },
+      "transform": {
+        "gain_db": -24,
+        "gain_factor": 0.06309573444801933,
+        "clipped_samples": 0,
+        "sample_rate": 16000,
+        "quantization": "round_nearest_ties_even_then_saturate_pcm16_no_renormalization",
+        "noise": {
+          "size_bytes": 640044,
+          "sha256": "952567db9dfe06c68e88794d3aa763e3d24e9226afd9093059c81593161fe0cd",
+          "frozen_audio": "sources/seeded-noise-20s.wav",
+          "kind": "seeded_uniform_pcm16",
+          "seed": 20261008,
+          "amplitude_int16": 655,
+          "actual_room_tone": false,
+          "shares_seed_with_existing_controls": true
+        },
+        "pause_position": "after",
+        "long_pause_samples": 320000,
+        "opposite_edge_samples": 8000
+      },
+      "truth": {
+        "source_envelope_samples": [
+          8000,
+          127040
+        ],
+        "voiced_alignment_claimed": false,
+        "known_synthetic_noise_samples": [
+          [
+            0,
+            8000
+          ],
+          [
+            127040,
+            447040
+          ]
+        ],
+        "reference_raw": "因为远离大陆，哺乳动物无法长途跋涉而来，使得巨龟成为科隆群岛主要的食草动物。"
+      }
+    },
+    {
+      "size_bytes": 894124,
+      "sha256": "634c55c5f1e981fd5b52265b2384bdf327f08a3aee55eecb0f61f6d9de0ed529",
+      "id": "fleurs-zh-001-minus42db-pause-before",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio": "audio/fleurs-zh-001-minus42db-pause-before.wav",
+      "reference_raw": "因为远离大陆，哺乳动物无法长途跋涉而来，使得巨龟成为科隆群岛主要的食草动物。",
+      "max_error_rate": 0.05,
+      "checks": [
+        {
+          "name": "negation",
+          "target": "raw",
+          "required": [
+            "无法长途跋涉"
+          ]
+        }
+      ],
+      "license": "CC-BY-4.0",
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+        "config": "cmn_hans_cn",
+        "split": "validation",
+        "row_index": 1,
+        "utterance_id": 1605,
+        "source_file": "10149760684641961155.wav",
+        "source_raw_transcription": "因为远离大陆，哺乳动物无法长途跋涉而来，使得巨龟成为科隆群岛主要的食草动物。",
+        "source_asr_transcription": "因 为 远 离 大 陆 哺 乳 动 物 无 法 长 途 跋 涉 而 来 使 得 巨 龟 成 为 科 隆 群 岛 主 要 的 食 草 动 物",
+        "gender_label": "female",
+        "num_samples": 119040,
+        "rows_url": "https://datasets-server.huggingface.co/rows?dataset=google/fleurs&config=cmn_hans_cn&split=validation&offset=0&length=35",
+        "cached_audio_size_bytes": 476218,
+        "cached_audio_etag": "\"082c11a24092c650226a29ced3ffc582\"",
+        "case_id": "fleurs-zh-001",
+        "audio_sha256": "577a635c2261680c61dda5fecbc4f83bff6f37f453665b8d9d1a68f210f57c0a",
+        "frozen_audio": "sources/fleurs-zh-001.wav"
+      },
+      "transform": {
+        "gain_db": -42,
+        "gain_factor": 0.007943282347242814,
+        "clipped_samples": 0,
+        "sample_rate": 16000,
+        "quantization": "round_nearest_ties_even_then_saturate_pcm16_no_renormalization",
+        "noise": {
+          "size_bytes": 640044,
+          "sha256": "952567db9dfe06c68e88794d3aa763e3d24e9226afd9093059c81593161fe0cd",
+          "frozen_audio": "sources/seeded-noise-20s.wav",
+          "kind": "seeded_uniform_pcm16",
+          "seed": 20261008,
+          "amplitude_int16": 655,
+          "actual_room_tone": false,
+          "shares_seed_with_existing_controls": true
+        },
+        "pause_position": "before",
+        "long_pause_samples": 320000,
+        "opposite_edge_samples": 8000
+      },
+      "truth": {
+        "source_envelope_samples": [
+          320000,
+          439040
+        ],
+        "voiced_alignment_claimed": false,
+        "known_synthetic_noise_samples": [
+          [
+            0,
+            320000
+          ],
+          [
+            439040,
+            447040
+          ]
+        ],
+        "reference_raw": "因为远离大陆，哺乳动物无法长途跋涉而来，使得巨龟成为科隆群岛主要的食草动物。"
+      }
+    },
+    {
+      "size_bytes": 894124,
+      "sha256": "6b0e2b4da500e0cbdcd80798a9531a55a63b47d4b533d8a01a211feb570d37f5",
+      "id": "fleurs-zh-001-minus42db-pause-after",
+      "language": "zh",
+      "origin": "human_recording",
+      "audio": "audio/fleurs-zh-001-minus42db-pause-after.wav",
+      "reference_raw": "因为远离大陆，哺乳动物无法长途跋涉而来，使得巨龟成为科隆群岛主要的食草动物。",
+      "max_error_rate": 0.05,
+      "checks": [
+        {
+          "name": "negation",
+          "target": "raw",
+          "required": [
+            "无法长途跋涉"
+          ]
+        }
+      ],
+      "license": "CC-BY-4.0",
+      "source": {
+        "dataset": "google/fleurs",
+        "revision": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+        "config": "cmn_hans_cn",
+        "split": "validation",
+        "row_index": 1,
+        "utterance_id": 1605,
+        "source_file": "10149760684641961155.wav",
+        "source_raw_transcription": "因为远离大陆，哺乳动物无法长途跋涉而来，使得巨龟成为科隆群岛主要的食草动物。",
+        "source_asr_transcription": "因 为 远 离 大 陆 哺 乳 动 物 无 法 长 途 跋 涉 而 来 使 得 巨 龟 成 为 科 隆 群 岛 主 要 的 食 草 动 物",
+        "gender_label": "female",
+        "num_samples": 119040,
+        "rows_url": "https://datasets-server.huggingface.co/rows?dataset=google/fleurs&config=cmn_hans_cn&split=validation&offset=0&length=35",
+        "cached_audio_size_bytes": 476218,
+        "cached_audio_etag": "\"082c11a24092c650226a29ced3ffc582\"",
+        "case_id": "fleurs-zh-001",
+        "audio_sha256": "577a635c2261680c61dda5fecbc4f83bff6f37f453665b8d9d1a68f210f57c0a",
+        "frozen_audio": "sources/fleurs-zh-001.wav"
+      },
+      "transform": {
+        "gain_db": -42,
+        "gain_factor": 0.007943282347242814,
+        "clipped_samples": 0,
+        "sample_rate": 16000,
+        "quantization": "round_nearest_ties_even_then_saturate_pcm16_no_renormalization",
+        "noise": {
+          "size_bytes": 640044,
+          "sha256": "952567db9dfe06c68e88794d3aa763e3d24e9226afd9093059c81593161fe0cd",
+          "frozen_audio": "sources/seeded-noise-20s.wav",
+          "kind": "seeded_uniform_pcm16",
+          "seed": 20261008,
+          "amplitude_int16": 655,
+          "actual_room_tone": false,
+          "shares_seed_with_existing_controls": true
+        },
+        "pause_position": "after",
+        "long_pause_samples": 320000,
+        "opposite_edge_samples": 8000
+      },
+      "truth": {
+        "source_envelope_samples": [
+          8000,
+          127040
+        ],
+        "voiced_alignment_claimed": false,
+        "known_synthetic_noise_samples": [
+          [
+            0,
+            8000
+          ],
+          [
+            127040,
+            447040
+          ]
+        ],
+        "reference_raw": "因为远离大陆，哺乳动物无法长途跋涉而来，使得巨龟成为科隆群岛主要的食草动物。"
+      }
+    }
+  ]
+}

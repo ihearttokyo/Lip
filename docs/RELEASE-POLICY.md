@@ -19,13 +19,15 @@ Reference: NULL CHOIR docs/MAJOR-UPGRADE-PLAN-2026-10-26.md, “One release iden
 - Preserve existing release names/URLs/rollback, bundle/application IDs, user data and downloaded models.
 - Keep Android versionCode strictly above published 50003; map monotonically from the ledger rather than reducing it to the displayed ordinal. macOS build metadata must remain valid/monotonic.
 
-Pending implementation: history audit and enforced cross-platform ledger wiring. Do not claim that documenting this policy completed that tooling. Existing in-app download paths still need small-release packaging/end-to-end qualification. No new release requested or published by this policy update.
+Implemented in the current source candidate: the history audit and authoritative ledger/tooling reserve **Lip v0.007** (Android versionCode50004, macOS build11), without claiming a lifetime iteration count. See [RELEASE-IDENTITY.md](RELEASE-IDENTITY.md) for allocation, metadata enforcement and post-commit source/artifact binding. This is reserved/unreleased source, not a new download. Small-installer signing, packaging, update and model-download end-to-end qualification remain separate gates. Published50003 is unchanged.
 
 ## Updated target hardware and delivery priorities
 - Future Android builds: Android 16/API36+, ARM64 only. No x86_64 release artifacts.
 - Future Mac builds: macOS26+, Apple Silicon only. Do not mutate installed apps or physical phones without retained authorization.
-- GPU/NPU (including supported device TPUs) efficient automatic routing is a high-priority feature/release target, not a user-facing backend choice. Actual device/model compatibility must be proved; an OS/architecture filter alone does not qualify acceleration or justify a no-issues claim. Current Android CPU-only behavior is not accepted as this new target.
+- GPU/NPU (including supported device TPUs) efficient automatic routing is a high-priority feature/release target, not a user-facing backend choice. Actual device/model compatibility must be proved; an OS/architecture filter alone does not qualify acceleration or justify a no-issues claim. Source PR18 now compiles Vulkan with CPU safety fallback and automatic provenance-gated selection; this is not physical GPU qualification. CPU-only behavior is not accepted as the accelerator target.
 - Plan new work approximately90% toward features/rapid iteration and10% toward fixes. This is a prioritization target, not measured historical token allocation or permission to omit security, privacy or necessary release checks. Freeze accepted components; avoid redundant polishing.
 - Previously published50003 retains its original broader compatibility and bundled models. Do not relabel the existing binary as satisfying these new requirements.
 
 Primary Android device confirmed by Jared: Xiaomi15Ultra, targeting its Snapdragon8Elite AdrenoGPU and HexagonNPU (not GoogleTPU). Hardware/model acceleration is an implementation priority; actual installed OS and runtime compatibility still require permitted device evidence. No CPU-only build is to be labelled GPU/NPU-qualified.
+
+Source reconciliation PRs17/18 are merged at `13d87e4439d38811a4c82a8bab747f1d7443d88c`. Source merge, reserved version identity, physical qualification and publication are separate states; the full independent9.2+ release gate remains open.

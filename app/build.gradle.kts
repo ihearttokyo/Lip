@@ -8,14 +8,24 @@ plugins { id("com.android.application"); id("org.jetbrains.kotlin.android") }
 
 val bundleSpeechModels = providers.gradleProperty("lipBundleSpeechModels").orNull == "true"
 check(!bundleSpeechModels) { "Future Lip releases must be small: download Clean or Pro inside the app; bundled speech-model APKs are retired." }
+// Historical preview binaries/URLs stay unchanged; retired build flags cannot
+// create another identity or revive the old bundled-model test path.
 val offlinePreview = providers.gradleProperty("lipOfflinePreview").orNull == "true"
+check(!offlinePreview) { "lipOfflinePreview is retired. Use :app:assembleRelease or :app:canonicalReleaseApk; models download only after explicit in-app consent." }
+// LIP_RELEASE_IDENTITY_BEGIN: authoritative ledger, no copied version literals.
+val lipReleaseIdentity = groovy.json.JsonSlurper().parseText(providers.exec {
+    commandLine("python3", rootProject.file("tools/release_identity.py").absolutePath, "--check", "--identity")
+}.standardOutput.asText.get()) as Map<*, *>
+val lipReleaseVersion = lipReleaseIdentity["version"] as String
+val lipReleaseVersionCode = (lipReleaseIdentity["android_version_code"] as Number).toInt()
+val lipReleaseDisplayName = lipReleaseIdentity["display_name"] as String
+// LIP_RELEASE_IDENTITY_END
 val historyFixture = providers.gradleProperty("lipHistoryFixture").orNull == "true"
 val sizingFixture = providers.gradleProperty("lipSizingFixture").orNull == "true"
 val stickerFixture = providers.gradleProperty("lipStickerFixture").orNull == "true"
-check(!offlinePreview || !(historyFixture || sizingFixture || stickerFixture)) { "Offline Preview is a separate app, not a fixture identity" }
 check(!stickerFixture || sizingFixture) { "Sticker UI fixture requires isolated sizing identity" }
 check(!(historyFixture && sizingFixture)) { "Choose one isolated fixture identity" }
-val lipApplicationId = when { offlinePreview -> "dev.lip.android.preview"; sizingFixture -> "dev.lip.android.sizingfixture"; historyFixture -> "dev.lip.android.historyfixture"; else -> "dev.lip.android" }
+val lipApplicationId = when { sizingFixture -> "dev.lip.android.sizingfixture"; historyFixture -> "dev.lip.android.historyfixture"; else -> "dev.lip.android" }
 
 val signing = Properties().apply {
     providers.environmentVariable("LIP_SIGNING_PROPERTIES").orNull?.let { path ->
@@ -34,12 +44,12 @@ android {
         manifestPlaceholders["stickerFixtureEnabled"] = stickerFixture.toString()
         manifestPlaceholders["lipInstrumentationTarget"] = lipApplicationId
         manifestPlaceholders["lipInstrumentationTestTarget"] = "$lipApplicationId.test"
-        manifestPlaceholders["lipApplicationLabel"] = if (offlinePreview) "Lip Preview" else if (sizingFixture) "Lip keyboard sizing test" else if (historyFixture) "Lip import UI test" else "Lip"
+        manifestPlaceholders["lipApplicationLabel"] = if (sizingFixture) "Lip keyboard sizing test" else if (historyFixture) "Lip import UI test" else lipReleaseDisplayName
         minSdk = 36
         targetSdk = 36
-        versionCode = if (offlinePreview) 50003 else 4
-        versionName = if (offlinePreview) "0.5.0-preview.3-offline" else "0.4.0-local"
-        testInstrumentationRunner = if (offlinePreview) "dev.lip.OfflinePreviewRunner" else if (historyFixture) "dev.lip.HistoryImportUiRunner" else "dev.lip.LipSmokeRunner"
+        versionCode = lipReleaseVersionCode
+        versionName = lipReleaseVersion
+        testInstrumentationRunner = if (historyFixture) "dev.lip.HistoryImportUiRunner" else "dev.lip.LipSmokeRunner"
         ndk { abiFilters += listOf("arm64-v8a") }
     }
     externalNativeBuild {
@@ -71,13 +81,19 @@ android {
         }
     }
     androidResources { noCompress += "gif"; if (bundleSpeechModels) noCompress += "gguf" }
-    if (offlinePreview) testBuildType = "release"
     testOptions { unitTests.isReturnDefaultValues = true }
     sourceSets.getByName("test").java.srcDir("src/androidTest/java/dev/lip/uiprotocol")
     sourceSets.getByName("test").java.srcDir("src/sharedTest/java")
     sourceSets.getByName("androidTest").java.srcDir("src/sharedTest/java")
-    // Preview validates the release APK without debug-only history/UI fixtures.
-    if (offlinePreview) sourceSets.getByName("androidTest").java.setSrcDirs(listOf("src/offlinePreviewAndroidTest/java"))
+}
+
+// Release upgrades the already-published package; namespace/JNI and debug/
+// isolated fixture IDs remain unchanged. Provider authorities use applicationId.
+androidComponents.onVariants(androidComponents.selector().withBuildType("release")) { variant ->
+    variant.applicationId.set("dev.lip.android.preview")
+    variant.manifestPlaceholders.put("lipInstrumentationTarget", "dev.lip.android.preview")
+    variant.manifestPlaceholders.put("lipInstrumentationTestTarget", "dev.lip.android.preview.test")
+    variant.manifestPlaceholders.put("lipApplicationLabel", lipReleaseDisplayName)
 }
 
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
@@ -179,4 +195,27 @@ if (bundleSpeechModels) {
     }
     android.sourceSets.getByName("main").assets.srcDir(generatedSpeechAssets)
     tasks.named("preBuild") { dependsOn(bundleSpeech) }
+}
+
+// Exact canonical installer name, derived from the same ledger as the manifest.
+// The original published build50003 is never renamed or overwritten by this task.
+tasks.register<Copy>("canonicalReleaseApk") {
+    dependsOn("assembleRelease")
+    doFirst {
+        val output = layout.buildDirectory.dir("outputs/apk/release").get().asFile
+        val metadata = groovy.json.JsonSlurper().parse(output.resolve("output-metadata.json")) as Map<*, *>
+        val elements = metadata["elements"] as List<*>
+        val artifact = elements.single() as Map<*, *>
+        check(artifact["outputFile"] == "app-release.apk") { "Canonical installer requires an explicitly signed release APK; no stale/unsigned fallback." }
+        val apk = output.resolve("app-release.apk")
+        check(apk.isFile)
+        val aapt = android.sdkComponents.sdkDirectory.get().asFile.resolve("build-tools/${android.buildToolsVersion}/aapt")
+        val badging = providers.exec { commandLine(aapt, "dump", "badging", apk) }.standardOutput.asText.get()
+        check(badging.lineSequence().first().contains("name='dev.lip.android.preview' versionCode='$lipReleaseVersionCode' versionName='$lipReleaseVersion'")) {
+            "Built APK identity mismatch; no canonical copy was made"
+        }
+    }
+    from(layout.buildDirectory.file("outputs/apk/release/app-release.apk"))
+    into(layout.buildDirectory.dir("outputs/canonical-release"))
+    rename { lipReleaseIdentity["android_apk"] as String }
 }

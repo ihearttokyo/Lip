@@ -1,0 +1,53 @@
+name: Whole-artifact quant quality screen
+on:
+  push:
+    branches: ['codex/lip-q4-quality']
+permissions:
+  contents: read
+concurrency:
+  group: lip-quant-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  compare:
+    if: >-
+      github.repository == 'ihearttokyo/Lip' && github.event.repository.private == false &&
+      github.event_name == 'push' && github.ref == 'refs/heads/codex/lip-q4-quality' &&
+      github.workflow_ref == 'ihearttokyo/Lip/.github/workflows/quant-experiment.yml@refs/heads/codex/lip-q4-quality' &&
+      contains(github.event.head_commit.message, '[q4-quality-canary]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          submodules: recursive
+          persist-credentials: false
+      - name: Exact case-sensitive opt-in and hosted identity before tools or acquisition
+        id: exact
+        run: |
+          git log -1 --format=%B | grep -F '[q4-quality-canary]' >/dev/null
+          python3 -B eval/quant_ci.py --preflight
+      - name: Pure contract fixtures (no inference)
+        run: |
+          python3 -B - <<'PY'
+          import ctypes, os, sys, unittest, urllib.request, subprocess
+          from unittest.mock import patch
+          with patch.object(urllib.request, 'urlopen', side_effect=AssertionError('network denied')), \
+               patch.object(subprocess, 'Popen', side_effect=AssertionError('launch denied')), \
+               patch.object(subprocess, 'check_output', side_effect=AssertionError('launch denied')), \
+               patch.object(os, 'execve', side_effect=AssertionError('launch denied')), \
+               patch.object(ctypes, 'CDLL', side_effect=AssertionError('native load denied')):
+              suite = unittest.TestSuite(unittest.defaultTestLoader.discover('eval', pattern=pattern)
+                  for pattern in ('test_initial_ts_ci.py', 'test_quant_ci.py'))
+              sys.exit(not unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful())
+          PY
+      - name: Complete matched CPU research screen (not Android acceptance)
+        run: python3 -B eval/quant_ci.py
+      - name: Retain bounded public text only
+        if: always() && steps.exact.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Lip-quant-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/lip-quant-evidence/
+          if-no-files-found: warn
+          retention-days: 7
