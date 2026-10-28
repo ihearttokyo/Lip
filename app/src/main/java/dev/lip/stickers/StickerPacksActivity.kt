@@ -53,7 +53,9 @@ class StickerPacksActivity:Activity() {
     private val bitmaps=ArrayList<Bitmap>()
     private val imageViews=ArrayList<ImageView>()
 
-    override fun onCreate(state:Bundle?){super.onCreate(state);GlassMaterial.refresh();window.statusBarColor=Color.BLACK;window.navigationBarColor=Color.BLACK;loadLibrary()}
+    private val backCallback = android.window.OnBackInvokedCallback { cancelOperation(); finish() }
+
+    override fun onCreate(state:Bundle?){super.onCreate(state);onBackInvokedDispatcher.registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT, backCallback);GlassMaterial.refresh();window.statusBarColor=Color.BLACK;window.navigationBarColor=Color.BLACK;loadLibrary()}
     override fun onStart(){
         super.onStart();stopped=false
         if(refreshOnStart){refreshOnStart=false;loadLibrary("Previous screen closed. Check the local state before continuing.")}
@@ -65,9 +67,8 @@ class StickerPacksActivity:Activity() {
         super.onStop()
     }
     override fun onDestroy(){
-        destroyed=true;cancelOperation();worker.shutdownNow();recyclePreviews();super.onDestroy()
+        destroyed=true;onBackInvokedDispatcher.unregisterOnBackInvokedCallback(backCallback);cancelOperation();worker.shutdownNow();recyclePreviews();super.onDestroy()
     }
-    @Deprecated("Activity back callback") override fun onBackPressed(){cancelOperation();super.onBackPressed()}
     private fun cancelOperation(){val old=operation;operation=null;old?.cancel();generation++}
     private fun owns(op:Operation)=operation===op&&op.live.get()&&!destroyed&&!isFinishing&&!isDestroyed&&op.generation==generation
     private fun px(value:Int)=(value*resources.displayMetrics.density).toInt()

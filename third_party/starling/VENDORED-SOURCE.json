@@ -6468,6 +6468,14 @@
     "third_party/ggml/src/gguf.cpp": {
       "sha256": "615894b49182f94d711280d570a215860e1247ecc05d4289c9382295170b53bc",
       "bytes": 58052
+    },
+    "third_party/dr_wav.h": {
+      "sha256": "9fa5cce426a225dde6da84bbd65bf9ac1f4c3ec479c0b811584755dc405949fb",
+      "bytes": 366404
+    },
+    "third_party/httplib.h": {
+      "sha256": "b20467cf4394342ca3b8516172610782ab42c24562265ec06d1cc00e29211b56",
+      "bytes": 812944
     }
   }
 }
