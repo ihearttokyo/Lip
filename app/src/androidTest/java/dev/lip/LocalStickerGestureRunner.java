@@ -31,7 +31,7 @@ public final class LocalStickerGestureRunner extends Instrumentation {
     @Override public void onCreate(Bundle b){super.onCreate(b);args=b==null?new Bundle():b;start();}
     private int number(String key){
         Object raw=args.get(key);if(raw instanceof Integer)return (Integer)raw;
-        if(raw instanceof String&&((String)raw).matches("[0-9]{1,4}"))return Integer.parseInt((String)raw);
+        if(raw instanceof String&&((String)raw).matches("[0-9]{1,5}"))return Integer.parseInt((String)raw);
         throw new IllegalStateException("Explicit bounded integer argument required");
     }
     private void dimensions(){
@@ -44,6 +44,11 @@ public final class LocalStickerGestureRunner extends Instrumentation {
             return n.isVisibleToUser()&&n.isEditable()&&!n.isPassword();
         for(int i=0;i<n.getChildCount();i++)if(hasReceiver(n.getChild(i),depth+1))return true;return false;
     }
+    private boolean hasText(AccessibilityNodeInfo n,String expected,int depth){
+        if(n==null||depth>32)return false;
+        if(RECEIVER.contentEquals(n.getPackageName())&&expected.contentEquals(n.getText())&&n.isVisibleToUser())return true;
+        for(int i=0;i<n.getChildCount();i++)if(hasText(n.getChild(i),expected,depth+1))return true;return false;
+    }
     private void tile(AccessibilityNodeInfo n,String label,int x,int y,int depth,int[] matches){
         if(n==null||depth>32)return;
         if(APP.contentEquals(n.getPackageName())&&label.contentEquals(n.getContentDescription())&&n.isVisibleToUser()){
@@ -55,7 +60,7 @@ public final class LocalStickerGestureRunner extends Instrumentation {
         dimensions();must(automation.clearCache());List<AccessibilityWindowInfo> windows=automation.getWindows();int editors=0,keyboards=0;
         for(AccessibilityWindowInfo window:windows){
             AccessibilityNodeInfo root=window.getRoot();if(root==null)continue;
-            if(window.getType()==AccessibilityWindowInfo.TYPE_APPLICATION&&RECEIVER.contentEquals(root.getPackageName())&&hasReceiver(root,0))editors++;
+            if(window.getType()==AccessibilityWindowInfo.TYPE_APPLICATION&&RECEIVER.contentEquals(root.getPackageName())&&hasReceiver(root,0)&&hasText(root,"Owned local sticker receiver · accept",0))editors++;
             if(window.getType()==AccessibilityWindowInfo.TYPE_INPUT_METHOD&&APP.contentEquals(root.getPackageName())){
                 Rect bounds=new Rect();window.getBoundsInScreen(bounds);must(bounds.contains(x1,y1)&&bounds.contains(x2,y2));
                 int[] first={0},second={0};tile(root,"Request original sticker Synthetic png",x1,y1,0,first);tile(root,"Request original sticker Synthetic webp",x2,y2,0,second);
@@ -90,8 +95,21 @@ public final class LocalStickerGestureRunner extends Instrumentation {
             must(width==1080&&height==2400&&x1>0&&x1<width-1&&x2>0&&x2<width-1&&y1>0&&y1<height-1&&y2>0&&y2<height-1&&(x1!=x2||y1!=y2));
             int receiverUid=getTargetContext().getPackageManager().getApplicationInfo(RECEIVER,0).uid;must(receiverUid!=android.os.Process.myUid());
             report.put("owner",owner).put("receiverPackage",RECEIVER).put("receiverUid",receiverUid).put("imeUid",android.os.Process.myUid()).put("width",width).put("height",height);
+            int waitForSceneMs=args.containsKey("waitForSceneMs")?number("waitForSceneMs"):0;must(waitForSceneMs>=0&&waitForSceneMs<=60000);report.put("waitRequestedMs",waitForSceneMs);
             automation=getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);AccessibilityServiceInfo service=automation.getServiceInfo();service.flags|=AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;automation.setServiceInfo(service);
-            stage="initial-scene";scene();downTime=SystemClock.uptimeMillis();lastTime=downTime-1;
+            stage="initial-scene";long waitStarted=SystemClock.uptimeMillis(),deadline=waitStarted+waitForSceneMs;
+            // Read-only rendezvous before FIRST contact, so parent can restore the
+            // owned receiver/panel after normal instrumentation process startup.
+            // No action/retry/fallback is injected while readiness is unavailable.
+            try{
+                while(true){
+                    try{scene();break;}catch(IllegalStateException unavailable){
+                        long remaining=deadline-SystemClock.uptimeMillis();if(remaining<=0)throw unavailable;
+                        SystemClock.sleep(Math.min(250,remaining));
+                    }
+                }
+            }finally{report.put("waitObservedMs",SystemClock.uptimeMillis()-waitStarted);}
+            downTime=SystemClock.uptimeMillis();lastTime=downTime-1;
             stage="primary-down";downAttempted=true;must(emit(MotionEvent.ACTION_DOWN,1,false));SystemClock.sleep(16);
             stage="secondary-down";scene();must(emit(MotionEvent.ACTION_POINTER_DOWN|(1<<MotionEvent.ACTION_POINTER_INDEX_SHIFT),2,false));SystemClock.sleep(16);
             stage="secondary-up";scene();must(emit(MotionEvent.ACTION_POINTER_UP|(1<<MotionEvent.ACTION_POINTER_INDEX_SHIFT),2,false));SystemClock.sleep(16);
