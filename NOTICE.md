@@ -143,3 +143,18 @@ bundled with the full CC BY 4.0 license. Older optional Whisper/research model
 files are not part of the offline preview. No private/unlicensed WeChat artwork
 or private communication/history data is bundled. This preview is not a claim
 of completed Gboard parity, physical-phone performance or the 9.2 release gate.
+
+## Android Vulkan GPU build dependency
+
+Android16+/ARM64 builds compile the existing GGML Vulkan backend and use internal
+automatic eligible-GPU selection, retaining checked same-model CPU safety fallback.
+This is not a claim of NPU support, physical GPU utilization or measured efficiency.
+Khronos Vulkan-Headers **v1.4.335**, commit
+`2fa203425eb4af9dfc6b03f97ef72b0b5bcb8350`, is vendored as unchanged build-only headers
+in [third_party/vulkan](third_party/vulkan/NOTICE.md), including original copyright
+2015–2025 The Khronos Group Inc. and per-file notices. All selected headers permit
+Apache-2.0; Lip selects that license for dual-licensed generated Vulkan-Hpp headers.
+The full Apache license is already included in the APK notices assets as
+`apache-2.0.txt`, and original Apache/MIT license texts and exact source hashes are
+retained in that directory. Android supplies the Vulkan loader and the installed
+NDK supplies build tools; no SDK/compiler binaries or speech weights are bundled.
