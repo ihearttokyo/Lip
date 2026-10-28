@@ -1,0 +1,159 @@
+// model_registry.cpp — the one central model table (see model_registry.hpp).
+//
+// Adding a model = its cpp/<model>/ implementation + ONE row here. The rows
+// reference the per-model entry points; everything else in the tree
+// (capi.cpp dispatch, serve slug mapping, --version's model list) derives
+// from this table.
+
+#include "model_registry.hpp"
+
+#include <cstring>
+
+namespace starling::ggml::lib {
+namespace {
+
+// Per-model internal entry points (defined in cpp/<model>/capi_<model>.cpp).
+// Part of the per-model addition: a new engine adds its three declarations
+// here plus its row in kRegistry below — both edits sit side by side in this
+// file. (The public enum kind arrives with the starling_ggml.h ABI bump.)
+// Parakeet's extra debug passthroughs (mel/encode/decode_ids) stay private to
+// capi.cpp, which is their only caller.
+extern "C" {
+void * starling_ggml_parakeet_load(const char * gguf_path, const char ** err_out);
+void   starling_ggml_parakeet_free(void * handle);
+char * starling_ggml_parakeet_decode(void * handle, const float * pcm, int64_t n,
+                                     const char ** err_out);
+char * starling_ggml_parakeet_decode_words(void * handle, const float * pcm, int64_t n,
+                                           starling_ggml_word ** words, int64_t * n_words,
+                                           const char ** err_out);
+void * starling_ggml_moss_load(const char * gguf_path, const char ** err_out);
+void   starling_ggml_moss_free(void * handle);
+char * starling_ggml_moss_decode(void * handle, const float * pcm, int64_t n,
+                                 const char ** err_out);
+void * starling_ggml_ark_load(const char * gguf_path, const char ** err_out);
+void   starling_ggml_ark_free(void * handle);
+char * starling_ggml_ark_decode(void * handle, const float * pcm, int64_t n,
+                                const char ** err_out);
+void * starling_ggml_granite_load(const char * gguf_path, const char ** err_out);
+void   starling_ggml_granite_free(void * handle);
+char * starling_ggml_granite_decode(void * handle, const float * pcm, int64_t n,
+                                    const char ** err_out);
+void * starling_ggml_qwen3_load(const char * gguf_path, const char ** err_out);
+void   starling_ggml_qwen3_free(void * handle);
+char * starling_ggml_qwen3_decode(void * handle, const float * pcm, int64_t n,
+                                  const char ** err_out);
+void * starling_ggml_s1_load(const char * gguf_path, const char ** err_out);
+void   starling_ggml_s1_free(void * handle);
+char * starling_ggml_s1_decode(void * handle, const float * pcm, int64_t n,
+                               const char ** err_out);
+char * starling_ggml_s1_normalize(void * handle, const char * transcript,
+                                  const char * styling, const char * structure,
+                                  const char * context, const char ** err_out);
+}
+
+// One row per engine, in starling_ggml_model enum order (serve's
+// supported-models string is printed in table order). The message fields
+// preserve each engine's historical error strings exactly; see
+// ModelDescriptor in model_registry.hpp.
+//
+// constexpr so the most likely one-row-add mistakes — a copy-pasted kind or a
+// row appended out of enum order — fail the static_assert
+// below at compile time instead of surfacing later as an unreachable engine
+// (find_model returns the first matching row) while --version still
+// advertises it.
+constexpr ModelDescriptor kRegistry[] = {
+    { STARLING_GGML_PARAKEET_TDT, "parakeet",
+      starling_ggml_parakeet_load, starling_ggml_parakeet_free,
+      starling_ggml_parakeet_decode,
+      "starling_ggml_transcribe_pcm: parakeet expects 16 kHz, got %d",
+      /*rate_error_in_ctx=*/false,
+      "transcribe failed",
+      /*normalize_fn=*/nullptr,
+      starling_ggml_parakeet_decode_words },
+    { STARLING_GGML_MOSS, "moss",
+      starling_ggml_moss_load, starling_ggml_moss_free,
+      starling_ggml_moss_decode,
+      "starling_ggml_transcribe_pcm: MOSS expects 16 kHz",
+      /*rate_error_in_ctx=*/true,
+      "MOSS transcribe failed" },
+    { STARLING_GGML_ARK, "ark",
+      starling_ggml_ark_load, starling_ggml_ark_free,
+      starling_ggml_ark_decode,
+      "starling_ggml_transcribe_pcm: ARK expects 16 kHz",
+      /*rate_error_in_ctx=*/true,
+      "ARK transcribe failed" },
+    { STARLING_GGML_GRANITE, "granite",
+      starling_ggml_granite_load, starling_ggml_granite_free,
+      starling_ggml_granite_decode,
+      "starling_ggml_transcribe_pcm: GRANITE expects 16 kHz",
+      /*rate_error_in_ctx=*/true,
+      "GRANITE transcribe failed" },
+    { STARLING_GGML_QWEN3, "qwen3",
+      starling_ggml_qwen3_load, starling_ggml_qwen3_free,
+      starling_ggml_qwen3_decode,
+      "starling_ggml_transcribe_pcm: QWEN3 expects 16 kHz",
+      /*rate_error_in_ctx=*/true,
+      "QWEN3 transcribe failed" },
+    { STARLING_GGML_S1, "s1",
+      starling_ggml_s1_load, starling_ggml_s1_free,
+      starling_ggml_s1_decode,
+      "starling_ggml_transcribe_pcm: S1 expects 16 kHz",
+      /*rate_error_in_ctx=*/true,
+      "S1 transcribe failed",
+      starling_ggml_s1_normalize },
+    // ARK-ASR-0.6B rides the ARK engine unchanged (identical remote modeling
+    // code; every dim comes from ark.* GGUF metadata, validated at load).
+    { STARLING_GGML_ARK06, "ark06",
+      starling_ggml_ark_load, starling_ggml_ark_free,
+      starling_ggml_ark_decode,
+      "starling_ggml_transcribe_pcm: ARK expects 16 kHz",
+      /*rate_error_in_ctx=*/true,
+      "ARK transcribe failed" },
+    // Qwen3-ASR-0.6B-hf rides the QWEN3 engine unchanged (identical frontend,
+    // tokenizer and chat template; every dim comes from qwen3.* GGUF metadata,
+    // validated at load — including the 0.6B's 2048-wide attention over a
+    // 1024-wide decoder trunk). Error strings intentionally stay "QWEN3" —
+    // the ark06 precedent — until a per-row context label is wired through.
+    { STARLING_GGML_QWEN3_06, "qwen3_06",
+      starling_ggml_qwen3_load, starling_ggml_qwen3_free,
+      starling_ggml_qwen3_decode,
+      "starling_ggml_transcribe_pcm: QWEN3 expects 16 kHz",
+      /*rate_error_in_ctx=*/true,
+      "QWEN3 transcribe failed" },
+};
+
+// Kinds 4, 5, 9 and 11 belong to removed engines and stay reserved (ABI 10
+// and 11), so the kinds are strictly increasing rather than contiguous.
+static_assert([] {
+    int prev = 0;
+    for (size_t i = 0; i < sizeof(kRegistry) / sizeof(kRegistry[0]); ++i) {
+        if ((int)kRegistry[i].kind <= prev) return false;
+        prev = (int)kRegistry[i].kind;
+    }
+    return true;
+}(), "registry rows must stay in starling_ggml_model enum order (strictly increasing, no duplicate kinds)");
+
+} // namespace
+
+const ModelDescriptor * model_registry(size_t * out_n) {
+    if (out_n) *out_n = sizeof(kRegistry) / sizeof(kRegistry[0]);
+    return kRegistry;
+}
+
+const ModelDescriptor * find_model(starling_ggml_model kind) {
+    size_t n = 0;
+    const ModelDescriptor * regs = model_registry(&n);
+    for (size_t i = 0; i < n; ++i)
+        if (regs[i].kind == kind) return &regs[i];
+    return nullptr;
+}
+
+const ModelDescriptor * find_model_by_slug(const std::string & slug) {
+    size_t n = 0;
+    const ModelDescriptor * regs = model_registry(&n);
+    for (size_t i = 0; i < n; ++i)
+        if (slug == regs[i].slug) return &regs[i];
+    return nullptr;
+}
+
+} // namespace starling::ggml::lib

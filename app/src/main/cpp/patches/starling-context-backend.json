@@ -1,0 +1,31 @@
+{
+  "scope": "Retained additive CPU-context prerequisite only; not auto-applied or GPU/fallback qualification",
+  "baseCommit": "28d1ff66da2514a3866ec5ba38c5df90105b9dd4",
+  "patchSHA256": "0d11eeb43ce0d88da1bd85ee0a3ba45732a951a89a4c444570d246b6a694f445",
+  "files": {
+    "cpp/capi.cpp": {
+      "beforeSHA256": "5aff0229656d4d113dac6c15eb7de54286e2eb7907e184eeb6c0ce2f525dedea",
+      "afterSHA256": "15b7cc500e482909aedd96d04e28eba7116c47ea2ed585b81e2706856ea18616"
+    },
+    "cpp/include/starling_ggml.h": {
+      "beforeSHA256": "16811acad0525a672fa2a4f58347a421159776d38b10d091bcb2fa0298e88a81",
+      "afterSHA256": "293553643e9570fc33c56a170f8ae5ff73bda61cb0f397abd400ea07aba83d93"
+    },
+    "cpp/runtime/backend.cpp": {
+      "beforeSHA256": "744f0313c85699143f08364f6a274e0d943a62cfb4e3f17927b48fffd45e80da",
+      "afterSHA256": "b7d91382908b807d7a0f34b1a3c9fc6642b30b205816c6f160ece0a5483f1f3e"
+    },
+    "cpp/runtime/backend.hpp": {
+      "beforeSHA256": "3c8a92fd28c4bf10da95801bf88ad5904ab84dab8d5a25b29428c2e764cad125",
+      "afterSHA256": "47a1eb9fc69e2e5e950f4e894527383db0196cb9e33dce208133ccff0224856e"
+    },
+    "cpp/runtime/graph.cpp": {
+      "beforeSHA256": "487de5aea9b5931e353db5e1dc24c57bfd62f7e2c2785c858686f7412d0f607e",
+      "afterSHA256": "275cc0d8a1972caa51dc6af94a759da89b8267513b333667a31f800c1622b59f"
+    },
+    "cpp/runtime/graph.hpp": {
+      "beforeSHA256": "e28a1db60d803f3ac415806cd29f55abaacce1940faac22865711afb7a6ce225",
+      "afterSHA256": "a746b4b15dd4e9c0c3415b2ea2a7af4bb4764c8bca807f5f43f6d8cc9ccc6fc6"
+    }
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "scope": "Current complete11-file Starling candidate; unused source-recovery patch, not auto-applied or published",
+  "baseCommit": "28d1ff66da2514a3866ec5ba38c5df90105b9dd4",
+  "patchSHA256": "b59ab83632daebf5d1c130a7fa4bb96625ac18de8309116a915781a8b2eb9012",
+  "supersedes": "For this candidate use this complete patch INSTEAD OF the earlier six-file starling-context-backend.patch, never both. GGML patch series remains separate.",
+  "files": {
+    "cpp/capi.cpp": {
+      "beforeSHA256": "5aff0229656d4d113dac6c15eb7de54286e2eb7907e184eeb6c0ce2f525dedea",
+      "afterSHA256": "0d11080e8a1823bd1d9a822743df8acac3c26f88affd4235be89e40db3c17f95"
+    },
+    "cpp/include/starling_ggml.h": {
+      "beforeSHA256": "16811acad0525a672fa2a4f58347a421159776d38b10d091bcb2fa0298e88a81",
+      "afterSHA256": "8e2a52abde890f8c6895ab0eaf4672d1d73f3b5311edd1769543bed95521a14f"
+    },
+    "cpp/parakeet/capi_parakeet.cpp": {
+      "beforeSHA256": "0fcd2fb4d1edbe522ffb592fa3254ccaa223f0ad7bf194b6fb08073f111518d9",
+      "afterSHA256": "cf3c629ebb5ad75e8b603999ffdc0712a29dd4b4043e411b2ca996d5d076fbca"
+    },
+    "cpp/parakeet/encoder.cpp": {
+      "beforeSHA256": "62a6cc5a7d7193ea8f84001924356bcc9e93c4cf916c915025d3c7706339881b",
+      "afterSHA256": "3487201d2e4f7225cf3d54698613a2ffdefa5cd4552d7c9825c1f66f75d0b3f4"
+    },
+    "cpp/runtime/backend.cpp": {
+      "beforeSHA256": "744f0313c85699143f08364f6a274e0d943a62cfb4e3f17927b48fffd45e80da",
+      "afterSHA256": "8372e4406e6f7f98e469535196b586894d4283869384fdec395dda638c619b9f"
+    },
+    "cpp/runtime/backend.hpp": {
+      "beforeSHA256": "3c8a92fd28c4bf10da95801bf88ad5904ab84dab8d5a25b29428c2e764cad125",
+      "afterSHA256": "a56f75c077fb966ef52aeb6bccaf85d4dd3e6b1f217d5ec5f47288badc7544d9"
+    },
+    "cpp/runtime/graph.cpp": {
+      "beforeSHA256": "487de5aea9b5931e353db5e1dc24c57bfd62f7e2c2785c858686f7412d0f607e",
+      "afterSHA256": "275cc0d8a1972caa51dc6af94a759da89b8267513b333667a31f800c1622b59f"
+    },
+    "cpp/runtime/graph.hpp": {
+      "beforeSHA256": "e28a1db60d803f3ac415806cd29f55abaacce1940faac22865711afb7a6ce225",
+      "afterSHA256": "a746b4b15dd4e9c0c3415b2ea2a7af4bb4764c8bca807f5f43f6d8cc9ccc6fc6"
+    },
+    "cpp/runtime/model_loader.cpp": {
+      "beforeSHA256": "cbe24190104ba0fa7b8c67ebef32a2aff6a94b84d66a2901505e8113195bae10",
+      "afterSHA256": "692d8a7fd002fe114696e364e22d8597ede3752786b31154947a7994eb58ddd9"
+    },
+    "cpp/runtime/model_loader.hpp": {
+      "beforeSHA256": "59031315ec47377bf79582d6b8dbf601b848099e1f791dcb0f4af88c4fc90424",
+      "afterSHA256": "2d4a8f872c5fc5e66ca85c575360f25ddd1d881477fab8d84ca08a997cdd9f1f"
+    },
+    "scripts/apply_ggml_patches.sh": {
+      "beforeSHA256": "272279dc5acbdd2232b61e44bda4d9203db1d07da8a4c6734acd058a758efd92",
+      "afterSHA256": "11289d56fe1f78bcd83345562af1d047e963ddeaacd79996efb0b0e61013561d"
+    }
+  }
+}

@@ -1,0 +1,188 @@
+// model_loader.hpp — GGUF parse + weight realize, shared by every model.
+//
+// The mechanism (open the GGUF, read KV metadata, map tensor-name -> ggml_tensor*,
+// give each weight a backend buffer) is model-agnostic. Only the specific KV key
+// strings (e.g. parakeet.* vs moss_transcribe.*) and the config struct built
+// from them are model-specific — those live in parakeet/loader.hpp and
+// moss/loader.hpp.
+
+#pragma once
+
+#include <cstdint>
+#include <cstdio>
+#include <memory>
+#include <typeindex>
+#include <utility>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+struct ggml_context;
+struct ggml_tensor;
+struct gguf_context;
+struct ggml_backend_buffer;
+
+namespace starling::ggml {
+
+class Backend;
+
+// Key/value metadata read from the GGUF (the `*.type`, `*.value` map). Typed
+// accessors below; stored as strings/integers/floats as-read.
+struct GgufValue {
+    enum class Kind { k_str, k_int, k_float, k_arr_str, k_arr_int };
+    Kind kind;
+    std::string s;                  // k_str
+    int64_t i = 0;                  // k_int
+    double f = 0.0;                 // k_float
+    std::vector<std::string> arr_s; // k_arr_str
+    std::vector<int64_t> arr_i;     // k_arr_int
+};
+
+// Loads a GGUF file and owns the weight tensors. The GGUF context + the weight
+// data (a private file mapping; see weight_data) stay host-backed for the
+// loader's lifetime (zero-copy on CPU; mirrored to the device by
+// realize_weights on GPU).
+class ModelLoader {
+public:
+    ModelLoader();
+    ~ModelLoader();
+
+    ModelLoader(const ModelLoader&) = delete;
+    ModelLoader& operator=(const ModelLoader&) = delete;
+
+    // Open + parse `path`. Reads the KV metadata into kv() and maps every tensor
+    // name -> tensor* into tensors(). Returns true on success; on failure sets
+    // an internal error string (see last_error).
+    bool load(const char* path);
+
+    // Unix/Android: borrow a seekable, regular, nonempty file descriptor. Owns
+    // a CLOEXEC duplicate for this call; never closes the caller's descriptor.
+    // dup SHARES the file offset: this call rewinds/advances it, so the caller
+    // must keep its descriptor open and serialize offset operations DURING the
+    // call. After return, the original descriptor may be closed independently.
+    // FD identity is NOT immutable content: do not modify/truncate file bytes
+    // while this loader retains a mapping. Sealed snapshots are a separate gate.
+    // Unsupported platforms return false. FD loads intentionally have no path().
+    bool load_fd(int fd);
+
+    const std::string& last_error() const { return error_; }
+
+    // The path load() opened ("" before success, or for a descriptor load).
+    const std::string& path() const { return path_; }
+
+    // ---- metadata -------------------------------------------------------
+    const std::unordered_map<std::string, GgufValue>& kv() const { return kv_; }
+
+    // Typed KV accessors. Return false if `key` is absent or the wrong kind.
+    bool kv_str(const std::string& key, std::string& out) const;
+    bool kv_int(const std::string& key, int64_t& out) const;
+    bool kv_float(const std::string& key, double& out) const;
+    bool kv_arr_str(const std::string& key, std::vector<std::string>& out) const;
+    bool kv_arr_int(const std::string& key, std::vector<int64_t>& out) const;
+
+    // ---- tensors --------------------------------------------------------
+    // Lookup by exact name (the verbatim NeMo / moss_transcribe key). nullptr if
+    // absent.
+    ggml_tensor* tensor(const char* name) const;
+
+    // All tensor names (for diagnostics / "is the expected set present?").
+    std::vector<std::string> tensor_names() const;
+
+    // The ggml context that owns the weight tensors (realized to the device
+    // by realize_weights on GPU).
+    ggml_context* ctx() const { return ctx_; }
+
+    // The host memory holding the GGUF weight data: a private mapping of the
+    // file (Linux/Android/macOS; pages load on first touch and can be
+    // dropped again with madvise — the file still backs them), or the ggml
+    // context's own allocation when the file was read (other platforms, a
+    // GGUF aligned to less than 32 bytes, or a file that cannot be mapped).
+    // Pages ggml's CPU repack rewrote are private copies that dropping would
+    // revert to the file's bytes, so only weights no ggml graph runs (those a
+    // fast engine took over) are ever dropped.
+    void* weight_data() const { return data_; }
+    size_t weight_bytes() const { return data_size_; }
+    bool weights_mapped() const { return map_addr_ != nullptr; }
+
+    // Give every weight a backend buffer on `backend` (zero-copy on CPU, a
+    // mirrored upload on GPU). Idempotent. Called automatically by clone_weight
+    // (via ensure_weights_realized) the first time a graph references a weight;
+    // models also call it up-front at load to surface missing tensors early.
+    bool realize_weights(Backend& backend);
+
+    // Private graph/cache types stay in their implementation files. Slots belong
+    // to this loaded model and are destroyed in reverse creation order, before
+    // its weight buffers. Callers serialize access with the runtime lock.
+    template<class T> std::unique_ptr<T>& cache() const {
+        const std::type_index key(typeid(T));
+        for (auto& slot : caches_)
+            if (slot.first == key) return static_cast<Cache<T>&>(*slot.second).value;
+        auto slot = std::make_unique<Cache<T>>();
+        auto& value = slot->value;
+        caches_.emplace_back(key, std::move(slot));
+        return value;
+    }
+    template<class T> const T* find_cache() const {
+        const std::type_index key(typeid(T));
+        for (auto& slot : caches_)
+            if (slot.first == key) return static_cast<Cache<T>&>(*slot.second).value.get();
+        return nullptr;
+    }
+
+    // Release caches and weights while the backend is alive. Shutdown visits
+    // every live loader, including models whose caller has not freed them.
+    static void release_all_runtime_resources();
+
+    // ---- community-dialect compat (see cpp/parakeet/compat.cpp) ----------
+    // Register an additional lookup name for an already-present tensor
+    // (zero-copy: both names map to the same ggml_tensor*).
+    void add_tensor_alias(const char* alias, const char* existing);
+
+    // Register a compat-owned F32 tensor (1-D or 2-D) copied from `data`.
+    // Used for the transcribe.cpp dialect's synthesized mel filterbank/window
+    // and the zero side of its fused LSTM-bias split. Owned until destruction.
+    void add_owned_tensor(const char* name, const std::vector<float>& data,
+                          int64_t ne0, int64_t ne1);
+
+    // Synthesize KV entries (existing keys are overwritten).
+    void add_kv_int(const std::string& key, int64_t v);
+    void add_kv_float(const std::string& key, double v);
+    void add_kv_str(const std::string& key, const std::string& v);
+    void add_kv_arr_int(const std::string& key, const std::vector<int64_t>& v);
+    void add_kv_arr_str(const std::string& key, const std::vector<std::string>& v);
+
+private:
+    struct CacheBase { virtual ~CacheBase() = default; };
+    template<class T> struct Cache : CacheBase { std::unique_ptr<T> value; };
+    mutable std::vector<std::pair<std::type_index, std::unique_ptr<CacheBase>>> caches_;
+    void release_runtime_resources();
+    // Mapped: weights point into the mapping. ReadInstead: nothing is kept
+    // (loosely aligned GGUF, or the file cannot be mapped); load() reads it.
+    // Failed: a malformed GGUF, error_ says why; nothing is kept either.
+    enum class MapResult { Mapped, ReadInstead, Failed };
+    MapResult map_weights(FILE* file, size_t file_size);
+    // Takes ownership of file, including on failure; all parsing/mapping/read
+    // fallback uses this one stream/descriptor. Finalize only after checked close.
+    bool load_file(FILE* file, size_t file_size, const char* path_label);
+    void finalize_metadata();
+    void drop_mapping();
+    void* map_addr_ = nullptr;              // the GGUF file mapping (mmap loads)
+    size_t map_len_ = 0;
+    uint8_t* data_ = nullptr;               // weight data region (see weight_data)
+    size_t data_size_ = 0;
+    ggml_context* device_ctx_ = nullptr;
+    ggml_backend_buffer* weight_buffer_ = nullptr;
+    ggml_context* ctx_ = nullptr;          // owns the weight tensors
+    ggml_context* compat_ctx_ = nullptr;   // compat-fabricated tensors (see compat.cpp)
+    gguf_context* gguf_ctx_ = nullptr;      // the gguf_init_from_file handle
+    std::unordered_map<std::string, ggml_tensor*> tensors_;
+    std::unordered_map<std::string, ggml_tensor*> host_tensors_;
+    std::unordered_map<std::string, GgufValue> kv_;
+    std::string error_;
+    std::string path_;
+    bool realized_ = false;
+    Backend* realized_backend_ = nullptr; // outlives owned runtime resources
+    bool retained_runtime_resources_ = false;
+};
+
+} // namespace starling::ggml

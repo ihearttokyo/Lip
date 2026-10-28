@@ -5,15 +5,29 @@
         <intent><action android:name="android.speech.RecognitionService" /></intent>
         <intent><action android:name="android.intent.action.VIEW" /><data android:scheme="https" /></intent>
     </queries>
-    <application android:allowBackup="false" android:dataExtractionRules="@xml/data_extraction_rules" android:label="Lip"
+    <application android:allowBackup="false" android:dataExtractionRules="@xml/data_extraction_rules" android:label="${lipApplicationLabel}"
         android:icon="@drawable/ic_lip" android:theme="@style/Theme.Lip"
         android:usesCleartextTraffic="false" android:supportsRtl="true">
+        <provider android:name=".keyboard.GifContentProvider" android:authorities="${applicationId}.gif"
+            android:exported="false" android:grantUriPermissions="true" />
+        <provider android:name=".keyboard.StickerContentProvider" android:authorities="${applicationId}.sticker-handoff"
+            android:enabled="${stickerFixtureEnabled}" android:exported="false" android:grantUriPermissions="true" />
+        <service android:name=".stickers.StickerDecodeService" android:exported="false" android:isolatedProcess="true" android:process=":sticker_decode" />
+        <activity android:name=".keyboard.KeyboardSettingsActivity" android:exported="false" />
+        <!-- Unlinked later-major UI; only an explicit isolated fixture build enables it. -->
+        <activity android:name=".stickers.StickerPacksActivity" android:exported="false"
+            android:enabled="${stickerFixtureEnabled}" android:theme="@style/Theme.Lip.Stickers" />
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <service android:name=".keyboard.LipInputMethodService" android:exported="true"
+            android:label="${lipApplicationLabel}" android:permission="android.permission.BIND_INPUT_METHOD">
+            <intent-filter><action android:name="android.view.InputMethod" /></intent-filter>
+            <meta-data android:name="android.view.im" android:resource="@xml/input_method" />
+        </service>
         <service android:name=".LipAccessibilityService" android:exported="true"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>

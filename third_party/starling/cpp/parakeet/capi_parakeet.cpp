@@ -1,0 +1,528 @@
+// capi_parakeet.cpp — the parakeet-tdt C API entry points (load/transcribe).
+//
+// Wires the parakeet model (loader + mel + encoder + decode) behind the shared
+// C API declared in cpp/include/starling_ggml.h. Phase 1a implements load +
+// the mel-test entry used to validate mel parity against the golden; the full
+// transcribe path lands with the encoder (1b) and decode (1c).
+
+#include "loader.hpp"
+#include "mel.hpp"
+#include "encoder.hpp"
+#include "prediction.hpp"
+#include "joint.hpp"
+#include "tdt.hpp"
+#include "tokenizer.hpp"
+#include "config.hpp"
+
+#include "runtime/graph.hpp"
+#include "runtime/backend.hpp"
+#include "runtime/audio_io.hpp"
+#include "runtime/call_abort.hpp"
+
+#include "starling_ggml.h"
+
+#if defined(STARLING_HAVE_FAST)
+#include "engine_select.hpp"
+#include "parakeet_engine.hpp"
+#endif
+
+#include <algorithm>
+#include <chrono>
+#include <cstdlib>
+#include <cstring>
+#include <cstdio>
+#include <memory>
+#include <new>
+#include <string>
+#include <vector>
+
+namespace {
+
+// The parakeet context: a loaded model + its mel frontend. One per
+// starling_ggml_load(STARLING_GGML_PARAKEET_TDT). Held in the opaque
+// starling_ggml_ctx via a tagged variant (see capi.cpp).
+struct ParakeetCtx {
+    std::unique_ptr<starling::ggml::parakeet::ParakeetModel> model;
+    starling::ggml::parakeet::MelConstants mel_const;
+    // Persistent GPU mel (kept warm across utterances); null on CPU.
+    // Model-bound compute objects persist across transcription calls so their
+    // lazy host weights and per-shape replay graphs reach steady state.
+    std::unique_ptr<starling::ggml::parakeet::Encoder> encoder;
+    std::unique_ptr<starling::ggml::parakeet::PredictionNet> prediction;
+    std::unique_ptr<starling::ggml::parakeet::Joint> joint;
+#if defined(STARLING_HAVE_FAST)
+    // Model-specialized Vulkan engine (cpp/fast). When set, it owns every
+    // weight on the device, `model` is released after load and only `cfg`
+    // (config + tokenizer) is kept.
+    std::unique_ptr<starling::fast::ParakeetEngine> fast;
+#endif
+    starling::ggml::parakeet::Config cfg;
+    std::string err;
+};
+
+// *err_out must remain readable after this TU returns (cpp/capi.cpp copies it
+// into the global error after the call). Every message that lives in
+// call-scoped storage goes through here: ctx->err outlives its unique_ptr on
+// the load-failure path and e.what() dangles once its catch block exits. Same
+// pattern as the g_load_error/report_load_error pairs in the other capi TUs.
+thread_local std::string g_capi_error;
+void report_error(const char** out, const char* msg) {
+    g_capi_error = msg;
+    if (out) *out = g_capi_error.c_str();
+}
+
+} // namespace
+
+extern "C" {
+
+enum class ParakeetLoadSource { Path, Descriptor };
+
+// Internal entry called by capi.cpp's starling_ggml_load dispatcher. Loads the
+// GGUF, reads config + mel constants, realizes weights to the device. Returns
+// an opaque handle (caller wraps in starling_ggml_ctx) or nullptr on error.
+static void * parakeet_load_impl(ParakeetLoadSource source, const char * gguf_path,
+                                 int fd, const char ** err_out, void ** retained_failure) {
+#if defined(STARLING_HAVE_FAST)
+    // A descriptor has no pathname for the fast engine's repack/JIT path.
+    // Keep legacy path/FAST policy unchanged; new FD routes never enter it.
+    if (source == ParakeetLoadSource::Descriptor) {
+        if (err_out) *err_out = "descriptor loading does not support fast-engine builds";
+        return nullptr;
+    }
+#endif
+    // Checked callers take ownership of a partial model BEFORE any failure
+    // unwinds it. They must drain its selected backend before destroying it.
+    std::unique_ptr<ParakeetCtx> ctx;
+    auto failure = [&]() -> void* {
+        if (retained_failure && ctx) *retained_failure = ctx.release();
+        return nullptr;
+    };
+    // Exception-fenced like every sibling capi TU (capi.cpp's contract: a
+    // C++ exception never crosses the boundary): the ctx/model construction,
+    // the ~1.2 GB weight realize and the persistent compute objects can all
+    // throw (bad_alloc, GpuMel/Encoder construction).
+    try {
+        ctx = std::make_unique<ParakeetCtx>();
+        ctx->model = std::make_unique<starling::ggml::parakeet::ParakeetModel>();
+        const bool loaded = source == ParakeetLoadSource::Descriptor
+            ? ctx->model->load_fd(fd, ctx->err)
+            : ctx->model->load(gguf_path, ctx->err);
+        if (!loaded) {
+            report_error(err_out, ctx->err.c_str());
+            return failure();
+        }
+        ctx->cfg = ctx->model->config;
+#if defined(STARLING_HAVE_FAST)
+        const auto choice = starling::fast::engine_choice();
+        if (choice != starling::fast::EngineChoice::Ggml) {
+            std::string ferr;
+            ctx->fast = starling::fast::ParakeetEngine::create(*ctx->model, ferr);
+            if (ctx->fast) {
+                if (std::getenv("STARLING_FAST_VERBOSE"))
+                    std::fprintf(stderr, "[fast] parakeet engine: %s\n", ctx->fast->describe().c_str());
+                // The fast engine holds its own (repacked) weights: drop the
+                // GGUF copy instead of realizing it on a ggml backend.
+                ctx->model.reset();
+                if (err_out) *err_out = nullptr;
+                return ctx.release();
+            }
+            if (choice == starling::fast::EngineChoice::Fast) {
+                report_error(err_out, ("fast engine unavailable: " + ferr).c_str());
+                return failure();
+            }
+            if (std::getenv("STARLING_FAST_VERBOSE"))
+                std::fprintf(stderr, "[fast] parakeet falls back to ggml: %s\n", ferr.c_str());
+        }
+#endif
+        ctx->mel_const.read_from(ctx->model->loader, ctx->model->config);
+        // Realize weights to the process-global backend (zero-copy on CPU /
+        // upload on GPU). Also forces global_backend() creation so the
+        // atexit handler is registered before any compute.
+        starling::ggml::ensure_weights_realized(ctx->model->loader);
+        if (std::getenv("STARLING_MEL_DEBUG"))
+            std::fprintf(stderr, "[MEL_DEBUG] load: STARLING_GGML_DEVICE=%s dev=%s is_gpu=%d\n",
+                std::getenv("STARLING_GGML_DEVICE") ? std::getenv("STARLING_GGML_DEVICE") : "(auto)",
+                starling::ggml::global_backend().device_name(),
+                starling::ggml::global_backend().is_gpu() ? 1 : 0);
+        // [starling] the DFT-matmul mel ("GpuMel") runs on ANY backend; on CPU
+        // it replaces the double-precision FFT (80ms -> ~25ms on the 5650U)
+        // with bit-identical output (validated by fixture sha across devices).
+        // Kill switch: STARLING_MEL_CPU_FFT=1 restores the FFT reference.
+        const char* mel_fft = std::getenv("STARLING_MEL_CPU_FFT");
+        if (!starling::ggml::global_backend().is_gpu() &&
+            mel_fft && mel_fft[0] == '1') {
+            // CPU + explicit FFT request: keep the reference path.
+        } else {
+            ctx->model->loader.cache<starling::ggml::parakeet::GpuMel>() = std::make_unique<starling::ggml::parakeet::GpuMel>(
+                starling::ggml::global_backend(), ctx->mel_const);
+        }
+        ctx->encoder = std::make_unique<starling::ggml::parakeet::Encoder>(*ctx->model);
+        ctx->prediction = std::make_unique<starling::ggml::parakeet::PredictionNet>(
+            ctx->model->loader, ctx->model->config);
+        ctx->joint = std::make_unique<starling::ggml::parakeet::Joint>(
+            ctx->model->loader, ctx->model->config);
+        if (err_out) *err_out = nullptr;
+        return ctx.release();
+    } catch (const std::exception& e) {
+        failure();
+        try { report_error(err_out, e.what()); }
+        catch (...) { if (err_out) *err_out = "parakeet load failed (error allocation)"; }
+        return nullptr;
+    } catch (...) {
+        failure();
+        try { report_error(err_out, "unknown exception loading parakeet model"); }
+        catch (...) { if (err_out) *err_out = "parakeet load failed"; }
+        return nullptr;
+    }
+}
+
+void * starling_ggml_parakeet_load(const char * gguf_path, const char ** err_out) {
+    return parakeet_load_impl(ParakeetLoadSource::Path, gguf_path, -1, err_out, nullptr);
+}
+
+// Internal additive entry: retains even a partially initialized model for the
+// checked outer context. Not a successful model and never sent to decode.
+void * starling_ggml_parakeet_load_retained(const char * gguf_path,
+    const char ** err_out, void ** retained_failure) {
+    if (!retained_failure) {
+        if (err_out) *err_out = "retained failure output required";
+        return nullptr;
+    }
+    *retained_failure = nullptr;
+    return parakeet_load_impl(ParakeetLoadSource::Path, gguf_path, -1, err_out, retained_failure);
+}
+
+// Internal FD equivalent: the same configuration/runtime initialization and
+// retained partial-model ownership as the checked path load, without a path.
+void * starling_ggml_parakeet_load_fd_retained(int fd,
+    const char ** err_out, void ** retained_failure) {
+    if (!retained_failure) {
+        if (err_out) *err_out = "retained failure output required";
+        return nullptr;
+    }
+    *retained_failure = nullptr;
+    return parakeet_load_impl(ParakeetLoadSource::Descriptor, nullptr, fd, err_out, retained_failure);
+}
+
+void starling_ggml_parakeet_free(void * handle) {
+    try {
+        delete static_cast<ParakeetCtx*>(handle);
+    } catch (...) {
+        // C ABI: never allow an exception to escape.
+    }
+}
+
+// Mel test entry: run the mel frontend on `n` mono float32 PCM samples and write
+// the feat-major [n_mels, T] float32 result into a malloc'd buffer the caller
+// frees with starling_ggml_free. Writes the frame count to *out_T. Returns the
+// buffer or nullptr on error.
+float * starling_ggml_parakeet_mel(void * handle, const float * pcm, int64_t n,
+                                   int * out_T, const char ** err_out) {
+    auto* c = static_cast<ParakeetCtx*>(handle);
+    if (!c) { if (err_out) *err_out = "null parakeet handle"; return nullptr; }
+    if (!c->model) { if (err_out) *err_out = "mel entry unavailable on the fast engine"; return nullptr; }
+    std::vector<float> feats;
+    int T = 0;
+    try {
+        if (auto& gmel = c->model->loader.cache<starling::ggml::parakeet::GpuMel>()) gmel->compute(pcm, (size_t)n, feats, T);
+        else {
+            starling::ggml::parakeet::MelFrontend cpu(c->mel_const);
+            cpu.compute(pcm, (size_t)n, feats, T);
+        }
+    } catch (const std::exception& e) {
+        report_error(err_out, e.what());
+        return nullptr;
+    }
+    if (out_T) *out_T = T;
+    float* out = (float*)std::malloc(feats.size() * sizeof(float));
+    if (!out) { if (err_out) *err_out = "malloc failed"; return nullptr; }
+    std::memcpy(out, feats.data(), feats.size() * sizeof(float));
+    return out;
+}
+
+// Encoder entry: run the mel frontend + Conformer encoder + joint.enc projection
+// on `n` mono float32 PCM samples and return the projected encoder output as a
+// malloc'd [640, T'] feat-major float32 buffer the caller frees with
+// starling_ggml_free. Writes T' (the encoder length) to *out_T. Returns the
+// buffer or nullptr on error.
+//
+// Validation entry: forces the CPU path (the byte-identical reference). The
+// output layout matches the golden parakeet_tdt_*_enc.pt (T_enc rows x 640 cols)
+// reinterpreted feat-major (out[c*T' + t]).
+float * starling_ggml_parakeet_encode(void * handle, const float * pcm, int64_t n,
+                                      int * out_T, const char ** err_out) {
+    auto* c = static_cast<ParakeetCtx*>(handle);
+    if (!c) { if (err_out) *err_out = "null parakeet handle"; return nullptr; }
+#if defined(STARLING_HAVE_FAST)
+    if (c->fast) {
+        try {
+            std::vector<float> enc;
+            int Tp = 0;
+            if (!c->fast->encode(pcm, (size_t)n, enc, Tp, c->err)) {
+                report_error(err_out, c->err.c_str());
+                return nullptr;
+            }
+            if (out_T) *out_T = Tp;
+            float* out = (float*)std::malloc(enc.size() * sizeof(float));
+            if (!out) { if (err_out) *err_out = "malloc failed"; return nullptr; }
+            std::memcpy(out, enc.data(), enc.size() * sizeof(float));
+            if (err_out) *err_out = nullptr;
+            return out;
+        } catch (const std::exception& e) {
+            report_error(err_out, e.what());
+            return nullptr;
+        }
+    }
+#endif
+    // 1. mel frontend -> feat-major [n_mels, T].
+    std::vector<float> feats;
+    int T_mel = 0;
+    try {
+        if (auto& gmel = c->model->loader.cache<starling::ggml::parakeet::GpuMel>()) gmel->compute(pcm, (size_t)n, feats, T_mel);
+        else {
+            starling::ggml::parakeet::MelFrontend cpu(c->mel_const);
+            cpu.compute(pcm, (size_t)n, feats, T_mel);
+        }
+    } catch (const std::exception& e) {
+        report_error(err_out, e.what());
+        return nullptr;
+    }
+    // 2. encoder + joint.enc projection -> feat-major [640, T'].
+    std::vector<float> enc_out;
+    int Tp = 0;
+    try {
+        if (!c->encoder->encode(feats, (int)c->mel_const.n_mels, T_mel, enc_out, Tp)) {
+            // The encoder graph is abortable (issue #357): a cancelled call
+            // is reported as such, not as a graph failure.
+            if (starling::ggml::call_abort_requested()) {
+                report_error(err_out, starling::ggml::kCallAbortedError);
+            } else if (err_out) {
+                *err_out = "encoder graph failed";
+            }
+            return nullptr;
+        }
+    } catch (const std::exception& e) {
+        report_error(err_out, e.what());
+        return nullptr;
+    }
+    if (out_T) *out_T = Tp;
+    float* out = (float*)std::malloc(enc_out.size() * sizeof(float));
+    if (!out) { if (err_out) *err_out = "malloc failed"; return nullptr; }
+    std::memcpy(out, enc_out.data(), enc_out.size() * sizeof(float));
+    return out;
+}
+
+// Internal helper: run the FULL pipeline (mel + encoder + decode) on `n` mono
+// float32 PCM samples and return the emitted token id stream (INCLUDING blanks,
+// matching the golden parakeet_tdt_*_ids.pt). Used by both _decode (text) and
+// _decode_ids (id stream) entry points so they share one code path. Returns
+// true on success; sets *err_out on failure.
+//
+// The encoder Phase 1b output is feat-major [H, T'] (out[h*T' + t]); tdt_greedy
+// wants row-major [T', H] (enc_proj[t*H + h]), so we transpose here.
+//
+// `step_timing`, when set, receives each emitted step's encoder frame and
+// duration.
+static bool parakeet_full_decode(ParakeetCtx* c,
+                                 const float* pcm, int64_t n,
+                                 std::vector<int32_t>& ids,
+                                 const char** err_out,
+                                 starling::ggml::parakeet::TdtTiming* step_timing = nullptr) {
+#if defined(STARLING_HAVE_FAST)
+    if (c->fast) {
+        try {
+            if (!c->fast->decode_ids(pcm, (size_t)n, ids, c->err, step_timing)) {
+                report_error(err_out, c->err.c_str());
+                return false;
+            }
+        } catch (const std::exception& e) {
+            report_error(err_out, e.what());
+            return false;
+        }
+        return true;
+    }
+#endif
+    // A cancelled call (call_abort_requested, issue #357) stops at the next
+    // stage boundary or encoder graph slice (ReplayGraph::compute).
+    auto aborted = [&] {
+        if (!starling::ggml::call_abort_requested()) return false;
+        report_error(err_out, starling::ggml::kCallAbortedError);
+        return true;
+    };
+    if (aborted()) return false;
+    using Clock = std::chrono::steady_clock;
+    const char* timing_env = std::getenv("STARLING_PARAKEET_TIMING");
+    const bool timing = timing_env && std::strcmp(timing_env, "1") == 0;
+    const auto t0 = Clock::now();
+
+    // 1. mel frontend -> feat-major [n_mels, T].
+    std::vector<float> feats;
+    int T_mel = 0;
+    try {
+        if (auto& gmel = c->model->loader.cache<starling::ggml::parakeet::GpuMel>()) gmel->compute(pcm, (size_t)n, feats, T_mel);
+        else {
+            starling::ggml::parakeet::MelFrontend cpu(c->mel_const);
+            cpu.compute(pcm, (size_t)n, feats, T_mel);
+        }
+    } catch (const std::exception& e) {
+        report_error(err_out, e.what());
+        return false;
+    }
+
+    if (aborted()) return false;
+    // 2. encoder + joint.enc projection -> feat-major [640, T'].
+    const auto t_mel = Clock::now();
+    std::vector<float> enc_feat;
+    int Tp = 0;
+    try {
+        if (!c->encoder->encode(feats, (int)c->mel_const.n_mels, T_mel, enc_feat, Tp)) {
+            // A cancelled call also stops between encoder graph slices.
+            if (aborted()) return false;
+            if (err_out) *err_out = "encoder graph failed";
+            return false;
+        }
+    } catch (const std::exception& e) {
+        report_error(err_out, e.what());
+        return false;
+    }
+
+    const auto t_encoder = Clock::now();
+    const int H = c->encoder->proj_dim();  // 640
+    // 3. The encoder Phase 1b output is row-major [T', H] (out[t*H + h]) — frame
+    //    t's projected vector is contiguous, exactly what tdt_greedy expects.
+    //    (encoder.hpp's "feat-major" comment is misleading; the buffer is
+    //    emitted row-major, verified byte-exact vs golden _enc.pt.)
+    std::vector<float>& enc_proj = enc_feat;
+    (void)H;
+
+    if (aborted()) return false;
+    // 4. serial TDT greedy decode -> id stream (incl. blanks).
+    try {
+        ids = starling::ggml::parakeet::tdt_greedy(
+            *c->prediction, *c->joint, enc_proj, Tp, H,
+            c->model->config.tdt_durations,
+            (int)c->model->config.blank_id,
+            (int)c->model->config.max_symbols, step_timing);
+    } catch (const std::exception& e) {
+        report_error(err_out, e.what());
+        return false;
+    }
+    if (timing) {
+        const auto t_decode = Clock::now();
+        auto ms = [](Clock::duration d) {
+            return std::chrono::duration<double, std::milli>(d).count();
+        };
+        std::fprintf(stderr,
+            "[PARAKEET_TIMING] mel=%.3f ms encoder=%.3f ms decode=%.3f ms total=%.3f ms\n",
+            ms(t_mel - t0), ms(t_encoder - t_mel),
+            ms(t_decode - t_encoder), ms(t_decode - t0));
+    }
+    return true;
+}
+
+// Decode entry: run the full pipeline and return the detokenized UTF-8 text as
+// a malloc'd string the caller frees with starling_ggml_free_string. This IS
+// the transcribe path (Phase 1d wiring calls this).
+char * starling_ggml_parakeet_decode(void * handle, const float * pcm, int64_t n,
+                                     const char ** err_out) {
+    auto* c = static_cast<ParakeetCtx*>(handle);
+    if (!c) { if (err_out) *err_out = "null parakeet handle"; return nullptr; }
+    std::vector<int32_t> ids;
+    if (!parakeet_full_decode(c, pcm, n, ids, err_out)) return nullptr;
+    std::string text = starling::ggml::parakeet::detokenize(
+        c->cfg.tokenizer_pieces, ids);
+    char* out = (char*)std::malloc(text.size() + 1);
+    if (!out) { if (err_out) *err_out = "malloc failed"; return nullptr; }
+    std::memcpy(out, text.data(), text.size());
+    out[text.size()] = '\0';
+    return out;
+}
+
+// The encoder's time subsampling: 3 stride-2 stages (subsampling.hpp), so one
+// encoder frame spans 8 mel hops.
+constexpr int kEncoderSubsampling = 8;
+
+// Decode-words entry (issue #357): the decode text as from _decode, plus a
+// malloc'd array of its words with the time the decoder heard each one,
+// from the first frame of its first token to the end of its last token's
+// duration. The caller frees the text with starling_ggml_free_string and
+// the words with starling_ggml_free_words.
+char * starling_ggml_parakeet_decode_words(void * handle, const float * pcm, int64_t n,
+                                           starling_ggml_word ** words_out,
+                                           int64_t * n_words_out,
+                                           const char ** err_out) {
+    if (words_out) *words_out = nullptr;
+    if (n_words_out) *n_words_out = -1;
+    auto* c = static_cast<ParakeetCtx*>(handle);
+    if (!c) { if (err_out) *err_out = "null parakeet handle"; return nullptr; }
+    if (!words_out || !n_words_out) {
+        if (err_out) *err_out = "null words out-parameter";
+        return nullptr;
+    }
+    std::vector<int32_t> ids;
+    starling::ggml::parakeet::TdtTiming timing;
+    if (!parakeet_full_decode(c, pcm, n, ids, err_out, &timing)) return nullptr;
+    // A decode path that recorded no step times (out of step with the ids)
+    // gives the plain text, *n_words = -1, never a 0-word list for words.
+    const bool timed_ok = timing.frame.size() == ids.size()
+                       && timing.duration.size() == ids.size();
+    std::string text;
+    const auto words = starling::ggml::parakeet::word_frames(
+        c->cfg.tokenizer_pieces, ids, timing.frame, timing.duration, text);
+    const double frame_s = (double)c->cfg.hop_length * kEncoderSubsampling
+                         / (double)c->cfg.sample_rate;
+    char* out = (char*)std::malloc(text.size() + 1);
+    // At least one element: malloc(0) may return NULL.
+    auto* timed = (starling_ggml_word*)std::malloc(
+        std::max<size_t>(words.size(), 1) * sizeof(starling_ggml_word));
+    if (!out || !timed) {
+        std::free(out);
+        std::free(timed);
+        if (err_out) *err_out = "malloc failed";
+        return nullptr;
+    }
+    std::memcpy(out, text.data(), text.size());
+    out[text.size()] = '\0';
+    for (size_t i = 0; i < words.size(); ++i) {
+        timed[i].text_begin = (int32_t)words[i].begin;
+        timed[i].text_end = (int32_t)words[i].end;
+        timed[i].start_s = (float)(words[i].first_frame * frame_s);
+        timed[i].end_s = (float)(words[i].end_frame * frame_s);
+    }
+    if (!timed_ok) {
+        std::free(timed);
+        return out;
+    }
+    *words_out = timed;
+    *n_words_out = (int64_t)words.size();
+    return out;
+}
+
+// Decode-ids entry: run the full pipeline and return the emitted id stream
+// (INCLUDING blanks, matching golden parakeet_tdt_*_ids.pt) as a malloc'd int64
+// array the caller frees with starling_ggml_free. Writes the count to *out_n.
+//
+// The stream is prefixed with the blank id (decoder_start_token_id) to match
+// the format of HF `model.generate`'s `sequences` output (which the goldens
+// were saved from): the first element is the prepended start token, followed by
+// the greedy-decode emissions (blanks included). The detokenize path naturally
+// drops blanks (id 8192 is out of the [0, vocab_size) piece range), so this
+// leading blank contributes nothing to the text.
+int64_t * starling_ggml_parakeet_decode_ids(void * handle, const float * pcm, int64_t n,
+                                            int64_t * out_n, const char ** err_out) {
+    auto* c = static_cast<ParakeetCtx*>(handle);
+    if (!c) { if (err_out) *err_out = "null parakeet handle"; return nullptr; }
+    std::vector<int32_t> ids;
+    if (!parakeet_full_decode(c, pcm, n, ids, err_out)) return nullptr;
+    // Prepend the decoder_start_token_id (= blank_id) to match the golden
+    // stream format (HF model.generate's sequences[0] includes it).
+    const int64_t blank = (int64_t)c->cfg.blank_id;
+    if (out_n) *out_n = (int64_t)ids.size() + 1;
+    int64_t* out = (int64_t*)std::malloc(((size_t)ids.size() + 1) * sizeof(int64_t));
+    if (!out) { if (err_out) *err_out = "malloc failed"; return nullptr; }
+    out[0] = blank;
+    for (size_t i = 0; i < ids.size(); ++i) out[i + 1] = (int64_t)ids[i];
+    return out;
+}
+
+} // extern "C"

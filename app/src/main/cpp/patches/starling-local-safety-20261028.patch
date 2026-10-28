@@ -1,0 +1,1833 @@
+diff --git a/cpp/capi.cpp b/cpp/capi.cpp
+index f36faf61..2b70d355 100644
+--- a/cpp/capi.cpp
++++ b/cpp/capi.cpp
+@@ -10,6 +10,7 @@
+ 
+ #include "lib/model_registry.hpp"
+ #include "lib/granite_job_internal.hpp"
++#include "runtime/backend.hpp"
+ #include "runtime/graph.hpp"  // global_backend, shutdown_backend, shutting_down
+ #include "runtime/imatrix.hpp"  // ImatrixCollector (imatrix_flush_pub)
+ 
+@@ -23,6 +24,7 @@
+ #include <optional>
+ #include <type_traits>
+ #include <stdexcept>
++#include <unordered_set>
+ 
+ // The internal model table (cpp/lib/model_registry.hpp), aliased for brevity.
+ namespace lib = starling::ggml::lib;
+@@ -31,6 +33,13 @@ namespace lib = starling::ggml::lib;
+ // model kind is active per context (selected at load). Defined at global scope
+ // so it IS the header's incomplete `struct starling_ggml_ctx` made complete.
+ struct starling_ggml_ctx {
++    // Backend must outlive all model weights and replay-cache references.
++    std::unique_ptr<starling::ggml::Backend> owned_backend;
++    std::string backend_name;
++    int backend_is_gpu = -1;
++    bool isolated = false;
++    bool quarantined = false;
++    bool initialization_unconfirmed = false;
+     starling_ggml_model kind = (starling_ggml_model)0;
+     void* model = nullptr;   // the per-model handle (ParakeetCtx*, ...)
+     std::string last_error;
+@@ -44,6 +53,7 @@ namespace {
+ // included) is declared once, next to the registry table in
+ // lib/model_registry.cpp.
+ extern "C" {
++void * starling_ggml_parakeet_load_retained(const char*, const char**, void**);
+ float * starling_ggml_parakeet_mel(void * handle, const float * pcm, int64_t n,
+                                    int * out_T, const char ** err_out);
+ float * starling_ggml_parakeet_encode(void * handle, const float * pcm, int64_t n,
+@@ -55,17 +65,76 @@ int64_t * starling_ggml_parakeet_decode_ids(void * handle, const float * pcm, in
+ }
+ 
+ thread_local char g_last_error[2048] = {};
++// Under runtime_mutex; also retains failed-to-drain contexts (not reusable).
++std::unordered_set<starling_ggml_ctx*> g_owned_contexts;
++
++void require_no_quarantined_context() {
++    for (auto* ctx : g_owned_contexts)
++        if (ctx->quarantined || ctx->initialization_unconfirmed ||
++            (ctx->owned_backend && !ctx->owned_backend->healthy()))
++            throw std::runtime_error("unresolved quarantined context blocks inference/load");
++}
++
++void release_context_model(starling_ggml_ctx* ctx) {
++    starling::ggml::ContextBackendScope scope(ctx->owned_backend.get());
++    if (!starling::ggml::shutting_down()) starling::ggml::synchronize_current_backend();
++    if (ctx->model) {
++        if (const lib::ModelDescriptor* d = lib::find_model(ctx->kind))
++            d->free_fn(ctx->model);
++        ctx->model = nullptr;
++    }
++    if (ctx->owned_backend) ctx->owned_backend->require_healthy();
++}
++
++void release_isolated_context(starling_ggml_ctx* ctx) {
++    if (!ctx->isolated || ctx->initialization_unconfirmed)
++        throw std::runtime_error("isolated backend initialization/release is unconfirmed");
++    {
++        starling::ggml::ContextBackendScope scope(ctx->owned_backend.get());
++        release_context_model(ctx);
++        if (ctx->owned_backend) ctx->owned_backend->release_checked();
++    }
++    g_owned_contexts.erase(ctx);
++    delete ctx;
++}
++
++// Called ONLY by shutdown_backend under runtime_mutex, before it touches any
++// loader or terminal flag. It must never call shutdown_backend/CAPI shutdown.
++void drain_owned_context_backends() {
++    // Establish every private device's drain before releasing any model cache.
++    // A throw retains registry/ownership and leaves the runtime non-terminal.
++    for (auto* ctx : g_owned_contexts) {
++        if (ctx->initialization_unconfirmed)
++            throw std::runtime_error("unconfirmed isolated initialization remains quarantined");
++        if (ctx->owned_backend) ctx->owned_backend->synchronize();
++    }
++    for (auto* ctx : g_owned_contexts) release_context_model(ctx);
++    for (auto* ctx : g_owned_contexts)
++        if (ctx->owned_backend) ctx->owned_backend->release_checked();
++    for (auto* ctx : g_owned_contexts) ctx->owned_backend.reset();
++    g_owned_contexts.clear();
++}
+ 
+ void set_global_error(const std::string& msg) {
+     std::snprintf(g_last_error, sizeof(g_last_error), "%s", msg.c_str());
+ }
+ 
+ template<class F>
+-auto api_call(starling_ggml_ctx* ctx, F&& fn) -> decltype(fn()) {
++auto api_call(starling_ggml_ctx* ctx, F&& fn, bool allow_quarantine = false) -> decltype(fn()) {
+     using Result = decltype(fn());
+     try {
+         std::lock_guard<std::recursive_mutex> lock(starling::ggml::runtime_mutex());
+         try {
++            // A null context leaves an enclosing load/free scope intact.
++            std::optional<starling::ggml::ContextBackendScope> backend_scope;
++            if (ctx) {
++                backend_scope.emplace(ctx->owned_backend.get());
++                if (!allow_quarantine) {
++                    require_no_quarantined_context();
++                    if (ctx->quarantined) throw std::runtime_error("context is quarantined, not usable");
++                    if (ctx->owned_backend) ctx->owned_backend->require_healthy();
++                }
++            }
+             return fn();
+         } catch (const std::exception& e) {
+             std::snprintf(g_last_error, sizeof(g_last_error), "%s", e.what());
+@@ -82,6 +151,16 @@ auto api_call(starling_ggml_ctx* ctx, F&& fn) -> decltype(fn()) {
+     if constexpr (!std::is_void_v<Result>) return Result{};
+ }
+ 
++void require_ggml_context_query(starling_ggml_ctx* ctx) {
++    if (!ctx || !ctx->model) throw std::invalid_argument("no loaded context");
++#if defined(STARLING_HAVE_FAST)
++    // Legacy load can choose a non-ggml fast engine at runtime. Do not borrow
++    // another model's process-global ggml identity/drain as evidence for it.
++    if (!ctx->owned_backend)
++        throw std::runtime_error("isolated backend queries do not support legacy fast-engine builds");
++#endif
++}
++
+ void require_running() {
+     if (starling::ggml::shutting_down())
+         throw std::runtime_error("Starling backend has been shut down");
+@@ -193,6 +272,7 @@ starling_ggml_ctx * starling_ggml_load(starling_ggml_model model,
+                                        const char * gguf_path) {
+     return api_call(nullptr, [&]() -> starling_ggml_ctx * {
+         require_running();
++        require_no_quarantined_context();
+         const lib::ModelDescriptor* d = lib::find_model(model);
+         if (!d) {
+             set_global_error("starling_ggml_load: unsupported model kind");
+@@ -207,23 +287,161 @@ starling_ggml_ctx * starling_ggml_load(starling_ggml_model model,
+         }
+         ctx->kind = model;
+         ctx->model = handle;
++        // No allocation after acquiring the model: legacy introspection remains
++        // available via the process API; new query reads actual backend on demand.
+         return ctx.release();
+     });
+ }
+ 
++starling_ggml_load_result starling_ggml_load_checked(starling_ggml_model model,
++    const char* gguf_path, starling_ggml_device_policy policy, starling_ggml_ctx** out) {
++    // Generic exception fencing defaults to enum0 UNCONFIRMED, never READY.
++    return api_call(nullptr, [&]() -> starling_ggml_load_result {
++        if (!out || *out || starling::ggml::shutting_down() ||
++            model != STARLING_GGML_PARAKEET_TDT || !gguf_path || !*gguf_path ||
++            (policy != STARLING_GGML_DEVICE_AUTOMATIC && policy != STARLING_GGML_DEVICE_CPU)) {
++            set_global_error("checked load rejected before a device attempt");
++            return STARLING_GGML_LOAD_REJECTED_NO_ATTEMPT;
++        }
++#if defined(STARLING_HAVE_FAST)
++        set_global_error("isolated backend API does not support fast-engine builds");
++        return STARLING_GGML_LOAD_REJECTED_NO_ATTEMPT;
++#else
++        for (auto* previous : g_owned_contexts) {
++            if (previous->quarantined || previous->initialization_unconfirmed ||
++                (previous->owned_backend && !previous->owned_backend->healthy())) {
++                set_global_error("unreleased quarantined context blocks a new load");
++                return STARLING_GGML_LOAD_REJECTED_NO_ATTEMPT;
++            }
++        }
++        auto holder = std::make_unique<starling_ggml_ctx>();
++        holder->kind = model;
++        holder->isolated = true;
++        holder->quarantined = true; // only a complete healthy load becomes usable
++        starling::ggml::set_context_backend_shutdown_hook(drain_owned_context_backends);
++        g_owned_contexts.insert(holder.get());
++        starling_ggml_ctx* ctx = holder.release();
++        *out = ctx; // publish retained identity before any device/string allocation
++        char primary_error[2048] = {};
++        try {
++            ctx->initialization_unconfirmed = true;
++            ctx->owned_backend = std::make_unique<starling::ggml::Backend>(8,
++                policy == STARLING_GGML_DEVICE_CPU ? starling::ggml::Backend::DevicePolicy::CPU
++                                                 : starling::ggml::Backend::DevicePolicy::Automatic);
++            ctx->initialization_unconfirmed = false;
++            starling::ggml::register_backend_teardown();
++            ctx->backend_name = ctx->owned_backend->device_name();
++            ctx->backend_is_gpu = ctx->owned_backend->is_gpu() ? 1 : 0;
++            starling::ggml::ContextBackendScope scope(ctx->owned_backend.get());
++            const char* err = nullptr;
++            void* retained_model = nullptr;
++            ctx->model = starling_ggml_parakeet_load_retained(gguf_path, &err, &retained_model);
++            if (!ctx->model) {
++                ctx->model = retained_model; // partial model is cleanup-only
++                std::snprintf(primary_error, sizeof(primary_error), "%s", err ? err : "isolated model load failed");
++            } else {
++                ctx->owned_backend->synchronize();
++                ctx->owned_backend->require_healthy();
++                ctx->quarantined = false;
++                return STARLING_GGML_LOAD_READY;
++            }
++        } catch (const std::exception& error) {
++            std::snprintf(primary_error, sizeof(primary_error), "%s", error.what());
++        } catch (...) {
++            std::snprintf(primary_error, sizeof(primary_error), "%s", "isolated load native failure");
++        }
++        // A failed constructor can retain native resources without a complete
++        // Backend object. Never turn that uncertainty into a retryable failure.
++        if (ctx->initialization_unconfirmed) {
++            try { starling::ggml::register_backend_teardown(); } catch (...) {}
++        }
++        std::snprintf(g_last_error, sizeof(g_last_error), "%s", primary_error);
++        try { ctx->last_error = primary_error; } catch (...) {}
++        try {
++            release_isolated_context(ctx);
++            *out = nullptr;
++            return STARLING_GGML_LOAD_FAILED_RELEASED;
++        } catch (...) {
++            // Exact owner is still published/registered; neither inference nor
++            // another context may overtake its unresolved resource lifetime.
++            return STARLING_GGML_LOAD_FAILED_QUARANTINED;
++        }
++#endif
++    });
++}
++
++starling_ggml_ctx * starling_ggml_load_with_device(starling_ggml_model model,
++    const char * gguf_path, starling_ggml_device_policy policy) {
++    starling_ggml_ctx* ctx = nullptr;
++    return starling_ggml_load_checked(model, gguf_path, policy, &ctx) == STARLING_GGML_LOAD_READY
++        ? ctx : nullptr; // old API deliberately cannot promise cleanup from NULL
++}
++
++int starling_ggml_release_checked(starling_ggml_ctx** owner) {
++    return api_call(nullptr, [&]() -> int {
++        if (!owner) throw std::invalid_argument("context owner slot required");
++        if (!*owner) return 1;
++        auto* ctx = *owner;
++        if (!ctx->isolated) throw std::invalid_argument("checked release requires isolated context");
++        ctx->quarantined = true; // never revive after a failed retirement
++        release_isolated_context(ctx);
++        *owner = nullptr;
++        return 1;
++    });
++}
++
++const char* starling_ggml_context_backend_name(starling_ggml_ctx* ctx) {
++    return api_call(ctx, [&]() -> const char* {
++        require_running();
++        require_ggml_context_query(ctx);
++        if (ctx->backend_name.empty()) {
++            if (!starling::ggml::try_global_backend_device_name())
++                throw std::runtime_error("context has no ggml backend (possibly a fast-engine context)");
++            ctx->backend_name = starling::ggml::global_backend().device_name();
++            ctx->backend_is_gpu = starling::ggml::global_backend().is_gpu() ? 1 : 0;
++        }
++        return ctx->backend_name.c_str();
++    });
++}
++int starling_ggml_context_is_gpu(starling_ggml_ctx* ctx) {
++    auto result = api_call(ctx, [&]() -> std::optional<int> {
++        require_running();
++        require_ggml_context_query(ctx);
++        if (ctx->owned_backend) return ctx->backend_is_gpu;
++        if (!starling::ggml::try_global_backend_device_name())
++            throw std::runtime_error("context has no ggml backend");
++        return starling::ggml::global_backend().is_gpu() ? 1 : 0;
++    });
++    return result.value_or(-1);
++}
++int starling_ggml_context_synchronize(starling_ggml_ctx* ctx) {
++    return api_call(ctx, [&]() -> int {
++        require_running();
++        if (!ctx || ctx->initialization_unconfirmed) throw std::invalid_argument("no confirmed backend");
++        if (!ctx->isolated) require_ggml_context_query(ctx);
++        if (ctx->isolated && !ctx->owned_backend) throw std::invalid_argument("isolated backend released");
++        starling::ggml::synchronize_current_backend();
++        return 1; // does not clear quarantine or certify healthy inference
++    }, true);
++}
++
+ void starling_ggml_free(starling_ggml_ctx * ctx) {
+     return api_call(nullptr, [&]() -> void {
+         if (!ctx) return;
+-        if (ctx->model) {
+-            if (const lib::ModelDescriptor* d = lib::find_model(ctx->kind))
+-                d->free_fn(ctx->model);
++        if (ctx->isolated) {
++            ctx->quarantined = true;
++            release_isolated_context(ctx);
++            return;
+         }
++        release_context_model(ctx); // scope ends before owned backend deletion
++        g_owned_contexts.erase(ctx);
+         delete ctx;
+     });
+ }
+ 
+ void starling_ggml_shutdown(void) {
+     return api_call(nullptr, [&]() -> void {
++        // Direct C++, legacy atexit and C API routes share the same hook/order.
+         starling::ggml::shutdown_backend();
+     });
+ }
+@@ -243,7 +461,7 @@ const char * starling_ggml_last_error(starling_ggml_ctx * ctx) {
+     return api_call(ctx, [&]() -> const char * {
+         if (ctx) return ctx->last_error.c_str();
+         return g_last_error;
+-    });
++    }, true);
+ }
+ 
+ // --------------------------------------------------------------------------- //
+diff --git a/cpp/include/starling_ggml.h b/cpp/include/starling_ggml.h
+index 2a121f3c..e8820b23 100644
+--- a/cpp/include/starling_ggml.h
++++ b/cpp/include/starling_ggml.h
+@@ -90,6 +90,49 @@ typedef enum {
+ starling_ggml_ctx * starling_ggml_load(starling_ggml_model model,
+                                        const char * gguf_path);
+ 
++// Additive Lip API: isolated per-context backend selection. This entry point
++// currently accepts only PARAKEET_TDT and rejects STARLING_HAVE_FAST builds.
++// Neither policy reads/mutates STARLING_GGML_DEVICE. AUTOMATIC is eligibility,
++// not proof of hardware acceleration, energy efficiency or graph support.
++typedef enum starling_ggml_device_policy {
++    STARLING_GGML_DEVICE_AUTOMATIC = 0,
++    STARLING_GGML_DEVICE_CPU = 1,
++} starling_ggml_device_policy;
++// NULL is an error, NOT proof that failed device work drained. A load whose
++// synchronization fails is retained internally until successful shutdown;
++// callers must not automatically CPU-retry from NULL alone.
++starling_ggml_ctx * starling_ggml_load_with_device(starling_ggml_model model,
++    const char * gguf_path, starling_ggml_device_policy policy);
++// Additive checked lifecycle. Zero/unexpected native exceptions are UNCONFIRMED,
++// never success or evidence permitting fallback. The output slot must initially
++// be NULL; a nonempty slot is rejected without discarding its existing owner.
++typedef enum starling_ggml_load_result {
++    STARLING_GGML_LOAD_UNCONFIRMED = 0,
++    STARLING_GGML_LOAD_READY = 1,
++    STARLING_GGML_LOAD_FAILED_RELEASED = 2,
++    STARLING_GGML_LOAD_FAILED_QUARANTINED = 3,
++    STARLING_GGML_LOAD_REJECTED_NO_ATTEMPT = 4,
++} starling_ggml_load_result;
++// READY publishes a usable context. QUARANTINED publishes a retained context
++// (possibly model-NULL); it cannot infer. FAILED_RELEASED publishes NULL only
++// after actual model AND owned backend release. UNCONFIRMED never permits retry.
++starling_ggml_load_result starling_ggml_load_checked(starling_ggml_model model,
++    const char * gguf_path, starling_ggml_device_policy policy, starling_ggml_ctx ** out);
++// Isolated contexts only: 1 clears *ctx after actual release; 0 preserves the
++// exact owner and forbids assuming idle, fallback or disposal. NULL slot returns0;
++// an already empty valid slot returns1. Quarantine is sticky, not a retry token.
++int starling_ggml_release_checked(starling_ggml_ctx ** ctx);
++// Actual selected backend name, owned by ctx and valid until free. NULL on error.
++// These three queries reject legacy contexts in STARLING_HAVE_FAST builds:
++// their runtime fast-engine choice cannot be inferred from a ggml backend.
++const char * starling_ggml_context_backend_name(starling_ggml_ctx * ctx);
++// 1 = actual non-CPU backend, 0 = CPU, -1 = invalid/released context. A non-CPU
++// backend is not itself evidence of a physical GPU (software Vulkan exists).
++int starling_ggml_context_is_gpu(starling_ggml_ctx * ctx);
++// Wait for outstanding work; 1 only when synchronization returned normally.
++// On 0 ownership is retained: do not retry, free buffers, or report idle.
++int starling_ggml_context_synchronize(starling_ggml_ctx * ctx);
++
+ // Free a context (safe on NULL; a non-NULL pointer must be freed once). Releases the model + its device
+ // buffers. The global ggml backend itself is freed by starling_ggml_shutdown.
+ void starling_ggml_free(starling_ggml_ctx * ctx);
+diff --git a/cpp/parakeet/capi_parakeet.cpp b/cpp/parakeet/capi_parakeet.cpp
+index 25caba88..079da78f 100644
+--- a/cpp/parakeet/capi_parakeet.cpp
++++ b/cpp/parakeet/capi_parakeet.cpp
+@@ -78,17 +78,25 @@ extern "C" {
+ // Internal entry called by capi.cpp's starling_ggml_load dispatcher. Loads the
+ // GGUF, reads config + mel constants, realizes weights to the device. Returns
+ // an opaque handle (caller wraps in starling_ggml_ctx) or nullptr on error.
+-void * starling_ggml_parakeet_load(const char * gguf_path, const char ** err_out) {
++static void * parakeet_load_impl(const char * gguf_path, const char ** err_out,
++                                 void ** retained_failure) {
++    // Checked callers take ownership of a partial model BEFORE any failure
++    // unwinds it. They must drain its selected backend before destroying it.
++    std::unique_ptr<ParakeetCtx> ctx;
++    auto failure = [&]() -> void* {
++        if (retained_failure && ctx) *retained_failure = ctx.release();
++        return nullptr;
++    };
+     // Exception-fenced like every sibling capi TU (capi.cpp's contract: a
+     // C++ exception never crosses the boundary): the ctx/model construction,
+     // the ~1.2 GB weight realize and the persistent compute objects can all
+     // throw (bad_alloc, GpuMel/Encoder construction).
+     try {
+-        auto ctx = std::make_unique<ParakeetCtx>();
++        ctx = std::make_unique<ParakeetCtx>();
+         ctx->model = std::make_unique<starling::ggml::parakeet::ParakeetModel>();
+         if (!ctx->model->load(gguf_path, ctx->err)) {
+             report_error(err_out, ctx->err.c_str());
+-            return nullptr;
++            return failure();
+         }
+         ctx->cfg = ctx->model->config;
+ #if defined(STARLING_HAVE_FAST)
+@@ -107,7 +115,7 @@ void * starling_ggml_parakeet_load(const char * gguf_path, const char ** err_out
+             }
+             if (choice == starling::fast::EngineChoice::Fast) {
+                 report_error(err_out, ("fast engine unavailable: " + ferr).c_str());
+-                return nullptr;
++                return failure();
+             }
+             if (std::getenv("STARLING_FAST_VERBOSE"))
+                 std::fprintf(stderr, "[fast] parakeet falls back to ggml: %s\n", ferr.c_str());
+@@ -143,12 +151,32 @@ void * starling_ggml_parakeet_load(const char * gguf_path, const char ** err_out
+         if (err_out) *err_out = nullptr;
+         return ctx.release();
+     } catch (const std::exception& e) {
+-        report_error(err_out, e.what());
++        failure();
++        try { report_error(err_out, e.what()); }
++        catch (...) { if (err_out) *err_out = "parakeet load failed (error allocation)"; }
+         return nullptr;
+     } catch (...) {
+-        report_error(err_out, "unknown exception loading parakeet model");
++        failure();
++        try { report_error(err_out, "unknown exception loading parakeet model"); }
++        catch (...) { if (err_out) *err_out = "parakeet load failed"; }
++        return nullptr;
++    }
++}
++
++void * starling_ggml_parakeet_load(const char * gguf_path, const char ** err_out) {
++    return parakeet_load_impl(gguf_path, err_out, nullptr);
++}
++
++// Internal additive entry: retains even a partially initialized model for the
++// checked outer context. Not a successful model and never sent to decode.
++void * starling_ggml_parakeet_load_retained(const char * gguf_path,
++    const char ** err_out, void ** retained_failure) {
++    if (!retained_failure) {
++        if (err_out) *err_out = "retained failure output required";
+         return nullptr;
+     }
++    *retained_failure = nullptr;
++    return parakeet_load_impl(gguf_path, err_out, retained_failure);
+ }
+ 
+ void starling_ggml_parakeet_free(void * handle) {
+diff --git a/cpp/parakeet/encoder.cpp b/cpp/parakeet/encoder.cpp
+index 77995a6d..ddf8261a 100644
+--- a/cpp/parakeet/encoder.cpp
++++ b/cpp/parakeet/encoder.cpp
+@@ -251,7 +251,7 @@ bool Encoder::encode(const std::vector<float>& mel, int n_mels, int T,
+                 }
+                 entry.graph->set_input(ph_idx[k], entry.ph_scratch.data(),
+                                        entry.ph_scratch.size() * sizeof(float));
+-                ggml_backend_synchronize(backend.handle());
++                backend.synchronize();
+             }
+             const size_t bytes = entry.graph->device_alloc_bytes();
+             rc->bytes_per_frame = std::max(rc->bytes_per_frame, (double)bytes / Tb);
+diff --git a/cpp/runtime/backend.cpp b/cpp/runtime/backend.cpp
+index edfb5192..3984cba9 100644
+--- a/cpp/runtime/backend.cpp
++++ b/cpp/runtime/backend.cpp
+@@ -23,6 +23,7 @@
+ #include "ggml.h"
+ #include "ggml-alloc.h"
+ #include "ggml-backend.h"
++#include "ggml-backend-impl.h"
+ 
+ // ggml-impl.h is ggml's internal header (under third_party/ggml/src/); it's the
+ // only place the cgraph `uid` field is declared. The public ggml.h leaves
+@@ -36,8 +37,10 @@
+ #include <cstdio>
+ #include <cstdlib>
+ #include <cstring>
++#include <exception>
+ #include <filesystem>
+ #include <fstream>
++#include <limits>
+ #include <map>
+ #include <memory>
+ #include <new>
+@@ -99,7 +102,12 @@ namespace {
+ // --------------------------------------------------------------------------- //
+ thread_local Backend* t_active_backend = nullptr;
+ // Inputs/captures registered during the current build; drained by the driver.
+-struct PendingInput  { ggml_tensor* t; const void* host; size_t nbytes; };
++struct PendingInput {
++    ggml_tensor* t;
++    const void* host; // original identity, never the async transfer owner
++    size_t nbytes;
++    std::shared_ptr<std::vector<uint8_t>> bytes;
++};
+ struct PendingCapture{ ggml_tensor* t; std::vector<float>* dst; };
+ thread_local std::vector<PendingInput>*   t_pending_inputs = nullptr;
+ thread_local std::vector<PendingCapture>* t_pending_captures = nullptr;
+@@ -234,13 +242,30 @@ struct Backend::Impl {
+     ggml_threadpool_t threadpool = nullptr;
+     int threadpool_n = 0;
+ 
++    // Only called after a proven drain, except constructor rollback (which
++    // has not submitted any graph work). Each pointer is cleared only AFTER
++    // its native free returned. A throw leaves uncertain ownership retained.
++    void release_checked() {
++        if (sched) { ggml_backend_sched_free(sched); sched = nullptr; }
++        if (galloc) { ggml_gallocr_free(galloc); galloc = nullptr; }
++        if (use_sched && cpu_backend) { ggml_backend_free(cpu_backend); cpu_backend = nullptr; }
++        if (backend) {
++            const bool shared_cpu = cpu_backend == backend;
++            ggml_backend_free(backend); backend = nullptr;
++            if (shared_cpu) cpu_backend = nullptr;
++        }
++        if (threadpool) { ggml_threadpool_free(threadpool); threadpool = nullptr; }
++        ctx_arena.reset();
++    }
+     ~Impl() {
+-        if (shutting_down()) return;
+-        if (sched) ggml_backend_sched_free(sched);
+-        if (galloc) ggml_gallocr_free(galloc);
+-        if (use_sched && cpu_backend) ggml_backend_free(cpu_backend);
+-        if (backend) ggml_backend_free(backend);
+-        if (threadpool) ggml_threadpool_free(threadpool);
++        if (shutting_down()) { (void)ctx_arena.release(); return; }
++        try { release_checked(); }
++        catch (...) {
++            // No-throw constructor rollback; preserve metadata if native free
++            // has an ambiguous outcome. Raw native handles are not RAII-freed.
++            (void)ctx_arena.release();
++            std::fprintf(stderr, "[backend] constructor resource release failed; retained uncertain resources\n");
++        }
+     }
+ 
+     // (Re)create the CPU worker pool for n threads and attach it. The pool's
+@@ -312,12 +337,18 @@ struct Backend::Impl {
+     }
+ };
+ 
+-Backend::Backend(int n_threads) : impl_(new Impl()), n_threads_(n_threads < 1 ? 1 : n_threads) {
++Backend::Backend(int n_threads) : Backend(n_threads, DevicePolicy::LegacyEnvironment) {}
++
++Backend::Backend(int n_threads, DevicePolicy policy)
++    : impl_(new Impl()), n_threads_(n_threads < 1 ? 1 : n_threads) {
++    if (policy != DevicePolicy::LegacyEnvironment && policy != DevicePolicy::Automatic &&
++        policy != DevicePolicy::CPU) throw std::invalid_argument("invalid backend device policy");
++    replay_cache_default_ = kDefaultReplayCacheSize;
+     // Device selection (registry-driven; mirrors parakeet.cpp src/backend.cpp:91-166).
+     // STARLING_GGML_DEVICE selects a named device ("cpu", "CUDA0", "Vulkan0",
+     // "Metal", ...); unset auto-picks the first GPU/IGPU, else CPU.
+     ggml_backend_dev_t chosen = nullptr;
+-    if (const char* dev_env = std::getenv("STARLING_GGML_DEVICE")) {
++    if (const char* dev_env = policy == DevicePolicy::LegacyEnvironment ? std::getenv("STARLING_GGML_DEVICE") : nullptr) {
+         std::string want = dev_env;
+         std::transform(want.begin(), want.end(), want.begin(),
+                        [](unsigned char c){ return std::tolower(c); });
+@@ -333,7 +364,7 @@ Backend::Backend(int n_threads) : impl_(new Impl()), n_threads_(n_threads < 1 ?
+             }
+         }
+     }
+-    if (!chosen) {
++    if (!chosen && policy != DevicePolicy::CPU) {
+         // Auto: prefer a GPU/IGPU, else CPU (ggml's registry decides what's
+         // compiled in — CUDA/Metal/Vulkan/HIP all register here).
+         chosen = ggml_backend_dev_by_type(GGML_BACKEND_DEVICE_TYPE_GPU);
+@@ -388,27 +419,23 @@ Backend::Backend(int n_threads) : impl_(new Impl()), n_threads_(n_threads < 1 ?
+         const bool shared_window =
+             props.type == GGML_BACKEND_DEVICE_TYPE_IGPU ||
+             (props.memory_total > 0 && props.memory_total < kSharedWindowTotalBytes);
+-        g_device_replay_cache_default.store(
+-            shared_window ? kSharedMemoryReplayCacheSize : kDefaultReplayCacheSize,
+-            std::memory_order_relaxed);
++        replay_cache_default_ = shared_window ? kSharedMemoryReplayCacheSize : kDefaultReplayCacheSize;
++        if (policy == DevicePolicy::LegacyEnvironment)
++            g_device_replay_cache_default.store(replay_cache_default_, std::memory_order_relaxed);
+     }
+     if (!impl_->backend) {
+         // CPU fallback (always available).
+         impl_->backend = ggml_backend_cpu_init();
+         device_name_ = "cpu";
++        dev_ = nullptr; // failed device initialization is not the actual device
++        replay_cache_default_ = kDefaultReplayCacheSize;
+     }
+-    // GPU -> also create a CPU fallback backend for op offload + set the sched flag.
+-    // Compare case-insensitively: the CPU device reports its name as "CPU" (and
+-    // some platforms use other casings), so a bare != "cpu" mis-classifies a
+-    // selected CPU backend as GPU and routes mel to the GPU path.
+-    {
+-        std::string lname = device_name_;
+-        std::transform(lname.begin(), lname.end(), lname.begin(),
+-                       [](unsigned char c){ return std::tolower(c); });
+-        impl_->use_sched = (lname != "cpu");
+-    }
++    if (!impl_->backend) throw std::runtime_error("CPU backend initialization failed");
++    // Classify the actual initialized backend, not a device-name guess.
++    impl_->use_sched = !ggml_backend_is_cpu(impl_->backend);
+     if (impl_->use_sched) {
+         impl_->cpu_backend = ggml_backend_cpu_init();
++        if (!impl_->cpu_backend) throw std::runtime_error("CPU offload backend initialization failed");
+     } else {
+         // CPU-only: the primary backend is already CPU.
+         impl_->cpu_backend = impl_->backend;
+@@ -419,11 +446,53 @@ Backend::Backend(int n_threads) : impl_(new Impl()), n_threads_(n_threads < 1 ?
+     }
+     // Persistent gallocr (shared by one-shot computes; ReplayGraph has its own).
+     impl_->galloc = ggml_gallocr_new(ggml_backend_get_default_buffer_type(impl_->backend));
++    if (!impl_->galloc) throw std::runtime_error("Backend graph allocator initialization failed");
++}
++
++Backend::~Backend() {
++    if (!impl_) return; // checked release already completed; no hidden sync
++    try { release_checked(); }
++    catch (...) {
++        std::fprintf(stderr, "[backend] unconfirmed drain/release; retaining backend resources\n");
++        (void)impl_.release();
++    }
+ }
+ 
+-Backend::~Backend() = default;
++bool Backend::healthy() const noexcept {
++    return impl_ && health_ && health_->healthy.load(std::memory_order_acquire) && !shutting_down();
++}
++void Backend::mark_unhealthy() noexcept {
++    if (health_) health_->healthy.store(false, std::memory_order_release);
++}
++void Backend::require_healthy() const {
++    if (!healthy()) throw std::runtime_error("Backend is released, terminal or permanently unhealthy");
++}
++void Backend::synchronize() {
++    require_healthy();
++    try {
++        if (impl_->backend) ggml_backend_synchronize(impl_->backend);
++        if (impl_->cpu_backend && impl_->cpu_backend != impl_->backend)
++            ggml_backend_synchronize(impl_->cpu_backend);
++    } catch (...) {
++        health_->healthy.store(false, std::memory_order_release);
++        throw;
++    }
++}
++void Backend::release_checked() {
++    if (!impl_) return; // idempotent already-proven release
++    require_healthy();
++    try {
++        synchronize();
++        impl_->release_checked();
++        impl_.reset(); // emptied Impl destructor does not synchronize
++    } catch (...) {
++        health_->healthy.store(false, std::memory_order_release);
++        throw;
++    }
++}
+ 
+ void Backend::set_n_threads(int n_threads) {
++    require_healthy();
+     n_threads_ = n_threads < 1 ? 1 : n_threads;
+     if (impl_ && ggml_backend_is_cpu(impl_->backend)) {
+         ggml_backend_cpu_set_n_threads(impl_->backend, n_threads_);
+@@ -434,20 +503,26 @@ void Backend::set_n_threads(int n_threads) {
+ }
+ 
+ bool Backend::is_gpu() const { return impl_ && impl_->use_sched; }
+-ggml_backend_t Backend::handle() const { return impl_ ? impl_->backend : nullptr; }
++ggml_backend_t Backend::handle() const { require_healthy(); return impl_->backend; }
+ 
+ long long Backend::device_memory_free() const {
+     // Trace-only query (STARLING_TRACE cache records). -1 = the device cannot
+     // report it; the trace renders that as "unavailable" rather than
+     // fabricating a number. The CPU device reports zeros — treated the same.
+-    if (!dev_) return -1;
++    if (!healthy() || !dev_) return -1;
+     struct ggml_backend_dev_props props = {};
+     ggml_backend_dev_get_props(dev_, &props);
+     return props.memory_free > 0 ? (long long)props.memory_free : -1;
+ }
+ 
+ void Backend::register_input(ggml_tensor* t, const void* host, size_t nbytes) {
+-    if (t_pending_inputs) t_pending_inputs->push_back({t, host, nbytes});
++    require_healthy();
++    if (!t_pending_inputs) return;
++    if ((!host && nbytes) || !t || nbytes > ggml_nbytes(t))
++        throw std::invalid_argument("Invalid graph input host/size");
++    auto owned = std::make_shared<std::vector<uint8_t>>(nbytes);
++    if (nbytes) std::memcpy(owned->data(), host, nbytes);
++    t_pending_inputs->push_back({t, host, nbytes, std::move(owned)});
+ }
+ void Backend::register_capture(ggml_tensor* t, std::vector<float>* dst) {
+     if (t_pending_captures) t_pending_captures->push_back({t, dst});
+@@ -494,19 +569,6 @@ static void raw_bytes_to_f32(ggml_type type, const void* raw, size_t nbytes,
+     }
+ }
+ 
+-// Sync readback of one tensor, converted to f32.
+-static void tensor_get_f32(ggml_backend_t backend, const ggml_tensor* t,
+-                           std::vector<float>& out) {
+-    size_t nbytes = ggml_nbytes(t);
+-    if (t->type == GGML_TYPE_F32) {
+-        out.resize((size_t)ggml_nelements(t));
+-        ggml_backend_tensor_get(t, out.data(), 0, nbytes);
+-        return;
+-    }
+-    std::vector<char> raw(nbytes);
+-    ggml_backend_tensor_get(t, raw.data(), 0, nbytes);
+-    raw_bytes_to_f32(t->type, raw.data(), nbytes, out);
+-}
+ 
+ namespace {
+ 
+@@ -545,6 +607,9 @@ public:
+     BuildContext(const BuildContext&) = delete;
+     BuildContext& operator=(const BuildContext&) = delete;
+     ggml_context* get() const { return ctx_; }
++    // On uncertain drain neither metadata nor the arena-busy claim may be
++    // recycled. Backend's unhealthy Impl retains the borrowed arena too.
++    void retain() noexcept { ctx_ = nullptr; busy_ = nullptr; }
+ private:
+     ggml_context* ctx_ = nullptr;
+     bool* busy_ = nullptr;
+@@ -553,40 +618,52 @@ private:
+ } // namespace
+ 
+ Backend::StepAlloc::~StepAlloc() {
+-    if (galloc_ && !shutting_down()) ggml_gallocr_free(galloc_);
++    if (!galloc_ || shutting_down()) return;
++    try {
++        if (!owner_ || !health_ || !health_->healthy.load(std::memory_order_acquire)) return;
++        owner_->synchronize();
++        ggml_gallocr_free(galloc_);
++    } catch (...) {
++        if (health_) health_->healthy.store(false, std::memory_order_release);
++        std::fprintf(stderr, "[backend] retaining uncertain step allocator\n");
++    }
+ }
+ 
+ bool Backend::reserve_steps(StepAlloc& sa, int64_t key,
+                             const std::function<ggml_tensor*(ggml_context*)>& build) {
+-    std::unique_lock<std::recursive_mutex> runtime_lock(runtime_mutex(), std::defer_lock);
+-    if (!is_gpu() && cpu_repack::enabled()) runtime_lock.lock();
++    std::unique_lock<std::recursive_mutex> runtime_lock(runtime_mutex());
++    require_healthy();
++    if (sa.owner_ && sa.owner_ != this) throw std::invalid_argument("Step allocator belongs to another backend");
++    sa.owner_ = this; sa.health_ = health_;
+     BuildContext bctx(impl_->ctx_arena, impl_->ctx_arena_busy);
+     ggml_context* ctx = bctx.get();
+     if (!ctx) return false;
+-    std::vector<PendingInput> pin;
++    auto pin = std::make_unique<std::vector<PendingInput>>();
+     std::vector<PendingCapture> pcap;
+     std::vector<ggml_tensor*> roots;
+-    ggml_tensor* out_t;
+-    {
+-        BuildScope scope(*this, pin, pcap, roots);
+-        out_t = build(ctx);
+-    }
+-    if (!out_t) return false;
+-    // Mirror compute()'s graph exactly (output flag, captures, roots), so the
+-    // plan's node/leaf lists line up with the steps run against it.
+-    ggml_set_output(out_t);
+-    ggml_cgraph* gf = ggml_new_graph_custom(ctx, kGraphSize, false);
+-    ggml_build_forward_expand(gf, out_t);
+-    for (const auto& c : pcap) ggml_build_forward_expand(gf, c.t);
+-    for (ggml_tensor* r : roots) ggml_build_forward_expand(gf, r);
+-    if (!sa.galloc_)
+-        sa.galloc_ = ggml_gallocr_new(ggml_backend_get_default_buffer_type(impl_->backend));
+-    if (!sa.galloc_ || !ggml_gallocr_reserve(sa.galloc_, gf)) {
+-        sa.reserved = -1;   // the old plan may be gone
+-        return false;
++    try {
++        ggml_tensor* out_t;
++        {
++            BuildScope scope(*this, *pin, pcap, roots);
++            out_t = build(ctx);
++        }
++        if (!out_t) { synchronize(); return false; }
++        ggml_set_output(out_t);
++        ggml_cgraph* gf = ggml_new_graph_custom(ctx, kGraphSize, false);
++        ggml_build_forward_expand(gf, out_t);
++        for (const auto& c : pcap) ggml_build_forward_expand(gf, c.t);
++        for (ggml_tensor* r : roots) ggml_build_forward_expand(gf, r);
++        if (!sa.galloc_) sa.galloc_ = ggml_gallocr_new(ggml_backend_get_default_buffer_type(impl_->backend));
++        const bool ok = sa.galloc_ && ggml_gallocr_reserve(sa.galloc_, gf);
++        sa.reserved = ok ? key : -1;
++        synchronize();
++        return ok;
++    } catch (...) {
++        auto original = std::current_exception();
++        try { synchronize(); }
++        catch (...) { bctx.retain(); (void)pin.release(); throw; }
++        std::rethrow_exception(original);
+     }
+-    sa.reserved = key;
+-    return true;
+ }
+ 
+ bool Backend::compute(const std::function<ggml_tensor*(ggml_context*)>& build,
+@@ -602,86 +679,98 @@ bool Backend::compute_step(StepAlloc& sa,
+ 
+ bool Backend::compute_impl(const std::function<ggml_tensor*(ggml_context*)>& build,
+                            std::vector<float>& out, StepAlloc* sa) {
+-    // CPU weight repacking rewrites borrowed bytes on first use. Serialize
+-    // direct C++ callers with loader release and captured graph execution;
+-    // run_graph/C API callers already hold this recursive mutex.
+-    std::unique_lock<std::recursive_mutex> runtime_lock(runtime_mutex(), std::defer_lock);
+-    if (!is_gpu() && cpu_repack::enabled()) runtime_lock.lock();
+-    // 1. Build in a no_alloc=true metadata context (see BuildContext).
++    std::unique_lock<std::recursive_mutex> runtime_lock(runtime_mutex());
++    require_healthy();
++    if (sa) {
++        if (sa->owner_ && sa->owner_ != this) throw std::invalid_argument("Step allocator belongs to another backend");
++        sa->owner_ = this; sa->health_ = health_;
++    }
+     BuildContext bctx(impl_->ctx_arena, impl_->ctx_arena_busy);
+     ggml_context* ctx = bctx.get();
+     if (!ctx) return false;
+-    std::vector<PendingInput> pin;
++    auto pin = std::make_unique<std::vector<PendingInput>>();
+     std::vector<PendingCapture> pcap;
+     std::vector<ggml_tensor*> roots;
+-    ggml_tensor* out_t;
+-    {
+-        BuildScope scope(*this, pin, pcap, roots);
+-        out_t = build(ctx);
+-    }
+-
+-    if (!out_t) return false;
+-    ggml_set_output(out_t);  // mark output so the allocator keeps it
+-
+-    // 2. Build the cgraph (capacity = kGraphSize; default 2048 is too small
+-    //    for the full conformer encoder graph).
+-    ggml_cgraph* gf = ggml_new_graph_custom(ctx, kGraphSize, false);
+-    ggml_build_forward_expand(gf, out_t);
+-    // Captured intermediates are dead branches of out_t's tree: expand the
+-    // graph over them too so they're computed + allocated for readback.
+-    for (const auto& c : pcap) ggml_build_forward_expand(gf, c.t);
+-    // Side-effect roots (decode-state write-backs): expand so they execute.
+-    for (ggml_tensor* r : roots) ggml_build_forward_expand(gf, r);
+-    maybe_export_graph(gf, out_t, device_name(), pcap, roots);
+-
+-    // CPU backend: opt weights this graph uses only as MUL_MAT src0 into
+-    // ggml's repacked kernels before anything is planned (cpu_repack.hpp).
+-    if (!impl_->use_sched) cpu_repack::prepare_graph(gf);
+-
+-    // 3. Allocate (persistent gallocr path, or sched fallback if some op is
+-    // unsupported by the primary backend / imatrix collection is active).
+-    bool need_sched = ImatrixCollector::enabled();
+-    if (impl_->use_sched) {
+-        for (int i = 0; i < ggml_graph_n_nodes(gf); ++i) {
+-            if (!ggml_backend_supports_op(impl_->backend, ggml_graph_node(gf, i))) {
+-                need_sched = true; break;
++    struct Readbacks { std::vector<uint8_t> output; std::vector<std::vector<uint8_t>> captures; };
++    auto staging = std::make_unique<Readbacks>();
++    try {
++        ggml_tensor* out_t;
++        {
++            BuildScope scope(*this, *pin, pcap, roots);
++            out_t = build(ctx);
++        }
++        if (!out_t) { synchronize(); return false; }
++        ggml_set_output(out_t);
++        ggml_cgraph* gf = ggml_new_graph_custom(ctx, kGraphSize, false);
++        ggml_build_forward_expand(gf, out_t);
++        for (const auto& c : pcap) ggml_build_forward_expand(gf, c.t);
++        for (ggml_tensor* r : roots) ggml_build_forward_expand(gf, r);
++        maybe_export_graph(gf, out_t, device_name(), pcap, roots);
++        if (!impl_->use_sched) cpu_repack::prepare_graph(gf);
++        bool need_sched = ImatrixCollector::enabled();
++        if (impl_->use_sched) {
++            for (int i = 0; i < ggml_graph_n_nodes(gf); ++i)
++                if (!ggml_backend_supports_op(impl_->backend, ggml_graph_node(gf, i))) {
++                    need_sched = true; break;
++                }
++        }
++        // Allocate all host transfer targets before submitting any work. They
++        // survive the catch/drain path and are retained on uncertainty.
++        staging->output.resize(ggml_nbytes(out_t));
++        staging->captures.resize(pcap.size());
++        for (size_t i = 0; i < pcap.size(); ++i)
++            staging->captures[i].resize(ggml_nbytes(pcap[i].t));
++        bool ok = false;
++        if (!need_sched) {
++            ggml_gallocr_t& galloc = sa ? sa->galloc_ : impl_->galloc;
++            if (!galloc) galloc = ggml_gallocr_new(ggml_backend_get_default_buffer_type(impl_->backend));
++            if (galloc && ggml_gallocr_alloc_graph(galloc, gf)) {
++                for (const auto& in : *pin)
++                    if (in.t->data && in.nbytes) ggml_backend_tensor_set(in.t, in.bytes->data(), 0, in.nbytes);
++                ok = ggml_backend_graph_compute_async(impl_->backend, gf) == GGML_STATUS_SUCCESS;
++                synchronize();
++            }
++        } else {
++            ggml_backend_sched_t sched = impl_->ensure_sched();
++            if (sched) {
++                bool allocated;
++                try {
++                    ggml_backend_sched_reset(sched);
++                    allocated = ggml_backend_sched_alloc_graph(sched, gf);
++                } catch (...) { health_->healthy.store(false, std::memory_order_release); throw; }
++                if (allocated) {
++                    for (const auto& in : *pin)
++                        if (in.t->data && in.nbytes) ggml_backend_tensor_set(in.t, in.bytes->data(), 0, in.nbytes);
++                    try { ok = ggml_backend_sched_graph_compute_async(sched, gf) == GGML_STATUS_SUCCESS; }
++                    catch (...) { health_->healthy.store(false, std::memory_order_release); throw; }
++                    synchronize();
++                }
+             }
+         }
+-    }
+-    bool ok = false;
+-    if (!need_sched) {
+-        // A StepAlloc's private gallocr keeps its reserved plan; everything
+-        // else shares the persistent one.
+-        ggml_gallocr_t& galloc = sa ? sa->galloc_ : impl_->galloc;
+-        if (!galloc) galloc = ggml_gallocr_new(ggml_backend_get_default_buffer_type(impl_->backend));
+-        if (ggml_gallocr_alloc_graph(galloc, gf)) {
+-            // 4. Push host inputs AFTER alloc (->data was NULL until now).
+-            //    Inputs not reachable from the expanded graph get no
+-            //    allocation (data == NULL); skip those (diagnostic early-
+-            //    return graphs legitimately drop inputs).
+-            for (const auto& in : pin)
+-                if (in.t->data) ggml_backend_tensor_set(in.t, in.host, 0, in.nbytes);
+-            // 5. Compute.
+-            ok = (ggml_backend_graph_compute(impl_->backend, gf) == GGML_STATUS_SUCCESS);
++        if (ok) {
++            // Buffer-dispatched synchronous reads support scheduler CPU buffers
++            // too; do not use primary-backend async reads against those buffers.
++            ggml_backend_tensor_get(out_t, staging->output.data(), 0, staging->output.size());
++            for (size_t i = 0; i < pcap.size(); ++i)
++                ggml_backend_tensor_get(pcap[i].t, staging->captures[i].data(), 0, staging->captures[i].size());
+         }
+-    } else {
+-        ggml_backend_sched_t sched = impl_->ensure_sched();
+-        if (!sched) return false;
+-        ggml_backend_sched_reset(sched);
+-        if (ggml_backend_sched_alloc_graph(sched, gf)) {
+-            for (const auto& in : pin)
+-                if (in.t->data) ggml_backend_tensor_set(in.t, in.host, 0, in.nbytes);
+-            ok = (ggml_backend_sched_graph_compute(sched, gf) == GGML_STATUS_SUCCESS);
++        synchronize(); // before arena, galloc plan or any host owner can recycle
++        if (ok) {
++            std::vector<float> result;
++            std::vector<std::vector<float>> captures(pcap.size());
++            raw_bytes_to_f32(out_t->type, staging->output.data(), staging->output.size(), result);
++            for (size_t i = 0; i < pcap.size(); ++i)
++                raw_bytes_to_f32(pcap[i].t->type, staging->captures[i].data(), staging->captures[i].size(), captures[i]);
++            out.swap(result);
++            for (size_t i = 0; i < pcap.size(); ++i) pcap[i].dst->swap(captures[i]);
+         }
++        return ok;
++    } catch (...) {
++        auto original = std::current_exception();
++        try { synchronize(); }
++        catch (...) { bctx.retain(); (void)pin.release(); (void)staging.release(); throw; }
++        std::rethrow_exception(original);
+     }
+-    if (ok) {
+-        // 6. Read back the output + captures (converted to f32 whatever the
+-        // tensor dtype; see raw_bytes_to_f32).
+-        tensor_get_f32(impl_->backend, out_t, out);
+-        for (const auto& c : pcap) tensor_get_f32(impl_->backend, c.t, *c.dst);
+-    }
+-    pin.clear(); pcap.clear();
+-    return ok;
+ }
+ 
+ // --------------------------------------------------------------------------- //
+@@ -723,6 +812,7 @@ void ensure_weights_realized(const ModelLoader& ml) {
+         throw std::runtime_error(ml.last_error());
+ }
+ size_t device_replay_cache_default() {
++    if (Backend* scoped = current_context_backend()) return scoped->replay_cache_default();
+     return g_device_replay_cache_default.load(std::memory_order_relaxed);
+ }
+ ggml_tensor* clone_weight_opt(ggml_context* /*ctx*/, const ModelLoader& ml, const char* name) {
+@@ -849,9 +939,9 @@ void check_no_unsupported_graph_nodes(
+ // --------------------------------------------------------------------------- //
+ ReplayGraph::ReplayGraph(Backend& backend,
+                          const std::function<ggml_tensor*(ggml_context*)>& build)
+-    : backend_(backend) {
+-    std::unique_lock<std::recursive_mutex> runtime_lock(runtime_mutex(), std::defer_lock);
+-    if (!backend_.is_gpu() && cpu_repack::enabled()) runtime_lock.lock();
++    : input_storage_(std::make_unique<InputStorage>()), backend_(backend) {
++    std::unique_lock<std::recursive_mutex> runtime_lock(runtime_mutex());
++    backend_.require_healthy();
+     // graph_build spans construction + allocation of one captured shape (the
+     // one-time cost a replay-cache miss pays). Includes the build lambda and
+     // alloc_internal(); the gated F1 histogram below is inside the window.
+@@ -865,13 +955,13 @@ ReplayGraph::ReplayGraph(Backend& backend,
+     };
+     ctx_ = ggml_init(params);
+     if (!ctx_) throw std::runtime_error("ReplayGraph context allocation failed");
++    auto pin = std::make_unique<std::vector<PendingInput>>();
+     try {
+-        std::vector<PendingInput> pin;
+         std::vector<PendingCapture> pcap;
+         std::vector<ggml_tensor*> roots;
+         std::vector<ggml_tensor*> persistent_marks;
+         {
+-            BuildScope scope(backend_, pin, pcap, roots, &persistent_marks);
++            BuildScope scope(backend_, *pin, pcap, roots, &persistent_marks);
+             out_ = build(ctx_);
+         }
+ 
+@@ -888,9 +978,15 @@ ReplayGraph::ReplayGraph(Backend& backend,
+             for (ggml_tensor* r : roots) ggml_build_forward_expand(gf_, r);
+             maybe_export_graph(gf_, out_, backend_.device_name(), pcap, roots);
+             // Record inputs + captures in registration order (kept across calls).
+-            for (const auto& in : pin) {
++            for (const auto& in : *pin) {
+                 inputs_.push_back(in.t);
+                 input_hosts_.push_back(in.host);
++                input_storage_->initial.push_back(in.bytes);
++                input_storage_->uploaded.push_back(false);
++                const size_t bytes = ggml_nbytes(in.t);
++                if (bytes > (std::numeric_limits<size_t>::max() - input_storage_->pending_budget) / 2)
++                    throw std::overflow_error("Replay input staging budget overflow");
++                input_storage_->pending_budget += bytes * 2;
+             }
+             for (ggml_tensor* t : persistent_marks) {
+                 for (size_t i = 0; i < inputs_.size(); ++i)
+@@ -937,13 +1033,25 @@ ReplayGraph::ReplayGraph(Backend& backend,
+             }
+         }
+     } catch (...) {
+-        if (galloc_) ggml_gallocr_free(galloc_);
+-        ggml_free(ctx_);
+-        throw;
++        auto original = std::current_exception();
++        try {
++            backend_.synchronize();
++            if (galloc_) { ggml_gallocr_free(galloc_); galloc_ = nullptr; }
++            if (ctx_) { ggml_free(ctx_); ctx_ = nullptr; }
++        } catch (...) {
++            // A throwing constructor does not run ReplayGraph's destructor.
++            // Failed drain OR native free has an ambiguous outcome; retain all
++            // owners/remaining handles and forbid any later backend reuse.
++            backend_.health_->healthy.store(false, std::memory_order_release);
++            (void)input_storage_.release(); (void)pin.release();
++            throw;
++        }
++        std::rethrow_exception(original);
+     }
+ }
+ 
+ bool ReplayGraph::alloc_internal() {
++    backend_.require_healthy();
+     // Decide sched vs gallocr (same logic as Backend::compute) — with one
+     // deliberate exception: an op the accelerator REJECTS must not route a
+     // captured graph onto sched. One-shot graphs re-upload their inputs
+@@ -978,22 +1086,78 @@ bool ReplayGraph::alloc_internal() {
+     // sched path (GPU op offload, or imatrix collection on any device).
+     ggml_backend_sched_t sched = backend_.impl_->ensure_sched();
+     if (!sched) return false;
+-    ggml_backend_sched_reset(sched);
+-    return ggml_backend_sched_alloc_graph(sched, gf_);
++    try {
++        ggml_backend_sched_reset(sched);
++        return ggml_backend_sched_alloc_graph(sched, gf_);
++    } catch (...) {
++        backend_.health_->healthy.store(false, std::memory_order_release);
++        throw;
++    }
+ }
+ 
+ ReplayGraph::~ReplayGraph() {
+-    if (shutting_down()) return;  // driver gone -> leak (fine at exit)
+-    if (galloc_) ggml_gallocr_free(galloc_);
+-    if (ctx_)    ggml_free(ctx_);
++    // Field destructors normally release InputStorage. On an unconfirmed drain
++    // that would invalidate queued host pointers, so retain the WHOLE owner.
++    if (shutting_down()) { (void)input_storage_.release(); return; }
++    try {
++        backend_.synchronize();
++        if (galloc_) { ggml_gallocr_free(galloc_); galloc_ = nullptr; }
++        if (ctx_) { ggml_free(ctx_); ctx_ = nullptr; }
++    } catch (...) {
++        backend_.health_->healthy.store(false, std::memory_order_release);
++        (void)input_storage_.release();
++        std::fprintf(stderr, "[backend] unconfirmed replay drain/release; retaining replay and input resources\n");
++    }
++}
++
++void ReplayGraph::clear_drained_inputs() {
++    input_storage_->pending.clear();
++    input_storage_->pending_bytes = 0;
++}
++
++void ReplayGraph::queue_owned_input(size_t i, std::shared_ptr<std::vector<uint8_t>> bytes) {
++    backend_.require_healthy();
++    const size_t size = bytes->size();
++    // Repeated uploads without a compute cannot grow an unbounded FIFO. This
++    // adds no sync to the normal once-per-input/once-per-replay submission path.
++    if (input_storage_->pending_bytes > input_storage_->pending_budget - size) {
++        backend_.synchronize();
++        clear_drained_inputs();
++    }
++    input_storage_->pending.push_back(bytes); // ownership BEFORE possible enqueue
++    input_storage_->pending_bytes += size;
++    try {
++        ggml_backend_t native = backend_.handle();
++        if (native->iface.set_tensor_async) {
++            ggml_backend_tensor_set_async(native, inputs_[i], bytes->data(), 0, size);
++        } else {
++            backend_.synchronize(); // ggml helper's otherwise-hidden sync
++            ggml_backend_tensor_set(inputs_[i], bytes->data(), 0, size);
++        }
++        input_storage_->uploaded[i] = true;
++        input_storage_->initial[i].reset(); // pending owns the snapshot until drain
++    } catch (...) {
++        auto original = std::current_exception();
++        backend_.synchronize(); // failed drain is sticky; pending owners stay alive
++        clear_drained_inputs();
++        std::rethrow_exception(original);
++    }
+ }
+ 
+ void ReplayGraph::set_input(size_t i, const void* host, size_t nbytes) {
+-    if (i >= inputs_.size()) return;
+-    if (inputs_[i]->data == nullptr) return;  // unallocated (dead) input
+-    // Async H2D on the backend's compute stream; stream ordering guarantees it
+-    // completes before the next graph_compute reads it. No sync here.
+-    ggml_backend_tensor_set_async(backend_.handle(), inputs_[i], host, 0, nbytes);
++    std::unique_lock<std::recursive_mutex> runtime_lock(runtime_mutex());
++    backend_.require_healthy();
++    if (i >= inputs_.size() || inputs_[i]->data == nullptr || nbytes == 0) return;
++    if (!host || nbytes > ggml_nbytes(inputs_[i]))
++        throw std::invalid_argument("Invalid replay input host/size");
++    // Preserve partial-update semantics: initialize the untouched suffix from
++    // the constructor snapshot before the first partial upload.
++    if (!input_storage_->uploaded[i] && nbytes < ggml_nbytes(inputs_[i]) &&
++        input_storage_->initial[i] && !input_storage_->initial[i]->empty())
++        queue_owned_input(i, input_storage_->initial[i]);
++    auto owned = std::make_shared<std::vector<uint8_t>>(nbytes);
++    std::memcpy(owned->data(), host, nbytes);
++    queue_owned_input(i, std::move(owned));
+ }
+ 
+ size_t ReplayGraph::input_nbytes(size_t i) const {
+@@ -1020,36 +1184,44 @@ void ReplayGraph::readback_async_then_sync(Backend::Impl* impl,
+     // runs on the backend stream so copies queue behind the graph launch.
+     // Non-F32 tensors read back into staging buffers and convert to f32 after
+     // the sync (see raw_bytes_to_f32): the callers' vectors are float.
+-    const size_t out_nbytes = ggml_nbytes(out_t);
+-    std::vector<char> out_raw;
+-    void* out_host = out.data();
+-    if (out_t->type != GGML_TYPE_F32) {
+-        out_raw.resize(out_nbytes);
+-        out_host = out_raw.data();
+-    }
+-    ggml_backend_tensor_get_async(impl->backend, out_t, out_host, 0, out_nbytes);
+-    std::vector<std::vector<char>> cap_raw(captures_.size());
+-    for (size_t ci = 0; ci < captures_.size(); ++ci) {
+-        auto& c = captures_[ci];
+-        if (!c.second) continue;
+-        size_t cn = (size_t)ggml_nelements(c.first);
+-        size_t cbytes = ggml_nbytes(c.first);
+-        c.second->resize(cn);
+-        void* dst = c.second->data();
+-        if (c.first->type != GGML_TYPE_F32) {
+-            cap_raw[ci].resize(cbytes);
+-            dst = cap_raw[ci].data();
+-        }
+-        ggml_backend_tensor_get_async(impl->backend, c.first, dst, 0, cbytes);
+-    }
+-    ggml_backend_synchronize(impl->backend);
+-    if (out_t->type != GGML_TYPE_F32)
+-        raw_bytes_to_f32(out_t->type, out_raw.data(), out_nbytes, out);
+-    for (size_t ci = 0; ci < captures_.size(); ++ci) {
+-        auto& c = captures_[ci];
+-        if (c.second && c.first->type != GGML_TYPE_F32)
+-            raw_bytes_to_f32(c.first->type, cap_raw[ci].data(), ggml_nbytes(c.first), *c.second);
++    // All transfer targets are owned staging, allocated BEFORE any enqueue.
++    // A failed synchronization retains those bytes rather than letting stack
++    // unwinding invalidate memory still referenced by the device.
++    struct Readbacks { std::vector<char> output; std::vector<std::vector<char>> captures; };
++    auto staging = std::make_unique<Readbacks>();
++    staging->output.resize(ggml_nbytes(out_t));
++    staging->captures.resize(captures_.size());
++    for (size_t ci = 0; ci < captures_.size(); ++ci)
++        if (captures_[ci].second) staging->captures[ci].resize(ggml_nbytes(captures_[ci].first));
++    try {
++        const auto get = [&](const ggml_tensor* tensor, void* dst, size_t bytes) {
++            if (impl->backend->iface.get_tensor_async) {
++                ggml_backend_tensor_get_async(impl->backend, tensor, dst, 0, bytes);
++            } else {
++                backend_.synchronize(); // ggml helper's otherwise-hidden sync
++                ggml_backend_tensor_get(tensor, dst, 0, bytes);
++            }
++        };
++        get(out_t, staging->output.data(), staging->output.size());
++        for (size_t ci = 0; ci < captures_.size(); ++ci)
++            if (captures_[ci].second)
++                get(captures_[ci].first, staging->captures[ci].data(), staging->captures[ci].size());
++        backend_.synchronize();
++    } catch (...) {
++        try { backend_.synchronize(); }
++        catch (...) { (void)staging.release(); }
++        throw;
+     }
++    std::vector<float> result;
++    std::vector<std::vector<float>> converted(captures_.size());
++    raw_bytes_to_f32(out_t->type, staging->output.data(), staging->output.size(), result);
++    for (size_t ci = 0; ci < captures_.size(); ++ci)
++        if (captures_[ci].second)
++            raw_bytes_to_f32(captures_[ci].first->type, staging->captures[ci].data(),
++                             staging->captures[ci].size(), converted[ci]);
++    out.swap(result);
++    for (size_t ci = 0; ci < captures_.size(); ++ci)
++        if (captures_[ci].second) captures_[ci].second->swap(converted[ci]);
+ }
+ 
+ namespace {
+@@ -1065,8 +1237,8 @@ constexpr int kAbortSlices = 4;
+ bool ReplayGraph::compute(std::vector<float>& out) {
+     // Match the CPU build/loader lock through execution and readback so a
+     // different graph cannot repack a weight while this one reads it.
+-    std::unique_lock<std::recursive_mutex> runtime_lock(runtime_mutex(), std::defer_lock);
+-    if (!backend_.is_gpu() && cpu_repack::enabled()) runtime_lock.lock();
++    std::unique_lock<std::recursive_mutex> runtime_lock(runtime_mutex());
++    backend_.require_healthy();
+     if (!gf_ || !out_) return false;
+     Backend::Impl* impl = backend_.impl_.get();
+     // Fast path: graph_compute_async (skip the sync-wrapping graph_compute so the
+@@ -1078,82 +1250,103 @@ bool ReplayGraph::compute(std::vector<float>& out) {
+     const bool tr_on = trace::on();
+     const bool any_gate = t_on || tr_on;
+     const int64_t t_gc0 = any_gate ? ggml_time_us() : 0;
+-    bool ok;
+-    if (!need_sched_ && abortable_ && t_call_abort && gf_->n_nodes >= kAbortSliceMinNodes) {
+-        ok = true;
+-        for (int k = 0; ok && k < kAbortSlices; ++k) {
+-            const int i0 = static_cast<int>((int64_t)gf_->n_nodes * k / kAbortSlices);
+-            const int i1 = static_cast<int>((int64_t)gf_->n_nodes * (k + 1) / kAbortSlices);
+-            ggml_cgraph view = ggml_graph_view(gf_, i0, i1);
+-            ok = (ggml_backend_graph_compute_async(impl->backend, &view) == GGML_STATUS_SUCCESS);
+-            if (ok && k + 1 < kAbortSlices) {
+-                ggml_backend_synchronize(impl->backend);
+-                if (call_abort_requested()) return false;  // nothing read back
++    try {
++        // Registered bytes are owned even when the build lambda's local host
++        // went out of scope. Explicit set_input still wins for mutable pools.
++        for (size_t i = 0; i < inputs_.size(); ++i)
++            if (!input_storage_->uploaded[i] && inputs_[i]->data &&
++                input_storage_->initial[i] && !input_storage_->initial[i]->empty())
++                queue_owned_input(i, input_storage_->initial[i]);
++        bool ok;
++        if (!need_sched_ && abortable_ && t_call_abort && gf_->n_nodes >= kAbortSliceMinNodes) {
++            ok = true;
++            for (int k = 0; ok && k < kAbortSlices; ++k) {
++                const int i0 = static_cast<int>((int64_t)gf_->n_nodes * k / kAbortSlices);
++                const int i1 = static_cast<int>((int64_t)gf_->n_nodes * (k + 1) / kAbortSlices);
++                ggml_cgraph view = ggml_graph_view(gf_, i0, i1);
++                ok = (ggml_backend_graph_compute_async(impl->backend, &view) == GGML_STATUS_SUCCESS);
++                if (ok && k + 1 < kAbortSlices) {
++                    backend_.synchronize();
++                    clear_drained_inputs();
++                    if (call_abort_requested()) return false;  // nothing read back
++                }
+             }
++        } else if (!need_sched_) {
++            ok = (ggml_backend_graph_compute_async(impl->backend, gf_) == GGML_STATUS_SUCCESS);
++        } else {
++            try { ok = (ggml_backend_sched_graph_compute_async(impl->sched, gf_) == GGML_STATUS_SUCCESS); }
++            catch (...) { backend_.health_->healthy.store(false, std::memory_order_release); throw; }
+         }
+-    } else if (!need_sched_) {
+-        ok = (ggml_backend_graph_compute_async(impl->backend, gf_) == GGML_STATUS_SUCCESS);
+-    } else {
+-        ok = (ggml_backend_sched_graph_compute(impl->sched, gf_) == GGML_STATUS_SUCCESS);
+-    }
+-    if (!ok) return false;
+-    if (std::getenv("STARLING_NODE_HIST") && gf_) {
+-        // One-shot per-replay node-type histogram (debug aid; off by default).
+-        static std::mutex hist_mu;
+-        std::lock_guard<std::mutex> lk(hist_mu);
+-        std::map<std::string, int> hist;
+-        for (int i = 0; i < gf_->n_nodes; ++i) {
+-            ggml_tensor* n = gf_->nodes[i];
+-            if (!n) continue;
+-            hist[ggml_op_name(n->op)]++;
+-            if (n->op == GGML_OP_CPY && std::getenv("STARLING_CPY_DEBUG"))
+-                std::fprintf(stderr, "[cpy] %s <- %s (op %s)\n", n->name, n->src[0] ? n->src[0]->name : "?", n->src[0] ? ggml_op_name(n->src[0]->op) : "?");
++        if (!ok) { backend_.synchronize(); clear_drained_inputs(); return false; }
++        if (std::getenv("STARLING_NODE_HIST") && gf_) {
++            // One-shot per-replay node-type histogram (debug aid; off by default).
++            static std::mutex hist_mu;
++            std::lock_guard<std::mutex> lk(hist_mu);
++            std::map<std::string, int> hist;
++            for (int i = 0; i < gf_->n_nodes; ++i) {
++                ggml_tensor* n = gf_->nodes[i];
++                if (!n) continue;
++                hist[ggml_op_name(n->op)]++;
++                if (n->op == GGML_OP_CPY && std::getenv("STARLING_CPY_DEBUG"))
++                    std::fprintf(stderr, "[cpy] %s <- %s (op %s)\n", n->name, n->src[0] ? n->src[0]->name : "?", n->src[0] ? ggml_op_name(n->src[0]->op) : "?");
++            }
++            std::string line;
++            for (auto& [k, v] : hist) line += k + "=" + std::to_string(v) + " ";
++            std::fprintf(stderr, "[node-hist] uid=%u n=%d %s\n",
++                         (unsigned)gf_->uid, gf_->n_nodes, line.c_str());
+         }
+-        std::string line;
+-        for (auto& [k, v] : hist) line += k + "=" + std::to_string(v) + " ";
+-        std::fprintf(stderr, "[node-hist] uid=%u n=%d %s\n",
+-                     (unsigned)gf_->uid, gf_->n_nodes, line.c_str());
+-    }
+-    if (std::getenv("STARLING_NODE_SHAPES") && gf_) {
+-        static std::mutex shp_mu;
+-        std::lock_guard<std::mutex> lk(shp_mu);
+-        for (int i = 0; i < gf_->n_nodes; ++i) {
+-            ggml_tensor* n = gf_->nodes[i];
+-            if (!n || n->op != GGML_OP_MUL_MAT) continue;
+-            ggml_tensor* a = n->src[0];
+-            ggml_tensor* b = n->src[1];
+-            std::fprintf(stderr, "[mm-shape] m=%lld n=%lld k=%lld wtype=%s\n",
+-                (long long)a->ne[1], (long long)b->ne[1], (long long)a->ne[0],
+-                ggml_type_name(a->type));
++        if (std::getenv("STARLING_NODE_SHAPES") && gf_) {
++            static std::mutex shp_mu;
++            std::lock_guard<std::mutex> lk(shp_mu);
++            for (int i = 0; i < gf_->n_nodes; ++i) {
++                ggml_tensor* n = gf_->nodes[i];
++                if (!n || n->op != GGML_OP_MUL_MAT) continue;
++                ggml_tensor* a = n->src[0];
++                ggml_tensor* b = n->src[1];
++                std::fprintf(stderr, "[mm-shape] m=%lld n=%lld k=%lld wtype=%s\n",
++                    (long long)a->ne[1], (long long)b->ne[1], (long long)a->ne[0],
++                    ggml_type_name(a->type));
++            }
+         }
++        const int64_t t_gc1 = any_gate ? ggml_time_us() : 0;
++        if (tr_on) {
++            long long ne[4] = {out_->ne[0], out_->ne[1], out_->ne[2], out_->ne[3]};
++            trace::graph_event("graph_replay",
++                               (double)(t_gc1 - t_gc0) / 1000.0,
++                               gf_ ? (unsigned)gf_->uid : 0u, gf_ ? gf_->n_nodes : -1,
++                               ne, backend_.device_name());
++        }
++        readback_async_then_sync(impl, out_, out);
++        clear_drained_inputs();
++        const int64_t t_rb1 = any_gate ? ggml_time_us() : 0;
++        if (tr_on) {
++            long long ne[4] = {out_->ne[0], out_->ne[1], out_->ne[2], out_->ne[3]};
++            // Host blocked on the single trailing sync — includes waiting for
++            // prior GPU work, so it is NOT transfer time alone (see trace.hpp).
++            // Output/captures are already committed. Optional diagnostics can
++            // allocate (including under OOM); losing a trace must never turn a
++            // successfully completed inference into a failed/duplicated call.
++            try {
++                trace::graph_event("readback_sync",
++                                   (double)(t_rb1 - t_gc1) / 1000.0,
++                                   gf_ ? (unsigned)gf_->uid : 0u, gf_ ? gf_->n_nodes : -1,
++                                   ne, backend_.device_name());
++            } catch (...) { /* best-effort trace only; inference succeeded */ }
++        }
++        if (t_on) {
++            std::fprintf(stderr,
++                "[enc-timing]   graph_compute=%lldus readback=%lldus n_nodes=%d uid=%u\n",
++                (long long)(t_gc1 - t_gc0), (long long)(t_rb1 - t_gc1),
++                gf_ ? gf_->n_nodes : -1, gf_ ? (unsigned)gf_->uid : 0u);
++        }
++        return true;
++    } catch (...) {
++        // Queue submissions and caller output resize can fail. Drain while
++        // graph/model resources are still owned; never turn failure into text.
++        backend_.synchronize();
++        clear_drained_inputs();
++        throw;
+     }
+-    const int64_t t_gc1 = any_gate ? ggml_time_us() : 0;
+-    if (tr_on) {
+-        long long ne[4] = {out_->ne[0], out_->ne[1], out_->ne[2], out_->ne[3]};
+-        trace::graph_event("graph_replay",
+-                           (double)(t_gc1 - t_gc0) / 1000.0,
+-                           gf_ ? (unsigned)gf_->uid : 0u, gf_ ? gf_->n_nodes : -1,
+-                           ne, backend_.device_name());
+-    }
+-    out.resize((size_t)ggml_nelements(out_));
+-    readback_async_then_sync(impl, out_, out);
+-    const int64_t t_rb1 = any_gate ? ggml_time_us() : 0;
+-    if (tr_on) {
+-        long long ne[4] = {out_->ne[0], out_->ne[1], out_->ne[2], out_->ne[3]};
+-        // Host blocked on the single trailing sync — includes waiting for
+-        // prior GPU work, so it is NOT transfer time alone (see trace.hpp).
+-        trace::graph_event("readback_sync",
+-                           (double)(t_rb1 - t_gc1) / 1000.0,
+-                           gf_ ? (unsigned)gf_->uid : 0u, gf_ ? gf_->n_nodes : -1,
+-                           ne, backend_.device_name());
+-    }
+-    if (t_on) {
+-        std::fprintf(stderr,
+-            "[enc-timing]   graph_compute=%lldus readback=%lldus n_nodes=%d uid=%u\n",
+-            (long long)(t_gc1 - t_gc0), (long long)(t_rb1 - t_gc1),
+-            gf_ ? gf_->n_nodes : -1, gf_ ? (unsigned)gf_->uid : 0u);
+-    }
+-    return true;
+ }
+ 
+ bool ReplayGraph::compute_with_captures(std::vector<float>& out) {
+diff --git a/cpp/runtime/backend.hpp b/cpp/runtime/backend.hpp
+index bd2311c7..47a7bdee 100644
+--- a/cpp/runtime/backend.hpp
++++ b/cpp/runtime/backend.hpp
+@@ -28,7 +28,9 @@
+ 
+ #pragma once
+ 
++#include <atomic>
+ #include <cstddef>
++#include <cstdint>
+ #include <functional>
+ #include <memory>
+ #include <string>
+@@ -54,8 +56,11 @@ class ModelLoader;
+ // reusable graph allocator. Constructed once per process (see global_backend)
+ // and shared by every model.
+ class Backend {
++    struct HealthState { std::atomic<bool> healthy{true}; };
+ public:
++    enum class DevicePolicy { LegacyEnvironment, Automatic, CPU };
+     explicit Backend(int n_threads = 8);
++    Backend(int n_threads, DevicePolicy policy);
+     ~Backend();
+ 
+     Backend(const Backend&) = delete;
+@@ -72,6 +77,20 @@ public:
+     // GPU, where launch overhead dominates; callers gate on this).
+     bool is_gpu() const;
+ 
++    // Complete outstanding work before caller-owned staging/model memory dies.
++    // This is a synchronization boundary, not a measured GPU health guarantee.
++    void synchronize();
++    bool healthy() const noexcept;
++    // Irreversible uncertainty marker for model/cache release boundaries.
++    // It neither synchronizes nor frees resources, and has no reset operation.
++    void mark_unhealthy() noexcept;
++    void require_healthy() const;
++    // Drain and actually destroy all backend resources exactly once. Throws on
++    // uncertainty; ownership remains retained and health becomes sticky-false.
++    // Success leaves Impl empty, so later destruction performs no second sync.
++    void release_checked();
++    size_t replay_cache_default() const { return replay_cache_default_; }
++
+     // Device free memory in bytes, re-queried from the device on each call;
+     // -1 when the selected device cannot report it (never fabricated). Used
+     // by the STARLING_TRACE cache records; not a hot path.
+@@ -111,6 +130,8 @@ public:
+     private:
+         friend class Backend;
+         ggml_gallocr_t galloc_ = nullptr;
++        Backend* owner_ = nullptr; // caller contract: StepAlloc dies first
++        std::shared_ptr<HealthState> health_;
+     };
+     // Plan `sa` for the graph `build` constructs (nothing runs; inputs are not
+     // read) and set sa.reserved = key. A later compute_step graph must have
+@@ -131,8 +152,10 @@ public:
+ private:
+     struct Impl;
+     std::unique_ptr<Impl> impl_;
++    std::shared_ptr<HealthState> health_ = std::make_shared<HealthState>();
+     bool compute_impl(const std::function<ggml_tensor*(ggml_context*)>& build,
+                       std::vector<float>& out, StepAlloc* sa);
++    size_t replay_cache_default_ = 16; // set from actual selected device
+     int   n_threads_ = 1;
+     std::string device_name_ = "cpu";
+     // The selected registry device (null when only the CPU fallback engaged);
+@@ -140,13 +163,15 @@ private:
+     ggml_backend_dev_t dev_ = nullptr;
+ 
+     friend class ReplayGraph;
++    friend struct RuntimeSafetyTestPeer;
+ };
+ 
+ // Register a host-backed graph input for the currently-active Backend::compute
+ // or ReplayGraph build. Marks `t` as a graph input and records an H2D copy of
+ // `nbytes` from `host` to perform AFTER allocation. Must be called from inside
+-// a build lambda (routes via thread-local). `host` must stay valid until the
+-// compute returns.
++// a build lambda (routes via thread-local). Bytes are snapshotted at registration;
++// ReplayGraph::input_host still exposes the ORIGINAL identity for stable mutable
++// GraphInputPool callers, whose own host pointer must remain valid when reused.
+ void add_graph_input(ggml_tensor* t, const void* host, size_t nbytes);
+ 
+ // Create a graph input tensor in `ctx` and register its host backing in one
+@@ -248,7 +273,9 @@ public:
+     ReplayGraph(const ReplayGraph&) = delete;
+     ReplayGraph& operator=(const ReplayGraph&) = delete;
+ 
+-    // Feed `nbytes` from `host` into input #`i` (registration-order).
++    // Feed `nbytes` from `host` into input #`i` (registration-order). Copies
++    // into graph-owned staging BEFORE async submission; caller may then mutate
++    // or release its source. Repeated input replacement drains prior submissions.
+     void set_input(size_t i, const void* host, size_t nbytes);
+ 
+     // Recompute + read the output tensor's f32 contents into `out`.
+@@ -283,6 +310,14 @@ public:
+     size_t device_alloc_bytes() const;
+ 
+ private:
++    struct InputStorage {
++        std::vector<std::shared_ptr<std::vector<uint8_t>>> initial;
++        std::vector<bool> uploaded;
++        std::vector<std::shared_ptr<std::vector<uint8_t>>> pending;
++        size_t pending_bytes = 0;
++        size_t pending_budget = 0;
++    };
++    std::unique_ptr<InputStorage> input_storage_;
+     Backend& backend_;
+     ggml_context* ctx_ = nullptr;
+     ggml_cgraph*  gf_  = nullptr;
+@@ -296,9 +331,12 @@ private:
+     ggml_gallocr_t galloc_ = nullptr;
+ 
+     bool alloc_internal();
++    void clear_drained_inputs();
++    void queue_owned_input(size_t i, std::shared_ptr<std::vector<uint8_t>> bytes);
+     void readback_async_then_sync(struct Backend::Impl* impl,
+                                   ggml_tensor* out_t,
+                                   std::vector<float>& out);
++    friend struct RuntimeSafetyTestPeer;
+ };
+ 
+ } // namespace starling::ggml
+diff --git a/cpp/runtime/graph.cpp b/cpp/runtime/graph.cpp
+index 4389da60..84325feb 100644
+--- a/cpp/runtime/graph.cpp
++++ b/cpp/runtime/graph.cpp
+@@ -69,19 +69,49 @@ int physical_core_default() {
+ // Graph builders may re-enter global_backend() while the runtime lock is held.
+ std::recursive_mutex g_backend_mutex;
+ std::unique_ptr<Backend> g_backend;
++thread_local Backend* t_context_backend = nullptr;
+ std::atomic<bool> g_shutting_down{false};
+-std::atomic<bool> g_atexit_registered{false};
++void (*g_context_shutdown_hook)() = nullptr;
+ std::atomic<int> g_num_threads{kDefaultThreads};
+ std::atomic<bool> g_threads_set{false};
+ 
+ void atexit_shutdown() {
+-    shutdown_backend();
++    try { shutdown_backend(); }
++    catch (...) {
++        // No successful terminal transition/drain may be inferred from this.
++        std::fprintf(stderr, "[backend] terminal synchronization failed; retaining runtime ownership\n");
++    }
+ }
+ 
+ } // namespace
+ 
+ std::recursive_mutex& runtime_mutex() { return g_backend_mutex; }
+ 
++ContextBackendScope::ContextBackendScope(Backend* backend)
++    : lock_(runtime_mutex()), previous_(t_context_backend) {
++    // Null means legacy/global selection (also masks an enclosing override).
++    t_context_backend = backend;
++}
++ContextBackendScope::~ContextBackendScope() { t_context_backend = previous_; }
++Backend* current_context_backend() { return t_context_backend; }
++void synchronize_current_backend() {
++    std::lock_guard<std::recursive_mutex> lock(g_backend_mutex);
++    if (t_context_backend) t_context_backend->synchronize();
++    else if (g_backend) g_backend->synchronize();
++}
++
++void set_context_backend_shutdown_hook(void (*hook)()) {
++    std::lock_guard<std::recursive_mutex> lock(g_backend_mutex);
++    if (g_context_shutdown_hook && g_context_shutdown_hook != hook)
++        throw std::logic_error("context backend shutdown hook already installed");
++    g_context_shutdown_hook = hook;
++}
++void register_backend_teardown() {
++    std::lock_guard<std::recursive_mutex> lock(g_backend_mutex);
++    if (std::atexit(atexit_shutdown) != 0)
++        throw std::runtime_error("cannot register backend teardown");
++}
++
+ void set_num_threads(int n_threads) {
+     g_num_threads.store(n_threads < 1 ? 1 : n_threads);
+     g_threads_set.store(true);
+@@ -93,6 +123,7 @@ void set_num_threads(int n_threads) {
+ Backend& global_backend() {
+     std::lock_guard<std::recursive_mutex> lk(g_backend_mutex);
+     if (g_shutting_down.load()) throw std::runtime_error("Starling backend has been shut down");
++    if (t_context_backend) return *t_context_backend;
+     if (g_backend) return *g_backend;
+     // [starling] env override for CPU thread count (default: physical cores;
+     // SMT siblings measured slower at every stage). STARLING_GGML_THREADS wins.
+@@ -102,15 +133,11 @@ Backend& global_backend() {
+     int n = g_threads_set.load() ? g_num_threads.load()
+           : (n_env > 0 ? n_env : (n_phys > 0 ? n_phys : kDefaultThreads));
+     g_backend = std::make_unique<Backend>(n);
+-    // Register the atexit handler exactly once. The CUDA driver registers ITS
+-    // atexit handler lazily on the first CUDA call, which happens inside the
+-    // Backend ctor above (before this line). atexit handlers run in REVERSE
+-    // registration order, so ours runs BEFORE the driver's teardown -> the
+-    // driver is still alive when our destructors call into it.
+-    bool expected = false;
+-    if (g_atexit_registered.compare_exchange_strong(expected, true)) {
+-        std::atexit(atexit_shutdown);
+-    }
++    // Register AFTER initialization, so this runs before a driver's atexit.
++    // All handlers converge on shutdown_backend, whose private-context hook
++    // executes before ANY global loader/terminal teardown. Re-register for a
++    // newly initialized backend: a different later driver can register too.
++    register_backend_teardown();
+     return *g_backend;
+ }
+ 
+@@ -123,12 +150,16 @@ std::optional<std::string> try_global_backend_device_name() {
+ bool run_graph(const std::function<ggml_tensor*(ggml_context*)>& build,
+                std::vector<float>& out) {
+     std::lock_guard<std::recursive_mutex> lk(g_backend_mutex);
++    if (g_shutting_down.load()) return false;
++    if (t_context_backend) return t_context_backend->compute(build, out);
+     return g_backend ? g_backend->compute(build, out) : false;
+ }
+ 
+ void shutdown_backend() {
+     std::lock_guard<std::recursive_mutex> lock(g_backend_mutex);
+     if (g_shutting_down.load()) return;
++    if (g_context_shutdown_hook) g_context_shutdown_hook();
++    if (g_backend) g_backend->synchronize();
+     ModelLoader::release_all_runtime_resources();
+     g_backend.reset();
+     // Destructors above must free resources while the backend is alive.
+diff --git a/cpp/runtime/graph.hpp b/cpp/runtime/graph.hpp
+index c5537728..d7e95453 100644
+--- a/cpp/runtime/graph.hpp
++++ b/cpp/runtime/graph.hpp
+@@ -22,7 +22,30 @@ class Backend;
+ // Serializes public inference, model lifetime, and backend teardown.
+ std::recursive_mutex& runtime_mutex();
+ 
++// A synchronous, nested override used only while runtime_mutex is held.
++// It never transfers ownership and never changes environment/global selection.
++class ContextBackendScope {
++public:
++    explicit ContextBackendScope(Backend* backend);
++    ~ContextBackendScope();
++    ContextBackendScope(const ContextBackendScope&) = delete;
++    ContextBackendScope& operator=(const ContextBackendScope&) = delete;
++private:
++    std::unique_lock<std::recursive_mutex> lock_;
++    Backend* previous_;
++};
++Backend* current_context_backend();
++// Synchronizes only an existing selected backend; never initializes a device.
++void synchronize_current_backend();
++// Additive C API installs its private-context drain here. All terminal routes
++// invoke it before global loader teardown or the terminal flag. Must not recurse.
++void set_context_backend_shutdown_hook(void (*hook)());
++// Call after each newly initialized backend, while any driver is still alive.
++// Re-registering is intentional: a later-loaded driver may add its own atexit.
++void register_backend_teardown();
++
+ // lazily creates the process-global Backend on first call, then returns it.
++// A non-null ContextBackendScope overrides this only on the calling thread.
+ // `STARLING_GGML_DEVICE` env var selects the device ("cpu", "CUDA0",
+ // "Vulkan0", "Metal", ...); unset auto-picks the first GPU/IGPU, else CPU.
+ Backend& global_backend();
+diff --git a/cpp/runtime/model_loader.cpp b/cpp/runtime/model_loader.cpp
+index 6f8a6641..0c9b5d2b 100644
+--- a/cpp/runtime/model_loader.cpp
++++ b/cpp/runtime/model_loader.cpp
+@@ -51,18 +51,32 @@ ModelLoader::ModelLoader() {
+ }
+ 
+ void ModelLoader::release_runtime_resources() {
+-    while (!caches_.empty()) caches_.pop_back();
+-    if (weight_buffer_) cpu_repack::detach(weight_buffer_);
+-    if (weight_buffer_) ggml_backend_buffer_free(weight_buffer_);
+-    weight_buffer_ = nullptr;
+-    if (device_ctx_) {
+-        tensors_.swap(host_tensors_);
+-        host_tensors_.clear();
++    try {
++        if (retained_runtime_resources_) throw std::runtime_error("loader resources are quarantined");
++        if (realized_backend_) realized_backend_->require_healthy();
++        while (!caches_.empty()) {
++            caches_.pop_back();
++            // Cache destructors are noexcept and can retain their own native
++            // resources. Never then free the weights those resources reference.
++            if (realized_backend_) realized_backend_->require_healthy();
++        }
++        if (weight_buffer_) cpu_repack::detach(weight_buffer_);
++        if (weight_buffer_) ggml_backend_buffer_free(weight_buffer_);
++        weight_buffer_ = nullptr;
++        if (device_ctx_) {
++            tensors_.swap(host_tensors_);
++            host_tensors_.clear();
++        }
++        for (auto& item : tensors_) item.second->buffer = nullptr;
++        if (device_ctx_) ggml_free(device_ctx_);
++        device_ctx_ = nullptr;
++        realized_ = false;
++        realized_backend_ = nullptr;
++    } catch (...) {
++        retained_runtime_resources_ = true;
++        if (realized_backend_) realized_backend_->mark_unhealthy();
++        throw;
+     }
+-    for (auto& item : tensors_) item.second->buffer = nullptr;
+-    if (device_ctx_) ggml_free(device_ctx_);
+-    device_ctx_ = nullptr;
+-    realized_ = false;
+ }
+ 
+ void ModelLoader::release_all_runtime_resources() {
+@@ -72,10 +86,16 @@ void ModelLoader::release_all_runtime_resources() {
+ 
+ ModelLoader::~ModelLoader() {
+     std::lock_guard<std::recursive_mutex> lock(runtime_mutex());
+-    release_runtime_resources();
++    try { release_runtime_resources(); }
++    catch (...) {
++        // A destructor cannot report drain. Retain every remaining cache, raw
++        // weight/context and mapped byte instead of invalidating device readers.
++        for (auto& slot : caches_) (void)slot.second.release();
++        live_loaders().erase(this);
++        std::fprintf(stderr, "[loader] unconfirmed release; retaining model resources and mapping\n");
++        return;
++    }
+     live_loaders().erase(this);
+-    // The ggml context owns the weight tensors (and, unless the file is
+-    // mapped, their data); freeing it frees them all.
+     if (data_) cpu_repack::forget(data_, data_size_);
+     if (ctx_) ggml_free(ctx_);
+     if (compat_ctx_) ggml_free(compat_ctx_);
+@@ -362,6 +382,8 @@ void ModelLoader::add_kv_arr_str(const std::string& key, const std::vector<std::
+ bool ModelLoader::realize_weights(Backend& backend) {
+     std::lock_guard<std::recursive_mutex> lock(runtime_mutex());
+     if (realized_) return true;
++    backend.require_healthy();
++    realized_backend_ = &backend;
+     if (!ctx_) { error_ = "realize_weights: no loaded context"; return false; }
+     // On CPU: borrow the loader's memory-backed context zero-copy.
+     // On GPU: mirror each weight into a device-side context + upload.
+@@ -383,7 +405,8 @@ bool ModelLoader::realize_weights(Backend& backend) {
+             cpu_repack::attach(buf);
+         } catch (const std::exception& e) {
+             error_ = std::string("realize_weights: ") + e.what();
+-            ggml_backend_buffer_free(buf);
++            try { ggml_backend_buffer_free(buf); }
++            catch (...) { backend.mark_unhealthy(); throw; }
+             weight_buffer_ = nullptr;
+             for (const auto& kv : tensors_) kv.second->buffer = nullptr;
+             return false;
+@@ -395,31 +418,47 @@ bool ModelLoader::realize_weights(Backend& backend) {
+             /*.mem_buffer =*/ nullptr,
+             /*.no_alloc   =*/ true,
+         };
+-        std::unique_ptr<ggml_context, decltype(&ggml_free)> dev_ctx_owner(ggml_init(params), ggml_free);
+-        ggml_context* dev_ctx = dev_ctx_owner.get();
+-        if (!dev_ctx) { error_ = "realize_weights: context alloc failed"; return false; }
++        struct UploadOwners {
++            Backend& backend;
++            ggml_context* context = nullptr;
++            ggml_backend_buffer_t buffer = nullptr;
++            ~UploadOwners() noexcept {
++                if (!context && !buffer) return;
++                try {
++                    backend.synchronize();
++                    if (buffer) { ggml_backend_buffer_free(buffer); buffer = nullptr; }
++                    if (context) { ggml_free(context); context = nullptr; }
++                } catch (...) {
++                    // Native free can itself be uncertain. Never let it throw
++                    // through a unique_ptr deleter or free the other owner.
++                    // The outer retained model keeps its original mapped bytes.
++                    backend.mark_unhealthy();
++                }
++                // Remaining raw handles deliberately stay allocated/quarantined.
++            }
++        } owners{backend};
++        owners.context = ggml_init(params);
++        if (!owners.context) { error_ = "realize_weights: context alloc failed"; return false; }
+         std::unordered_map<std::string, ggml_tensor*> device_tensors;
+         std::unordered_map<ggml_tensor*, ggml_tensor*> mirrored;
+-        // Build replacement tensors without changing the loaded model on failure.
+         for (const auto& kv : tensors_) {
+             ggml_tensor* src = kv.second;
+             auto& dst = mirrored[src];
+-            if (!dst) { dst = ggml_dup_tensor(dev_ctx, src); ggml_set_name(dst, src->name); }
++            if (!dst) { dst = ggml_dup_tensor(owners.context, src); ggml_set_name(dst, src->name); }
+             device_tensors[kv.first] = dst;
+         }
+-        std::unique_ptr<ggml_backend_buffer, decltype(&ggml_backend_buffer_free)> dev_buf_owner(
+-            ggml_backend_alloc_ctx_tensors(dev_ctx, backend.handle()), ggml_backend_buffer_free);
+-        ggml_backend_buffer_t dev_buf = dev_buf_owner.get();
+-        if (!dev_buf) { error_ = "realize_weights: device alloc failed"; return false; }
+-        // Aliases share a device tensor; upload each source only once.
++        owners.buffer = ggml_backend_alloc_ctx_tensors(owners.context, backend.handle());
++        if (!owners.buffer) { error_ = "realize_weights: device alloc failed"; return false; }
+         for (const auto& item : mirrored) {
+             if (item.first->data)
+                 ggml_backend_tensor_set(item.second, item.first->data, 0, ggml_nbytes(item.first));
+         }
++        backend.synchronize();
+         tensors_.swap(device_tensors);
+         host_tensors_.swap(device_tensors);
+-        device_ctx_ = dev_ctx_owner.release();
+-        weight_buffer_ = dev_buf_owner.release();
++        device_ctx_ = owners.context; owners.context = nullptr;
++        weight_buffer_ = owners.buffer; owners.buffer = nullptr;
++
+     }
+     realized_ = true;
+     return true;
+diff --git a/cpp/runtime/model_loader.hpp b/cpp/runtime/model_loader.hpp
+index 4f4616ed..edc0e493 100644
+--- a/cpp/runtime/model_loader.hpp
++++ b/cpp/runtime/model_loader.hpp
+@@ -166,6 +166,8 @@ private:
+     std::string error_;
+     std::string path_;
+     bool realized_ = false;
++    Backend* realized_backend_ = nullptr; // outlives owned runtime resources
++    bool retained_runtime_resources_ = false;
+ };
+ 
+ } // namespace starling::ggml
+diff --git a/scripts/apply_ggml_patches.sh b/scripts/apply_ggml_patches.sh
+index 4a7b2843..694dff7f 100755
+--- a/scripts/apply_ggml_patches.sh
++++ b/scripts/apply_ggml_patches.sh
+@@ -43,7 +43,9 @@ for ((attempt = 0; ; attempt++)); do
+ done
+ TEMP_DIR=""
+ cleanup() {
+-    [[ -z "${TEMP_DIR}" ]] || rm -rf "${TEMP_DIR}"
++    # Lip preservation policy: retain the diagnostic index/diff directory.
++    # Automatic configure hooks must not recursively delete directories.
++    [[ -z "${TEMP_DIR}" ]] || printf 'ggml patch diagnostics retained: %s\n' "${TEMP_DIR}" >&2
+     rmdir "${LOCK_DIR}"
+ }
+ trap cleanup EXIT

@@ -1,0 +1,213 @@
+// capi_moss.cpp — MOSS-Transcribe C API entry points behind the shared shell.
+#include "loader.hpp"
+#include "lib/capi_helpers.hpp"
+#include "mel.hpp"
+#include "audio_encoder.hpp"
+#include "adapter.hpp"
+#include "prompt.hpp"
+#include "llm.hpp"
+#include "tokenizer.hpp"
+#include "runtime/graph.hpp"
+#include "runtime/backend.hpp"
+
+#include <cmath>
+#include <chrono>
+#include <cstdio>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <memory>
+#include <new>
+#include <stdexcept>
+#include <string>
+#include <vector>
+
+#if defined(STARLING_HAVE_FAST)
+#include "engine_select.hpp"
+#include "audio_llm_engine.hpp"
+#endif
+
+namespace {
+
+struct MossCtx : starling::ggml::lib::EngineContext<starling::ggml::moss::MossModel,
+                                                    starling::ggml::moss::Tokenizer> {
+#if defined(STARLING_HAVE_FAST)
+    // Model-specialized Vulkan engine (cpp/fast). When set it owns the
+    // weights; `model` is released after load and only the tokenizer stays.
+    std::unique_ptr<starling::fast::AudioLlmEngine> fast;
+#endif
+};
+using starling::ggml::lib::report;
+
+} // namespace
+
+// S03 termination contract — completion status of the last successful
+// starling_ggml_moss_decode on a handle, queryable independently of the
+// returned text so a budget-truncated transcript is never mistaken for a
+// complete one. Internal entry following the parakeet _pub precedent (not in
+// the public starling_ggml.h; direct consumers declare it themselves). The
+// text is still returned on budget exhaustion — a partial transcript is
+// information; the status entry is what makes it truthful.
+enum {
+    STARLING_MOSS_COMPLETION_NONE   = 0,  // no successful decode yet on this handle
+    STARLING_MOSS_COMPLETION_EOS    = 1,  // stopped on EOS: complete transcript
+    STARLING_MOSS_COMPLETION_BUDGET = 2,  // max_new_tokens exhausted first: truncated
+};
+
+extern "C" {
+
+void * starling_ggml_moss_load(const char * gguf_path, const char ** err_out) {
+#if defined(STARLING_HAVE_FAST)
+    const auto choice = starling::fast::engine_choice();
+    if (choice != starling::fast::EngineChoice::Ggml && gguf_path && *gguf_path) {
+        static thread_local std::string load_error;
+        try {
+            auto ctx = std::make_unique<MossCtx>();
+            ctx->model = std::make_unique<starling::ggml::moss::MossModel>();
+            if (!ctx->model->load(gguf_path, ctx->err) ||
+                !ctx->tokenizer.load(ctx->model->loader, ctx->model->config, ctx->err))
+                throw std::runtime_error(ctx->err);
+            std::string ferr;
+            ctx->fast = starling::fast::AudioLlmEngine::create(*ctx->model, ferr);
+            if (ctx->fast) {
+                if (std::getenv("STARLING_FAST_VERBOSE"))
+                    std::fprintf(stderr, "[fast] moss engine: %s\n", ctx->fast->describe().c_str());
+                ctx->model.reset();
+                if (err_out) *err_out = nullptr;
+                return ctx.release();
+            }
+            if (choice == starling::fast::EngineChoice::Fast)
+                throw std::runtime_error("fast engine unavailable: " + ferr);
+            if (std::getenv("STARLING_FAST_VERBOSE"))
+                std::fprintf(stderr, "[fast] moss falls back to ggml: %s\n", ferr.c_str());
+            starling::ggml::ensure_weights_realized(ctx->model->loader);
+            if (err_out) *err_out = nullptr;
+            return ctx.release();
+        } catch (const std::exception & e) {
+            load_error = e.what();
+        } catch (...) {
+            load_error = "unknown exception loading MOSS model";
+        }
+        if (err_out) *err_out = load_error.c_str();
+        return nullptr;
+    }
+#endif
+    return starling::ggml::lib::load_engine<MossCtx>(gguf_path, "MOSS", err_out);
+}
+
+void starling_ggml_moss_free(void * handle) {
+    try {
+        delete static_cast<MossCtx *>(handle);
+    } catch (...) {
+        // C ABI: never allow an exception to escape.
+    }
+}
+
+char * starling_ggml_moss_decode(void * handle, const float * pcm, int64_t n,
+                                 const char ** err_out) {
+    auto * c = static_cast<MossCtx *>(handle);
+    if (!c) { if (err_out) *err_out = "null MOSS handle"; return nullptr; }
+    if (n < 0 || (n > 0 && !pcm)) {
+        if (err_out) *err_out = "invalid MOSS PCM buffer";
+        return nullptr;
+    }
+    try {
+        using namespace starling::ggml::moss;
+        // A new decode attempt invalidates any previous completion claim.
+        c->last_completion = STARLING_MOSS_COMPLETION_NONE;
+#if defined(STARLING_HAVE_FAST)
+        if (c->fast) {
+            std::vector<int32_t> ids;
+            bool eos = false;
+            if (!c->fast->generate(pcm, static_cast<size_t>(n), /*budget=*/0, ids, eos, c->err)) {
+                report(err_out, c->err); return nullptr;
+            }
+            c->last_completion = eos ? STARLING_MOSS_COMPLETION_EOS : STARLING_MOSS_COMPLETION_BUDGET;
+            const std::string text = c->tokenizer.decode(ids, true);
+            char * out = static_cast<char *>(std::malloc(text.size() + 1));
+            if (!out) { if (err_out) *err_out = "malloc failed"; return nullptr; }
+            std::memcpy(out, text.data(), text.size());
+            out[text.size()] = '\0';
+            if (err_out) *err_out = nullptr;
+            return out;
+        }
+#endif
+        const bool timing = std::getenv("STARLING_MOSS_TIMING") != nullptr;
+        auto now = [&]() { return std::chrono::steady_clock::now(); };
+        auto ms = [&](auto t0, auto t1) {
+            return std::chrono::duration<double, std::milli>(t1 - t0).count(); };
+
+        auto a0 = now();
+        MelFeatures mel;
+        if (!compute_log_mel(c->model->config, c->model->loader, pcm,
+                             static_cast<size_t>(n), mel, c->err)) {
+            report(err_out, c->err); return nullptr;
+        }
+        auto a1 = now();
+        AudioEncoding adapted;
+        if (!encode_audio_and_adapt(*c->model, mel, adapted, c->err)) {
+            report(err_out, c->err); return nullptr;
+        }
+        auto a2 = now();
+        Prompt prompt = build_transcribe_prompt(c->model->config, mel.n_frames);
+        InputsEmbeds inputs;
+        if (!build_inputs_embeds(*c->model, prompt, adapted, inputs, c->err)) {
+            report(err_out, c->err); return nullptr;
+        }
+        auto a3 = now();
+        if (std::getenv("STARLING_MOSS_DEBUG")) {
+            double mx = 0; size_t bad = 0;
+            for (float v : inputs.data) { if (!std::isfinite(v)) ++bad; mx = std::max(mx, std::abs((double)v)); }
+            std::fprintf(stderr, "MOSS_DEBUG inputs_embeds n=%lld frames=%lld prompt=%zu audio=%lld nonfinite=%zu max_abs=%.6g\n",
+                         (long long)inputs.n_tokens, (long long)mel.n_frames, prompt.ids.size(),
+                         (long long)adapted.n_tokens, bad, mx);
+        }
+        GenerateOptions options;
+        options.max_new_tokens = static_cast<int32_t>(c->model->config.max_new_tokens);
+        options.max_cache_len = static_cast<int32_t>(c->model->config.llm.max_cache);
+        options.eos_token_id = c->model->config.eos_token_id;
+        GenerateResult generated;
+        if (!greedy_generate(*c->model, inputs, options, generated, c->err)) {
+            report(err_out, c->err); return nullptr;
+        }
+        // S03 termination contract: record WHY generation stopped — EOS is a
+        // truthful completion; budget exhaustion means the transcript is a
+        // truncation (still returned, but never a complete success).
+        c->last_completion =
+            generated.stop_reason == starling::ggml::lib::GenStopReason::kEos
+                ? STARLING_MOSS_COMPLETION_EOS
+                : STARLING_MOSS_COMPLETION_BUDGET;
+        auto a4 = now();
+        if (timing) {
+            std::fprintf(stderr, "MOSS_STAGE frames=%lld mel=%.1fms enc+adapt=%.1fms prompt+embeds=%.1fms gen=%.1fms audio_tokens=%lld prompt_tokens=%lld gen_tokens=%zu\n",
+                         (long long)mel.n_frames, ms(a0, a1), ms(a1, a2), ms(a2, a3),
+                         ms(a3, a4), (long long)adapted.n_tokens, (long long)inputs.n_tokens,
+                         generated.ids.size());
+        }
+        const std::string text = c->tokenizer.decode(generated.ids, true);
+        char * out = static_cast<char *>(std::malloc(text.size() + 1));
+        if (!out) { if (err_out) *err_out = "malloc failed"; return nullptr; }
+        std::memcpy(out, text.data(), text.size());
+        out[text.size()] = '\0';
+        if (err_out) *err_out = nullptr;
+        return out;
+    } catch (const std::exception & e) {
+        // Copy into the context's owned error string: e.what() dangles once
+        // the catch exits, and cpp/capi.cpp reads *err_out after we return.
+        c->err = e.what();
+        report(err_out, c->err);
+    } catch (...) {
+        report(err_out, "unknown exception transcribing MOSS audio");
+    }
+    return nullptr;
+}
+
+// Completion status of the last successful starling_ggml_moss_decode on
+// `handle` (see the enum above). Safe on a null handle (returns NONE). The
+// value is per-context, so concurrent handles cannot cross-contaminate.
+int starling_ggml_moss_last_completion(void * handle) {
+    auto * c = static_cast<MossCtx *>(handle);
+    return c ? c->last_completion : STARLING_MOSS_COMPLETION_NONE;
+}
+
+} // extern "C"

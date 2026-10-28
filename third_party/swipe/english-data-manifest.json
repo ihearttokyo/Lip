@@ -1,0 +1,19 @@
+{
+  "format": "lip-swipe-english-v1",
+  "source_sha256": "70ff45c76412fb8de1a9c47b204d5982344a8a1bbce23945af7d7dc27f9e84bb",
+  "source_bytes": 10849906,
+  "source_url": "https://github.com/itsdestin/swipe-keyboard/releases/download/language-files-2026-10-23-apostrophes/en_swipe.combined",
+  "source_revision": "f48099755cd1ebeb3f3a9e40f680a683ccc95b2b",
+  "bytes": 5852290,
+  "sha256": "658112c11991a779917e6e0b1e28a89aeaa27f24abde1f058c8224101f565dfd",
+  "counts": {
+    "source_records": 250000,
+    "duplicate_identity": 2683,
+    "unsupported_spelling": 612,
+    "flagged_nonword": 55,
+    "entries": 246650,
+    "offensive_entries": 182
+  },
+  "transform": "ASCII English/apostrophe identities, max48chars/max40collapsed-path, nonword excluded; highest frequency/first original spelling on tie; preserve flags; no quality-result-based pruning",
+  "license": "Apache-2.0 AND ODC-By-1.0 AND CC-BY-2.0-FR; retain full notices/contributors and applicable source terms"
+}

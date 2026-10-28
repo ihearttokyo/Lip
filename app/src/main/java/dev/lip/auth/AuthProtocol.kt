@@ -69,12 +69,28 @@ internal object ResponseStream {
                             output.append(delta)
                         }
                         "response.completed" -> {
-                            if (body.optJSONObject("response")?.optString("status", "completed") != "completed")
+                            val response = body.getJSONObject("response")
+                            if (response.optString("status", "completed") != "completed")
                                 throw AuthException("ChatGPT did not complete cleanup.")
+                            val completedText = StringBuilder()
+                            val items = response.getJSONArray("output")
+                            for (index in 0 until items.length()) {
+                                val content = items.getJSONObject(index).optJSONArray("content") ?: continue
+                                for (partIndex in 0 until content.length()) {
+                                    val part = content.getJSONObject(partIndex)
+                                    when (part.optString("type")) {
+                                        "refusal" -> throw AuthException("ChatGPT declined cleanup. Your original text is preserved.")
+                                        "output_text" -> completedText.append(part.opt("text") as? String
+                                            ?: throw AuthException("Invalid cleanup response."))
+                                    }
+                                }
+                            }
+                            if (completedText.toString() != output.toString())
+                                throw AuthException("ChatGPT cleanup text did not match its completed response.")
                             if (output.isBlank()) throw AuthException("ChatGPT returned no cleaned text.")
                             return true
                         }
-                        "response.failed", "response.incomplete", "error" ->
+                        "response.failed", "response.incomplete", "response.refusal.delta", "response.refusal.done", "error" ->
                             throw AuthException("ChatGPT did not finish cleanup. Your original text is preserved.")
                     }
                 } catch (e: AuthException) { throw e }

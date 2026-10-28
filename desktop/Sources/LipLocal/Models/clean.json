@@ -1,0 +1,192 @@
+{
+  "repo": "FluidInference/bark-3.0-coreml",
+  "revision": "73b0c0da665d29ea0332e9f0d32da8e26a4cdb38",
+  "files": [
+    {
+      "rfilename": "bark-3.0-clean/Decoder.mlmodelc/analytics/coremldata.bin",
+      "blobId": "031b5cec48dba8e042fd62d842b68df7d0066eb8",
+      "size": 243,
+      "lfs": {
+        "sha256": "d00e8baa4b1d7fc164d7cbbb96ed294d531ba6fb684a1aa79f66d4e4fbdbd5da",
+        "size": 243,
+        "pointerSize": 128
+      },
+      "localName": "Decoder.mlmodelc/analytics/coremldata.bin"
+    },
+    {
+      "rfilename": "bark-3.0-clean/Decoder.mlmodelc/coremldata.bin",
+      "blobId": "d68fe320f706cb4f3cbd1399746ca18a14e40611",
+      "size": 569,
+      "lfs": {
+        "sha256": "b33a57a008e7b138574bac1219037aadd7054caebfc42d0fa4adc97050f6a836",
+        "size": 569,
+        "pointerSize": 128
+      },
+      "localName": "Decoder.mlmodelc/coremldata.bin"
+    },
+    {
+      "rfilename": "bark-3.0-clean/Decoder.mlmodelc/metadata.json",
+      "blobId": "a5aa5f30a4a88234217d0925a68ac23179e00f00",
+      "size": 3433,
+      "localName": "Decoder.mlmodelc/metadata.json"
+    },
+    {
+      "rfilename": "bark-3.0-clean/Decoder.mlmodelc/model.mil",
+      "blobId": "1177d26b92ef8aa5b442604ee7ba03553ce1ca96",
+      "size": 13110,
+      "localName": "Decoder.mlmodelc/model.mil"
+    },
+    {
+      "rfilename": "bark-3.0-clean/Decoder.mlmodelc/weights/weight.bin",
+      "blobId": "b0c6b6668798d720f56af5a147f2886955c2785c",
+      "size": 23604992,
+      "lfs": {
+        "sha256": "6220cd08cb7eaacf5106da134c40f57e13783342c09f1be250dd31cc1b8b8a94",
+        "size": 23604992,
+        "pointerSize": 133
+      },
+      "localName": "Decoder.mlmodelc/weights/weight.bin"
+    },
+    {
+      "rfilename": "bark-3.0-clean/Encoder.mlmodelc/analytics/coremldata.bin",
+      "blobId": "108b7481de19117da6ead55ee760366953cef8eb",
+      "size": 243,
+      "lfs": {
+        "sha256": "8f6763508e0d6caad8152bcc72cf8be1647f568c3cdc5c5ff9732c1c69e2734c",
+        "size": 243,
+        "pointerSize": 128
+      },
+      "localName": "Encoder.mlmodelc/analytics/coremldata.bin"
+    },
+    {
+      "rfilename": "bark-3.0-clean/Encoder.mlmodelc/coremldata.bin",
+      "blobId": "899b21a4dd883ca0b9ce32cfc07db1d96a2116db",
+      "size": 557,
+      "lfs": {
+        "sha256": "e08f511d23e5642bc45f6ecc0bc930e00f8f105d6a6c33fe03f83c8da9253070",
+        "size": 557,
+        "pointerSize": 128
+      },
+      "localName": "Encoder.mlmodelc/coremldata.bin"
+    },
+    {
+      "rfilename": "bark-3.0-clean/Encoder.mlmodelc/model.mil",
+      "blobId": "01f25acd040057a321e480a32255dc849d611222",
+      "size": 1012893,
+      "localName": "Encoder.mlmodelc/model.mil"
+    },
+    {
+      "rfilename": "bark-3.0-clean/Encoder.mlmodelc/weights/weight.bin",
+      "blobId": "3c8e7ada74c5be1a3ca3294fc079c688fce5256f",
+      "size": 409451136,
+      "lfs": {
+        "sha256": "4216107d2214bd058aec94c2e0f9a7e8114f5274cf0c6a28ffb8f21ea56337eb",
+        "size": 409451136,
+        "pointerSize": 134
+      },
+      "localName": "Encoder.mlmodelc/weights/weight.bin"
+    },
+    {
+      "rfilename": "bark-3.0-clean/JointDecisionv3.mlmodelc/analytics/coremldata.bin",
+      "blobId": "cfcb9746ee27752a786802c99d2c21df63df89ea",
+      "size": 243,
+      "lfs": {
+        "sha256": "a55f011ca119fc7913ffc905ef48079572c4f54b6e5ed34a033f69c5422be0b6",
+        "size": 243,
+        "pointerSize": 128
+      },
+      "localName": "JointDecisionv3.mlmodelc/analytics/coremldata.bin"
+    },
+    {
+      "rfilename": "bark-3.0-clean/JointDecisionv3.mlmodelc/coremldata.bin",
+      "blobId": "5052161053b85dd58798516eed362f9d60545243",
+      "size": 601,
+      "lfs": {
+        "sha256": "2f5d97969689b6397b8f2e8ba31a1d4684a41ec373ecf56d4ee751efb2ca5073",
+        "size": 601,
+        "pointerSize": 128
+      },
+      "localName": "JointDecisionv3.mlmodelc/coremldata.bin"
+    },
+    {
+      "rfilename": "bark-3.0-clean/JointDecisionv3.mlmodelc/metadata.json",
+      "blobId": "c8b8b30d11b8cac5fd029f8129c773023cd78dab",
+      "size": 3577,
+      "localName": "JointDecisionv3.mlmodelc/metadata.json"
+    },
+    {
+      "rfilename": "bark-3.0-clean/JointDecisionv3.mlmodelc/model.mil",
+      "blobId": "322a3748e073a27aefd42984cfa25e26bb52b63f",
+      "size": 11777,
+      "localName": "JointDecisionv3.mlmodelc/model.mil"
+    },
+    {
+      "rfilename": "bark-3.0-clean/JointDecisionv3.mlmodelc/weights/weight.bin",
+      "blobId": "f36624de2e8caa50ca53ec05e5e522fd24dc1798",
+      "size": 12642764,
+      "lfs": {
+        "sha256": "4575e6ec06917259358cf17307fe7aa38d364b736e4b6c9b6e3d49169c760eee",
+        "size": 12642764,
+        "pointerSize": 133
+      },
+      "localName": "JointDecisionv3.mlmodelc/weights/weight.bin"
+    },
+    {
+      "rfilename": "bark-3.0-clean/NOTICE",
+      "blobId": "e04476c23fbce7fc6dc485982705328a940dac78",
+      "size": 615,
+      "localName": "NOTICE"
+    },
+    {
+      "rfilename": "bark-3.0-clean/Preprocessor.mlmodelc/analytics/coremldata.bin",
+      "blobId": "cadf776b6eddc28eae76654cdff21b7c61efbd78",
+      "size": 243,
+      "lfs": {
+        "sha256": "c9beeb989c8d66f8be11df59bc6df277ec76cee404f6865b46243835ef562f6d",
+        "size": 243,
+        "pointerSize": 128
+      },
+      "localName": "Preprocessor.mlmodelc/analytics/coremldata.bin"
+    },
+    {
+      "rfilename": "bark-3.0-clean/Preprocessor.mlmodelc/coremldata.bin",
+      "blobId": "c86b363f1bbf6a4f38ec5757390b7ac17e99adda",
+      "size": 486,
+      "lfs": {
+        "sha256": "dbde3f2300842c1fd51ef3ff948a0bcffe65ffd2dca10707f2509f32c1d65b1d",
+        "size": 486,
+        "pointerSize": 128
+      },
+      "localName": "Preprocessor.mlmodelc/coremldata.bin"
+    },
+    {
+      "rfilename": "bark-3.0-clean/Preprocessor.mlmodelc/metadata.json",
+      "blobId": "06162c58cf2f5343a0e60f36f843bcdf3cc58527",
+      "size": 2841,
+      "localName": "Preprocessor.mlmodelc/metadata.json"
+    },
+    {
+      "rfilename": "bark-3.0-clean/Preprocessor.mlmodelc/model.mil",
+      "blobId": "f987e2479228436c49189aa47edb376db74dcff5",
+      "size": 28181,
+      "localName": "Preprocessor.mlmodelc/model.mil"
+    },
+    {
+      "rfilename": "bark-3.0-clean/Preprocessor.mlmodelc/weights/weight.bin",
+      "blobId": "47be051f50981bc166d0bcf6111cff47dd0db117",
+      "size": 491072,
+      "lfs": {
+        "sha256": "129b76e3aeafa8afa3ea76d995b964b145fe83700d579f6ff42c4c38fa0968ea",
+        "size": 491072,
+        "pointerSize": 131
+      },
+      "localName": "Preprocessor.mlmodelc/weights/weight.bin"
+    },
+    {
+      "rfilename": "bark-3.0-clean/parakeet_vocab.json",
+      "blobId": "c684822ec3b671ebc449c433a7012398d39b8bb0",
+      "size": 151122,
+      "localName": "parakeet_vocab.json"
+    }
+  ]
+}

@@ -1,0 +1,378 @@
+// stream_pump.cpp — WS /stream worker: queue, drain, coalesce (issue #357).
+
+#include "stream_pump.hpp"
+#include "audio.hpp"
+
+#include <chrono>
+#include <sstream>
+#include <utility>
+
+namespace starling::serve {
+
+namespace {
+
+std::string json_escape(const std::string& s) {
+    std::string out;
+    out.reserve(s.size() + 8);
+    for (char c : s) {
+        switch (c) {
+        case '"':  out += "\\\""; break;
+        case '\\': out += "\\\\"; break;
+        case '\n': out += "\\n";  break;
+        case '\r': out += "\\r";  break;
+        case '\t': out += "\\t";  break;
+        case '\b': out += "\\b";  break;
+        case '\f': out += "\\f";  break;
+        default:
+            if (static_cast<unsigned char>(c) < 0x20) {
+                char buf[8];
+                std::snprintf(buf, sizeof(buf), "\\u%04x", c);
+                out += buf;
+            } else {
+                out += c;
+            }
+        }
+    }
+    return out;
+}
+
+double steady_seconds() {
+    return std::chrono::duration<double>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
+} // namespace
+
+// Describe a refused binary audio frame as a structured WS error frame,
+// mirroring the buffer-cap error style. A refused frame invalidates the take
+// (or trips the buffer cap); the session then ignores audio until reset.
+std::string ws_append_error(AppendOutcome outcome, const StreamSession& session,
+                            double max_stream_seconds) {
+    std::ostringstream ss;
+    ss << "{\"type\":\"error\",\"message\":\"";
+    switch (outcome) {
+    case AppendOutcome::MalformedWav:
+        ss << "malformed WAV frame rejected; audio ignored until reset";
+        break;
+    case AppendOutcome::RateMismatch:
+        ss << "WAV sample rate mismatch: expected " << kSampleRate
+           << "; audio ignored until reset";
+        break;
+    case AppendOutcome::OddPcmLength:
+        ss << "odd-length PCM frame rejected (split sample);"
+           << " audio ignored until reset";
+        break;
+    case AppendOutcome::Overflowed:
+        ss << "stream buffer limit reached (" << max_stream_seconds
+           << " s live buffer); audio ignored until reset";
+        break;
+    case AppendOutcome::TakeInvalid:
+        // Only reached on a frame AFTER the invalidating one (whose own
+        // outcome carried the reason); repeat that reason, not a generic.
+        // invalid_reason_ is an internal [a-z_] code: safe to embed raw.
+        ss << "take invalidated (" << session.invalid_reason()
+           << "); audio ignored until reset";
+        break;
+    case AppendOutcome::Accepted:
+        break;
+    }
+    ss << "\"}";
+    return ss.str();
+}
+
+StreamPump::StreamPump(StreamSession& session, Options options, SendFn send)
+    : session_(session), opt_(options), send_(std::move(send)) {
+    worker_ = std::thread([this] { run(); });
+}
+
+StreamPump::~StreamPump() {
+    close();
+    if (worker_.joinable()) worker_.join();
+}
+
+void StreamPump::push(Event ev) {
+    // Counted before taking the lock: a WAV frame is decoded to count it,
+    // and the worker must not wait on that.
+    const int64_t samples = ev.kind == Kind::Audio ? frame_samples(ev.bytes) : 0;
+    std::unique_lock<std::mutex> lk(mu_);
+    // Bounded queue, never dropping: wait for space (backpressure).
+    space_cv_.wait(lk, [&] {
+        if (closed_) return true;
+        if (queue_.size() >= opt_.max_pending_events) return false;
+        return ev.kind != Kind::Audio || pending_bytes_ == 0
+            || pending_bytes_ + ev.bytes.size() <= opt_.max_pending_bytes;
+    });
+    if (closed_) return;
+    if (ev.kind == Kind::Audio) {
+        pending_bytes_ += ev.bytes.size();
+        pending_samples_ += samples;
+    } else if (ev.kind == Kind::Commit) {
+        if (pending_commits_++ == 0) samples_before_commit_ = pending_samples_;
+    } else if (ev.kind == Kind::Reset) {
+        ++pending_resets_;
+    }
+    if (ev.kind != Kind::Ping) ++pending_work_;
+    queue_.push_back(std::move(ev));
+    cv_.notify_one();
+}
+
+int64_t StreamPump::frame_samples(const std::string& bytes) {
+    // What append_wav/append_pcm will add: raw PCM16 is two bytes per
+    // sample; a WAV frame is decoded (any format or channel count) and
+    // counts only at 16 kHz, the one rate the session accepts.
+    if (bytes.size() >= 12 && bytes.compare(0, 4, "RIFF") == 0
+        && bytes.compare(8, 4, "WAVE") == 0) {
+        std::vector<float> decoded;
+        int sr = 0;
+        if (!audio::wav_bytes_to_float32(bytes, decoded, sr) || sr != kSampleRate)
+            return 0;
+        return static_cast<int64_t>(decoded.size());
+    }
+    return static_cast<int64_t>(bytes.size() / 2);
+}
+
+void StreamPump::send(const std::string& frame) {
+    if (!send_(frame)) close();
+}
+
+void StreamPump::push_audio(std::string bytes) {
+    push(Event{Kind::Audio, std::move(bytes)});
+}
+
+void StreamPump::push_commit() { push(Event{Kind::Commit, {}}); }
+
+void StreamPump::push_reset() { push(Event{Kind::Reset, {}}); }
+
+void StreamPump::push_ping() { push(Event{Kind::Ping, {}}); }
+
+void StreamPump::close() {
+    std::lock_guard<std::mutex> lk(mu_);
+    closed_ = true;
+    queue_.clear();
+    pending_bytes_ = 0;
+    pending_work_ = 0;
+    pending_samples_ = 0;
+    pending_resets_ = 0;
+    pending_commits_ = 0;
+    samples_before_commit_ = 0;
+    cv_.notify_all();
+    space_cv_.notify_all();
+    idle_cv_.notify_all();
+}
+
+void StreamPump::drain() {
+    std::unique_lock<std::mutex> lk(mu_);
+    idle_cv_.wait(lk, [&] { return closed_ || (queue_.empty() && !busy_); });
+}
+
+bool StreamPump::is_closed() {
+    std::lock_guard<std::mutex> lk(mu_);
+    return closed_;
+}
+
+bool StreamPump::newer_pending() {
+    // Queued audio makes a preview obsolete (it would not be in it), and a
+    // queued commit/reset ends or discards the take anyway. So does a
+    // closed connection. A ping does not: it carries no audio, and skipping
+    // the preview for it would leave the newest audio unpreviewed until
+    // more audio arrives.
+    std::lock_guard<std::mutex> lk(mu_);
+    return closed_ || pending_work_ > 0;
+}
+
+bool StreamPump::preempt_preview() {
+    // Runs on the worker inside the preview's engine call, so the session
+    // may be read here.
+    const int64_t to_window = session_.samples_to_next_window();
+    std::lock_guard<std::mutex> lk(mu_);
+    // A reset discards the take; a closed connection wants no more work.
+    if (closed_ || pending_resets_ > 0) return true;
+    // A commit after newer audio: the flush must decode that audio anyway,
+    // so the preview's result would be thrown away. A commit with no newer
+    // audio lets the preview finish: its result is exactly the flush tail
+    // and the session's exact-tail reuse turns it into the final.
+    if (pending_commits_ > 0 && samples_before_commit_ > 0) return true;
+    // Queued audio that completes a window: the window commit is required
+    // work and supersedes the preview. Only this take's audio counts: what
+    // follows a queued commit belongs to the next take.
+    const int64_t take_audio = pending_commits_ > 0 ? samples_before_commit_ : pending_samples_;
+    return to_window >= 0 && take_audio > 0 && take_audio >= to_window;
+}
+
+void StreamPump::run() {
+    for (;;) {
+        std::deque<Event> batch;
+        {
+            std::unique_lock<std::mutex> lk(mu_);
+            busy_ = false;
+            idle_cv_.notify_all();
+            cv_.wait(lk, [&] { return closed_ || !queue_.empty(); });
+            if (closed_) return;
+            batch.swap(queue_);
+            pending_bytes_ = 0;
+            pending_work_ = 0;
+            pending_samples_ = 0;
+            pending_resets_ = 0;
+            pending_commits_ = 0;
+            samples_before_commit_ = 0;
+            busy_ = true;
+            space_cv_.notify_all();
+        }
+        // Append every queued frame first; one step then covers all of it.
+        bool need_step = false;
+        for (size_t i = 0; i < batch.size(); ++i) {
+            Event& ev = batch[i];
+            if (is_closed()) return;  // the peer is gone: no more engine work
+            switch (ev.kind) {
+            case Kind::Audio:
+                if (handle_audio(ev.bytes)) {
+                    need_step = true;
+                    // Catching up on a backlog: commit each full window as
+                    // soon as it is buffered, as the per-frame loop did, so
+                    // finalized audio is trimmed before the rest of the
+                    // batch is appended and the live-buffer cap
+                    // (--max-stream-seconds) is not tripped by the backlog
+                    // itself. Only the preview waits for the batch's end.
+                    if (i + 1 < batch.size() && session_.full_window_pending())
+                        step(/*coalesce_preview=*/true);
+                }
+                break;
+            case Kind::Ping: {
+                // The step owed for earlier audio, unless a refused frame
+                // ended partials for this take. Audio or a commit/reset
+                // later in this batch makes its preview obsolete.
+                bool later_work = false;
+                for (size_t j = i + 1; j < batch.size() && !later_work; ++j)
+                    later_work = batch[j].kind != Kind::Ping;
+                if (need_step && !session_.overflowed() && !session_.take_invalid())
+                    step(/*coalesce_preview=*/later_work);
+                need_step = false;
+                send("{\"type\":\"pong\"}");
+                break;
+            }
+            case Kind::Commit:
+                // The flush covers everything appended so far; a preview
+                // before it would be obsolete.
+                need_step = false;
+                handle_commit();
+                break;
+            case Kind::Reset:
+                need_step = false;
+                session_.reset();
+                reject_error_sent_ = false;
+                send("{\"type\":\"reset_ack\"}");
+                break;
+            }
+        }
+        // A frame refused later in the batch (cap, invalid audio) ends
+        // partials for this take, as it did frame by frame before.
+        if (need_step && !session_.overflowed() && !session_.take_invalid()
+            && !is_closed())
+            step();
+    }
+}
+
+bool StreamPump::handle_audio(const std::string& msg) {
+    // Enforce the per-connection buffer cap (--max-stream-seconds) and the
+    // frame-validity policy (issue #145): a refused frame is reported once
+    // as an error frame, and the session stops accepting audio until reset.
+    AppendOutcome outcome = AppendOutcome::Accepted;
+    if (!session_.overflowed() && !session_.take_invalid()) {
+        if (msg.size() >= 12 && msg.compare(0, 4, "RIFF") == 0
+            && msg.compare(8, 4, "WAVE") == 0) {
+            outcome = session_.append_wav(msg);
+        } else {
+            outcome = session_.append_pcm(msg);
+        }
+    } else if (session_.take_invalid()) {
+        outcome = AppendOutcome::TakeInvalid;
+    } else {
+        outcome = AppendOutcome::Overflowed;
+    }
+    if (outcome != AppendOutcome::Accepted && !reject_error_sent_) {
+        reject_error_sent_ = true;
+        send(ws_append_error(outcome, session_, opt_.max_stream_seconds));
+    }
+    return outcome == AppendOutcome::Accepted;
+}
+
+void StreamPump::step(bool coalesce_preview) {
+    // stream_step runs once per drained batch with an accepted frame —
+    // including audio-less no-ops (an empty payload is Accepted): those
+    // duplicate snapshots of an unchanged buffer are answered by the
+    // session's exact-tail reuse instead of re-running the engine.
+    auto text_opt = session_.stream_step(
+        steady_seconds(),
+        [this, coalesce_preview] { return coalesce_preview || newer_pending(); },
+        [this] { return preempt_preview(); });
+    if (!session_.terminal_error().empty()) {
+        if (!reject_error_sent_) {
+            reject_error_sent_ = true;
+            send("{\"type\":\"error\",\"message\":\"request timed out\"}");
+        }
+        return;
+    }
+    if (!text_opt.has_value()) return;
+    std::string safe_text = json_escape(*text_opt);
+    double dur = session_.buffered_seconds();
+    std::ostringstream ss;
+    ss << "{\"type\":\"partial\",\"text\":\""
+       << safe_text << "\",\"segments\":[{\"text\":\""
+       << safe_text << "\",\"start_s\":0.0,\"end_s\":"
+       << dur << "}],\"start_s\":0.0,\"end_s\":" << dur
+       << ",\"stable_words\":" << session_.stable_words();
+    if (opt_.trace) ss << ",\"trace\":" << session_.trace_partial_json();
+    ss << "}";
+    send(ss.str());
+}
+
+void StreamPump::handle_commit() {
+    // An invalidated take (a rejected binary frame) holds incomplete audio:
+    // committing it as an ordinary successful final would silently miss
+    // speech, so the commit is refused and the client falls back to its
+    // authoritative local WAV after a reset (issue #145). The busy-retry
+    // path below is untouched: it retains VALID audio, while this path
+    // refuses INVALID audio.
+    if (session_.take_invalid()) {
+        std::ostringstream ss;
+        ss << "{\"type\":\"error\",\"message\":\"take "
+           << "invalidated (" << session_.invalid_reason()
+           << "); reset and resend\"}";
+        send(ss.str());
+        return;
+    }
+    double dur = session_.buffered_seconds();
+    std::string text;
+    if (dur > 0.0) {
+        auto final = session_.stream_flush();
+        if (!final.has_value()) {
+            send(session_.terminal_error().empty()
+                ? "{\"type\":\"error\",\"message\":\"server busy\"}"
+                : "{\"type\":\"error\",\"message\":\"request timed out\"}");
+            return;
+        }
+        text = *final;
+    } else {
+        session_.mark_empty_commit();
+    }
+    std::string safe_text = json_escape(text);
+    std::ostringstream ss;
+    ss << "{\"type\":\"final\",\"text\":\""
+       << safe_text << "\",\"segments\":[{\"text\":\""
+       << safe_text << "\",\"start_s\":0.0,\"end_s\":"
+       << dur << "}],\"duration_s\":" << dur;
+    // A committed window that still looked like a decoding loop after its
+    // re-decodes is kept as decoded; the final says so (issue #357). Only
+    // sent when true: clients that do not know the field see no change.
+    if (session_.chunker() && session_.chunker()->loop_suspected() > 0)
+        ss << ",\"loop_suspected\":true";
+    if (opt_.trace) ss << ",\"trace\":" << session_.trace_final_json();
+    ss << "}";
+    send(ss.str());
+    session_.reset();
+    // reset() re-enables audio (clears the buffer cap and any take
+    // invalidation); re-arm the one-shot error frame with it.
+    reject_error_sent_ = false;
+}
+
+} // namespace starling::serve

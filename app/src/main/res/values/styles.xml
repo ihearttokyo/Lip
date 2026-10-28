@@ -7,5 +7,15 @@
         <item name="android:windowActionModeOverlay">true</item>
         <item name="android:windowBackground">#FFFEEB</item>
     </style>
-    <string name="accessibility_description">Lip shows a voice button beside a focused text field. After you tap it, Lip transcribes speech on-device and can send only that transcript to ChatGPT for cleanup. It reads the focused field and cursor locally to insert safely. It never taps, navigates, or sends messages. Password and protected fields are excluded.</string>
+    <style name="Theme.Lip.Stickers" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#000000</item>
+        <item name="android:colorBackground">#000000</item>
+        <item name="android:colorForeground">#FFFFFF</item>
+        <item name="android:colorAccent">#FFFFFF</item>
+        <item name="android:statusBarColor">#000000</item>
+        <item name="android:navigationBarColor">#000000</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+    <string name="accessibility_description">Lip shows a voice button beside a focused text field. After you tap it, Lip transcribes speech on-device and formats it locally without an account or cloud cleanup. It reads the focused field and cursor locally to insert safely. It never taps, navigates, or sends messages. Password and protected fields are excluded.</string>
 </resources>

@@ -1,0 +1,4 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <instrumentation android:name=".StartupObserver" android:targetPackage="dev.lip.imeprobe" android:functionalTest="true" />
+    <application android:label="Lip emulator startup observer" android:allowBackup="false" android:testOnly="true" />
+</manifest>

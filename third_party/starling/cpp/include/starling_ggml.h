@@ -1,0 +1,309 @@
+// starling_ggml.h — the flat C API surface for Starling's ggml engine.
+//
+// Driven from Python via ctypes (tools/starling_ggml.py). One shared
+// library (libstarling_ggml) serves both the parakeet-tdt and moss models via
+// model-tagged entry points. Opaque `starling_ggml_ctx` holds a loaded model.
+//
+// ABI version: bumped whenever the signature/layout of these entry points
+// changes. _native.py checks starling_ggml_abi_version() against the expected
+// value and refuses to load on mismatch.
+//
+// All entry points are exception-fenced: a C++ exception never crosses the
+// boundary. On error, the function returns a null/empty result and writes a
+// UTF-8 message retrievable via starling_ggml_last_error().
+
+#ifndef STARLING_GGML_H
+#define STARLING_GGML_H
+
+#include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// Bumped on any breaking change to this API. The Python binding refuses to
+// load on mismatch. History:
+//   1 — initial (Phase 0): abi + version + shutdown only.
+//   2 — added kind 4 (since removed, see 10).
+//   3 — added kind 5 (since removed, see 10).
+//   4 — added STARLING_GGML_GRANITE (ibm-granite/granite-speech-4.1-2b).
+//   5 — added STARLING_GGML_QWEN3 (Qwen/Qwen3-ASR-1.7B-hf).
+//   6 — added STARLING_GGML_S1 (superwhisper/s1-mini) + the text-in entry
+//       point starling_ggml_normalize_text, and kind 9 (since removed,
+//       see 10).
+//   7 — added STARLING_GGML_ARK06 (Audio8/ARK-ASR-0.6B; served by the ARK
+//       engine — same architecture, dims come from GGUF metadata).
+//   8 — added kind 11 (since removed, see 11).
+//   9 — added STARLING_GGML_QWEN3_06 (Qwen/Qwen3-ASR-0.6B-hf; served by the
+//       QWEN3 engine — same architecture, dims come from GGUF metadata).
+//  10 — removed kinds 4, 5 and 9 (engines dropped). Their values stay
+//       reserved and are never reused; loading them fails as an unknown kind.
+//  11 — removed kind 11 (engine dropped); reserved like 4, 5 and 9.
+// Additions that leave every existing entry point unchanged keep the version
+// (starling_ggml_transcribe_pcm_words, issue #357): a caller loading the
+// library at run time probes for such a symbol (dlsym) instead of checking
+// the version.
+#define STARLING_GGML_ABI_VERSION 11
+
+// ABI / build introspection --------------------------------------------------
+
+// Returns STARLING_GGML_ABI_VERSION.
+int starling_ggml_abi_version(void);
+
+// Returns a static UTF-8 string naming the ggml device used at RUNTIME
+// (e.g. "CPU", "Vulkan0", "CUDA0" — as selected by STARLING_GGML_DEVICE or
+// auto-pick) once a model load has created the global backend; before the
+// first load it names the compile-time backend family ("cuda", "metal",
+// "vulkan", "cpu"). The pointer stays valid across calls. For diagnostics.
+const char * starling_ggml_backend_name(void);
+
+// Opaque model context. One per loaded model.
+typedef struct starling_ggml_ctx starling_ggml_ctx;
+
+// The model kind selects which implementation backs the context.
+typedef enum {
+    STARLING_GGML_PARAKEET_TDT = 1,  // nvidia/parakeet-tdt-0.6b-v3
+    STARLING_GGML_MOSS         = 2,  // MOSS-Transcribe-preview-2B
+    STARLING_GGML_ARK          = 3,  // AutoArk-AI/ARK-ASR-3B
+    // 4 and 5 are reserved (removed engines, ABI 10); never reuse them.
+    STARLING_GGML_GRANITE      = 6,  // ibm-granite/granite-speech-4.1-2b
+    STARLING_GGML_QWEN3        = 7,  // Qwen/Qwen3-ASR-1.7B-hf
+    STARLING_GGML_S1           = 8,  // superwhisper/s1-mini (text normalizer)
+    // 9 is reserved (removed engine, ABI 10); never reuse it.
+    STARLING_GGML_ARK06        = 10, // Audio8/ARK-ASR-0.6B (ARK engine, 0.6B GGUF)
+    // 11 is reserved (removed engine, ABI 11); never reuse it.
+    STARLING_GGML_QWEN3_06     = 12, // Qwen/Qwen3-ASR-0.6B-hf (QWEN3 engine, 0.6B GGUF)
+} starling_ggml_model;
+
+// Lifecycle ------------------------------------------------------------------
+
+// Calls through the common starling_ggml_ctx API that load, free or run
+// models are serialized inside the library. Keep each context alive until
+// its pending calls finish. Model-specific raw handles have a separate
+// caller-serialization contract below.
+//
+// Load a model from a GGUF file. Returns a new context, or NULL on error
+// (call starling_ggml_last_error(NULL_or_ctx) for the message). `model` selects
+// the implementation; the GGUF must match. The caller owns the context and must
+// free it with starling_ggml_free.
+starling_ggml_ctx * starling_ggml_load(starling_ggml_model model,
+                                       const char * gguf_path);
+
+// Additive Lip API: isolated per-context backend selection. This entry point
+// currently accepts only PARAKEET_TDT and rejects STARLING_HAVE_FAST builds.
+// Neither policy reads/mutates STARLING_GGML_DEVICE. AUTOMATIC is eligibility,
+// not proof of hardware acceleration, energy efficiency or graph support.
+typedef enum starling_ggml_device_policy {
+    STARLING_GGML_DEVICE_AUTOMATIC = 0,
+    STARLING_GGML_DEVICE_CPU = 1,
+} starling_ggml_device_policy;
+// NULL is an error, NOT proof that failed device work drained. A load whose
+// synchronization fails is retained internally until successful shutdown;
+// callers must not automatically CPU-retry from NULL alone.
+starling_ggml_ctx * starling_ggml_load_with_device(starling_ggml_model model,
+    const char * gguf_path, starling_ggml_device_policy policy);
+// Additive checked lifecycle. Zero/unexpected native exceptions are UNCONFIRMED,
+// never success or evidence permitting fallback. The output slot must initially
+// be NULL; a nonempty slot is rejected without discarding its existing owner.
+typedef enum starling_ggml_load_result {
+    STARLING_GGML_LOAD_UNCONFIRMED = 0,
+    STARLING_GGML_LOAD_READY = 1,
+    STARLING_GGML_LOAD_FAILED_RELEASED = 2,
+    STARLING_GGML_LOAD_FAILED_QUARANTINED = 3,
+    STARLING_GGML_LOAD_REJECTED_NO_ATTEMPT = 4,
+} starling_ggml_load_result;
+// READY publishes a usable context. QUARANTINED publishes a retained context
+// (possibly model-NULL); it cannot infer. FAILED_RELEASED publishes NULL only
+// after actual model AND owned backend release. UNCONFIRMED never permits retry.
+starling_ggml_load_result starling_ggml_load_checked(starling_ggml_model model,
+    const char * gguf_path, starling_ggml_device_policy policy, starling_ggml_ctx ** out);
+// Additive Unix/Android FD variant: isolated Parakeet only, FAST builds reject.
+// Validates readable/regular/nonempty/seekable/size-representable input BEFORE
+// any backend attempt. The caller retains fd ownership, keeps it open and
+// unreplaced DURING the call, and serializes shared-offset use: the loader's
+// duplicate rewinds/advances that same open-file-description offset. Caller may
+// close fd after return; the model owns its mapping/read data independently.
+// An FD is NOT immutable bytes. Contents must remain stable while mappings live;
+// sealed-byte/hash verification and safe automatic retry are separate gates.
+// Uses exactly the same output ownership/status contract as load_checked.
+starling_ggml_load_result starling_ggml_load_fd_checked(starling_ggml_model model,
+    int fd, starling_ggml_device_policy policy, starling_ggml_ctx ** out);
+// Optional attempt metadata, independent of context lifetime. An actual
+// non-CPU backend is NOT physical-device attestation (software Vulkan exists).
+#define STARLING_GGML_LOAD_REPORT_VERSION 1u
+#define STARLING_GGML_LOAD_REPORT_BACKEND_KNOWN 1u
+typedef enum starling_ggml_backend_kind {
+    STARLING_GGML_BACKEND_UNKNOWN = 0,
+    STARLING_GGML_BACKEND_CPU = 1,
+    STARLING_GGML_BACKEND_ACCELERATOR = 2,
+} starling_ggml_backend_kind;
+typedef struct starling_ggml_load_report {
+    uint32_t version;
+    uint32_t flags;
+    uint32_t backend_kind;
+    uint32_t reserved;
+} starling_ggml_load_report;
+// Caller supplies writable, disjoint report/out storage, report.version=1 and
+// report_size=sizeof(starling_ggml_load_report), exactly 16 bytes. Bad size/version
+// returns REJECTED_NO_ATTEMPT before owner/backend work and clears at most
+// min(report_size,16) bytes when report is non-NULL; out is never mutated there.
+// Valid reports reset to v1/flags0/UNKNOWN/reserved0. BACKEND_KNOWN is set ONLY
+// after an actual Backend constructor returns, before name/model allocation;
+// it survives FAILED_RELEASED(out NULL) and QUARANTINED(retained owner).
+// Metadata alone never authorizes retry: at minimum FAILED_RELEASED, NULL owner,
+// BACKEND_KNOWN+ACCELERATOR and current/not-cancelled ownership must ALL hold,
+// alongside independently verified same-model bytes and applicable safety gates.
+starling_ggml_load_result starling_ggml_load_fd_checked_report(starling_ggml_model model,
+    int fd, starling_ggml_device_policy policy, starling_ggml_ctx ** out,
+    starling_ggml_load_report * report, size_t report_size);
+// Isolated contexts only: 1 clears *ctx after actual release; 0 preserves the
+// exact owner and forbids assuming idle, fallback or disposal. NULL slot returns0;
+// an already empty valid slot returns1. Quarantine is sticky, not a retry token.
+int starling_ggml_release_checked(starling_ggml_ctx ** ctx);
+// Actual selected backend name, owned by ctx and valid until free. NULL on error.
+// These three queries reject legacy contexts in STARLING_HAVE_FAST builds:
+// their runtime fast-engine choice cannot be inferred from a ggml backend.
+const char * starling_ggml_context_backend_name(starling_ggml_ctx * ctx);
+// 1 = actual non-CPU backend, 0 = CPU, -1 = invalid/released context. A non-CPU
+// backend is not itself evidence of a physical GPU (software Vulkan exists).
+int starling_ggml_context_is_gpu(starling_ggml_ctx * ctx);
+// Wait for outstanding work; 1 only when synchronization returned normally.
+// On 0 ownership is retained: do not retry, free buffers, or report idle.
+int starling_ggml_context_synchronize(starling_ggml_ctx * ctx);
+
+// Free a context (safe on NULL; a non-NULL pointer must be freed once). Releases the model + its device
+// buffers. The global ggml backend itself is freed by starling_ggml_shutdown.
+void starling_ggml_free(starling_ggml_ctx * ctx);
+
+// Tear down the process-global ggml backend (frees device buffers + captured
+// CUDA graphs) so they're released while the CUDA driver is still alive, rather
+// than by static destruction at process exit (which runs after the driver's
+// own atexit handler and aborts with "driver shutting down"). Idempotent.
+//
+// OPTIONAL: starling_ggml also registers an internal std::atexit handler on
+// first backend creation that performs the same teardown automatically at
+// process exit, so a caller that never calls this still exits cleanly. Safe to
+// call multiple times, and safe alongside the atexit handler. Shutdown is
+// terminal: subsequent model loads and inference return an error.
+void starling_ggml_shutdown(void);
+
+// Cooperative stop (#325 crash circumvention): request_stop() asks the
+// process to wind down so a SIGTERM'd process can exit through normal
+// destructors — destroying the Vulkan device instead of leaving ~1.6 GB of
+// live GPU state for the driver to reap asynchronously. Correlate: the Pixel
+// wedges (#325, RESEARCH_LOG P2-7) follow processes that die with a live
+// VkDevice (SIGKILL/SIGTERM run no destructors).
+// Granularity: the fast MOSS engine checks the flag between decode rounds
+// and returns the valid prefix decoded so far (logged to stderr; the result
+// is otherwise indistinguishable from a normal one). Other engines finish
+// the current transcribe call; the caller checks stop_requested() between
+// calls. Async-signal-safe (lock-free atomic). stop_requested() is the
+// polling side; the flag stays set until clear_stop() (deliberate reuse of
+// the process).
+void starling_ggml_request_stop(void);
+int  starling_ggml_stop_requested(void);
+void starling_ggml_clear_stop(void);
+
+// Flush the STARLING_IMATRIX activation-importance collector to its output
+// file immediately (idempotent; the collector also flushes at process exit).
+// Call this before teardown in collection runs so the data is on disk no
+// matter how the process ends.
+void starling_ggml_imatrix_flush_pub(void);
+
+// Retrieve the last error message for a context (or this thread's last error
+// if ctx is NULL). Returns "" if no error. The pointer is owned by the library
+// and valid until the next call into the library on the same context.
+const char * starling_ggml_last_error(starling_ggml_ctx * ctx);
+
+// Inference ------------------------------------------------------------------
+
+// Transcribe mono float32 PCM. Returns a malloc'd UTF-8 string the caller must
+// free with starling_ggml_free_string, or NULL on error.
+//
+// `samples` is `n` interleaved float32 in [-1, 1]; `sample_rate` must be 16000
+// (resample upstream if needed — see audio_io). `ctx` selects the model.
+char * starling_ggml_transcribe_pcm(starling_ggml_ctx * ctx,
+                                    const float * samples, int64_t n,
+                                    int sample_rate);
+
+// One word of a transcript: bytes [text_begin, text_end) of the returned
+// text, heard from start_s to end_s seconds into the transcribed audio.
+typedef struct starling_ggml_word {
+    int32_t text_begin;
+    int32_t text_end;
+    float start_s;
+    float end_s;
+} starling_ggml_word;
+
+// starling_ggml_transcribe_pcm with word timestamps. On success also writes
+// a malloc'd array of the text's whitespace-separated words, in order, to
+// *words (free it with starling_ggml_free_words) and their count to *n_words.
+// A model without word timestamps (every engine but Parakeet) returns the
+// plain transcript with *words = NULL and *n_words = -1. On error returns
+// NULL like starling_ggml_transcribe_pcm and leaves *words NULL.
+char * starling_ggml_transcribe_pcm_words(starling_ggml_ctx * ctx,
+                                          const float * samples, int64_t n,
+                                          int sample_rate,
+                                          starling_ggml_word ** words,
+                                          int64_t * n_words);
+
+// Free a word array returned by starling_ggml_transcribe_pcm_words (no-op on
+// NULL).
+void starling_ggml_free_words(starling_ggml_word * words);
+
+// Raw Granite research handles (from starling_ggml_granite_load) do not use
+// the common API's whole-call lock. Callers must serialize raw load, decode,
+// draft and free operations across all raw handles, and must not overlap them
+// with common-API load, inference, free or starling_ggml_shutdown. Free all
+// raw handles before global shutdown. These calls share backend state;
+// graph-level locking alone does not protect a raw handle's KV cache or error.
+// An error string returned through err_out belongs to the handle (or is a
+// static string); do not free it, and read it before the next call or free.
+void * starling_ggml_granite_load(const char * gguf_path, const char ** err_out);
+void starling_ggml_granite_free(void * handle);
+char * starling_ggml_granite_decode(void * handle, const float * pcm, int64_t n,
+                                   const char ** err_out);
+//
+// Research-only Granite CTC draft probe. `handle` is returned by the
+// model-specific starling_ggml_granite_load symbol. A successful call writes
+// token IDs and count. On a too-small buffer it writes the required capacity
+// to count, leaves token_ids untouched, and returns false: count does not
+// describe valid output on failure. Invalid arguments clear count when it is
+// non-null. A zero-capacity sizing call runs the full encoder and head.
+bool starling_ggml_granite_ctc_draft(void * handle, const float * pcm, int64_t n,
+                                    int32_t * token_ids, int32_t capacity,
+                                    int32_t * count, const char ** err_out);
+
+// Research-only opt-in Granite transcription with native CTC drafts and the
+// greedy batched verifier. `handle` is returned by the model-specific
+// starling_ggml_granite_load symbol; max_k must be 1..16. Uses the same
+// padded chunk/budget policy as ordinary Granite decode. The returned string
+// is malloc'd and freed with starling_ggml_free_string. Default transcription
+// continues through the ordinary greedy entry point. On failure returns
+// NULL and sets *err_out when err_out is non-NULL. The raw-handle
+// serialization requirement above applies to this call.
+char * starling_ggml_granite_decode_ctc(void * handle, const float * pcm, int64_t n,
+                                        int32_t max_k, const char ** err_out);
+
+// Free a malloc'd string returned by a Starling transcription or
+// normalization entry point (no-op on NULL).
+void starling_ggml_free_string(char * s);
+
+// Normalize one raw ASR transcript with a text model (s1). Returns a
+// malloc'd UTF-8 string the caller frees with starling_ggml_free_string, or
+// NULL on error. The control arguments accept NULL for their defaults
+// (styling="semi-formal", structure="prose", context="general"); unknown
+// values are rejected — the model was only trained on the shipped sets.
+char * starling_ggml_normalize_text(starling_ggml_ctx * ctx,
+                                    const char * transcript,
+                                    const char * styling,
+                                    const char * structure,
+                                    const char * context);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
+#endif // STARLING_GGML_H

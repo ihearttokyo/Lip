@@ -1,0 +1,126 @@
+{
+  "repo": "ConwayResearch/Underdog-Bark-3.0-Pro",
+  "revision": "4b5c51e04aa8d16dda9ecdff71bc29f7360149e4",
+  "files": [
+    {
+      "rfilename": "NOTICE",
+      "size": 611,
+      "blobId": "adce5376cfe1e46cf820706a104bd44e8cdc5b44"
+    },
+    {
+      "rfilename": "coreml/Decoder.mlpackage/Data/com.apple.CoreML/model.mlmodel",
+      "size": 11612,
+      "lfs": {
+        "sha256": "00cd3bdf438e859eff16d1376cab86f6214d0e44b1876316e30550e35d012763",
+        "size": 11612,
+        "pointerSize": 130
+      },
+      "blobId": "b98c9305a259489957701bf701d68d9742938fa3"
+    },
+    {
+      "rfilename": "coreml/Decoder.mlpackage/Data/com.apple.CoreML/weights/weight.bin",
+      "size": 23604992,
+      "lfs": {
+        "sha256": "b6bfa9053e8e20d1e80a7522ddba5c66e2c8c77cfc956d4ebccf749baf4d3d69",
+        "size": 23604992,
+        "pointerSize": 133
+      },
+      "blobId": "98748646e7d4a61a79e2b1f6b0a421fd1eb33530"
+    },
+    {
+      "rfilename": "coreml/Decoder.mlpackage/Manifest.json",
+      "size": 617,
+      "blobId": "b92f763abc9862262e65c993aba1d8f677d77698"
+    },
+    {
+      "rfilename": "coreml/Encoder.mlpackage/Data/com.apple.CoreML/model.mlmodel",
+      "size": 1206573,
+      "lfs": {
+        "sha256": "d82718558f523dc13f9c0ede57d6f8e37d953950808a5aaa3a4633a7f752dd77",
+        "size": 1206573,
+        "pointerSize": 132
+      },
+      "blobId": "5469c3fcea60e3a68248db30e7c46aff387421c9"
+    },
+    {
+      "rfilename": "coreml/Encoder.mlpackage/Data/com.apple.CoreML/weights/weight.bin",
+      "size": 1195742464,
+      "lfs": {
+        "sha256": "619757bd47bc5cc131a85e54e94ffacc1b8c1bce737c1f1f6569eda8621a30d6",
+        "size": 1195742464,
+        "pointerSize": 135
+      },
+      "blobId": "91718e6880665a08dfefc0abf06bbbb650dd3ae0"
+    },
+    {
+      "rfilename": "coreml/Encoder.mlpackage/Manifest.json",
+      "size": 617,
+      "blobId": "500299461545b4f41656f68426916763d20e933c"
+    },
+    {
+      "rfilename": "coreml/JointDecisionv3.mlpackage/Data/com.apple.CoreML/model.mlmodel",
+      "size": 8759,
+      "lfs": {
+        "sha256": "1057c2d9e9efce23258dbf2e7747e6facf7a42f4fcbcf2a21cdd160e065b18ac",
+        "size": 8759,
+        "pointerSize": 129
+      },
+      "blobId": "570aaf389e6ce8f54e9d3ffac374611ecbb4894f"
+    },
+    {
+      "rfilename": "coreml/JointDecisionv3.mlpackage/Data/com.apple.CoreML/weights/weight.bin",
+      "size": 12642764,
+      "lfs": {
+        "sha256": "90257de4d4582921c31db6efe9668017274b7c4cfdfe5aac9b9183233f7a9bdd",
+        "size": 12642764,
+        "pointerSize": 133
+      },
+      "blobId": "45aa120eb70a5fe11e73d2d7cc2606e4bbbaa291"
+    },
+    {
+      "rfilename": "coreml/JointDecisionv3.mlpackage/Manifest.json",
+      "size": 617,
+      "blobId": "c945ca49f656f874893d17adfc7d34e41bf79e1a"
+    },
+    {
+      "rfilename": "coreml/LICENSE",
+      "size": 18657,
+      "blobId": "da6ab6cc8f333d7e89a99812866df8f24374d47c"
+    },
+    {
+      "rfilename": "coreml/NOTICE",
+      "size": 611,
+      "blobId": "adce5376cfe1e46cf820706a104bd44e8cdc5b44"
+    },
+    {
+      "rfilename": "coreml/Preprocessor.mlpackage/Data/com.apple.CoreML/model.mlmodel",
+      "size": 18839,
+      "lfs": {
+        "sha256": "dd4a5266ed9048aae620e73aa983eab93256654a343ded1226f9456b79f79a67",
+        "size": 18839,
+        "pointerSize": 130
+      },
+      "blobId": "9356318df45f590cd0a4fb2187eeec7cd5758907"
+    },
+    {
+      "rfilename": "coreml/Preprocessor.mlpackage/Data/com.apple.CoreML/weights/weight.bin",
+      "size": 1184512,
+      "lfs": {
+        "sha256": "7a31e2bd311bfa97ea3fe73d4a6c029824327a71590397bd8784089a88754a77",
+        "size": 1184512,
+        "pointerSize": 132
+      },
+      "blobId": "de2d005595d6b922644cb1d7ac8f035f0170b00d"
+    },
+    {
+      "rfilename": "coreml/Preprocessor.mlpackage/Manifest.json",
+      "size": 617,
+      "blobId": "4f38f3d175e9b8a1684a2934c40f634052609e39"
+    },
+    {
+      "rfilename": "coreml/parakeet_v3_vocab.json",
+      "size": 143080,
+      "blobId": "35808bc2ec37f995050956dd92de791a8ca3eeeb"
+    }
+  ]
+}

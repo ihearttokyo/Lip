@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Lip portable learned words version1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "version",
+    "unicode_version",
+    "entries"
+  ],
+  "properties": {
+    "format": {
+      "const": "lip.learned-words"
+    },
+    "version": {
+      "const": 1
+    },
+    "entries": {
+      "type": "array",
+      "maxItems": 100000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "term",
+          "language",
+          "weight",
+          "source"
+        ],
+        "properties": {
+          "term": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "language": {
+            "enum": [
+              "en",
+              "ja",
+              "zh",
+              "es",
+              "und"
+            ]
+          },
+          "weight": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000000
+          },
+          "source": {
+            "enum": [
+              "manual",
+              "gmail",
+              "outlook",
+              "whatsapp",
+              "import"
+            ]
+          }
+        }
+      }
+    },
+    "unicode_version": {
+      "const": "16.0.0"
+    }
+  }
+}

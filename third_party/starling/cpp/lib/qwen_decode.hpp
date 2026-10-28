@@ -1,0 +1,174 @@
+// qwen_decode.hpp — the shared Qwen-trunk text decoder stack (whole-model
+// prefill/decode graphs, device-resident KV cache, captured K-step greedy
+// generation) plus the state types the model bundles re-export.
+//
+// A model binds the stack through a QwenDecodeCtx: a QwenDecodeSpec (the only
+// places the two trunks differ — projection family, env-var prefix, message
+// label, probe filename prefix), the ModelLoader holding the realized weights,
+// and the config dims the graphs are shaped by. The device KV, per-S prefill graphs and per-K K-step graphs are owned by
+// the loaded model, so models with the same spec cannot share weights.
+#pragma once
+
+#include "runtime/model_loader.hpp"
+#include "ggml.h"
+
+#include <cstdint>
+#include <functional>
+#include <string>
+#include <vector>
+
+namespace starling::ggml::lib {
+
+// The moss/ark/granite decode-stack differences. qkv_bias selects the
+// projection family: true = Qwen2.5 trunk (biased q/k/v addressed by BASE name
+// "attn.q" etc., no q_norm/k_norm); false = bias-free over full weight names
+// "attn.q.weight" (Qwen3 trunk with per-head q_norm/k_norm, or granite with
+// them off via qk_norm). The granite-family fields below default so the
+// moss/ark graphs stay byte-identical: qk_norm is consulted only in the
+// bias-free branch, the multipliers use skip-when-default (the op sequence is
+// untouched), and tied_lm_head keeps llm.embed.weight as the head.
+
+struct QwenDecodeSpec {
+    bool qkv_bias;
+    const char* env;           // env-var prefix, e.g. "STARLING_MOSS"
+    const char* label;         // error/log label, e.g. "MOSS"
+    const char* stage_prefix;  // L0-probe dump filename prefix
+    bool qk_norm = true;       // per-head q_norm/k_norm (moss; granite: off)
+    bool tied_lm_head = true;  // lm_head == llm.embed (granite is untied)
+    float attention_scale = 0.0f;       // 0 -> 1/sqrt(head_dim) (granite: 0.0078125)
+    float embedding_multiplier = 1.0f;  // hidden = embeds * m at prefill AND decode
+    float residual_multiplier = 1.0f;   // residual + m*y, attn and mlp (granite: 0.22)
+    float logits_scaling = 1.0f;        // logits / s after lm_head (granite: 8.0)
+    // torch reads the lm_head output stored as bf16 and its argmax keeps the
+    // FIRST index on exact ties; the raw f32 logits (host pick) and ggml's
+    // CUDA argmax (warp-order ties) both disagree on such ties. When set, the
+    // greedy picks round the logits to bf16 first; the host keeps the first
+    // index on the exact ties that creates, and the K-step graph masks the
+    // rounded logits by equality with their max and weights the masked
+    // columns by a descending column iota, making the lowest tied column a
+    // unique argmax (order-independent) (qwen3; off keeps moss/ark/granite
+    // byte-identical).
+    bool argmax_low_ties = false;
+    // F32-throughout activations for the decode stack (GPU + quantized
+    // linears only; auto-falls-back when the first linear is unquantized).
+    // Skips every intermediate bf16 round-trip, so the Vulkan backend's
+    // {RMS_NORM,MUL} fusion sees consecutive patterns and fires, and the
+    // hundreds of tiny CAST dispatches per step vanish. Numerics move by
+    // <=1 bf16 ulp per rounding skipped (strictly more precise); CER-gated.
+    // CPU keeps the exact discipline (portable fallback parity).
+    bool f32_acts = false;
+    // Bucketed exact-width K-step attention (128/256/512/1024 prefix views +
+    // runtime masks instead of full-capacity). Same softmax math over fewer
+    // keys (masked slots contributed exactly 0); only the reduction width
+    // differs, so near-tie argmax flips are possible — CER-gated per model.
+    // Default off keeps every other trunk byte-identical.
+    bool kstep_bucket = false;
+    // Generation suppression: sorted token ids banned from greedy picks (the
+    // model card's bad_words_ids constraint: special and codec ids the
+    // reference never emits). Points into the
+    // owning model's config storage, which outlives inference; nullptr/0
+    // disables suppression: no masking branch runs and the graphs keep their
+    // exact historical op sequence. Must point into storage that outlives
+    // inference (the owning model's config).
+    const int32_t* banned_ids = nullptr;
+    size_t n_banned = 0;
+};
+
+// The config fields the decode graphs are shaped by.
+struct QwenLlmDims {
+    uint32_t n_layers = 0, hidden = 0, n_heads = 0, n_kv_heads = 0;
+    uint32_t head_dim = 0, max_cache = 0;
+    float rope_theta = 0.0f, rms_norm_eps = 0.0f;
+};
+
+// One model's binding of the decode stack.
+struct QwenDecodeCtx {
+    const QwenDecodeSpec& spec;
+    const ModelLoader& loader;
+    QwenLlmDims dims;
+};
+
+// Host-side KV mirror (probe path only).
+struct LayerKvCache { std::vector<ggml_bf16_t> k, v; };
+struct LlmState { std::vector<LayerKvCache> layers; int64_t length = 0; };
+// inputs_embeds, [hidden, n_tokens] f32 token-major (column per token).
+struct InputsEmbeds { std::vector<float> data; int64_t n_tokens = 0, width = 0; };
+struct PrefillResult { std::vector<float> logits; int32_t first_token = -1; LlmState state; };
+// Why greedy generation stopped (the S03 termination contract). kEos: a stop
+// token (primary EOS, or the configured secondary) was generated — a truthful
+// completion. kBudgetExhausted: the max_new_tokens budget ran out with no stop
+// token — the ids are a truncation, NOT a completed decode, and callers must
+// not report such output as complete success.
+enum class GenStopReason {
+    kEos,
+    kBudgetExhausted,
+    kCancelled,
+};
+struct GenerateResult {
+    std::vector<int32_t> ids;
+    GenStopReason stop_reason = GenStopReason::kBudgetExhausted;
+    std::vector<float> prefill_logits;
+};
+// greedy_generate controls. Model bundles keep their own GenerateOptions
+// (default max_cache_len differs per model) and convert.
+struct GenerateParams {
+    int32_t max_new_tokens;
+    int32_t max_cache_len;
+    int32_t eos_token_id;
+    // Optional secondary stop id (s1's generation_config stops on BOTH
+    // <|im_end|> and <|endoftext|>). -1 (the default, also when a model
+    // bundle aggregate-initializes only three fields) disables it, keeping
+    // the moss/ark/granite/qwen3 stop behavior byte-identical.
+    int32_t eos2_token_id = -1;
+};
+
+// The ONE stop-token predicate behind every termination decision in
+// greedy_generate — the prefill first token, per-step decode, K-step blocks
+// and the debug/probe path all consult it, so the debug and release paths
+// cannot diverge on termination. The primary EOS always stops; the secondary
+// only when configured (eos2_token_id != -1, a sentinel no argmax in
+// [0, vocab) can ever equal). Pure and inline so the contract is
+// unit-testable without a model.
+inline bool generation_stops_on(int32_t token, const GenerateParams& op) {
+    return token == op.eos_token_id ||
+           (op.eos2_token_id != -1 && token == op.eos2_token_id);
+}
+
+bool llm_prefill(const QwenDecodeCtx& m, const InputsEmbeds& i, int32_t max_cache_len,
+                 PrefillResult& o, std::string& e);
+bool greedy_generate(const QwenDecodeCtx& m, const InputsEmbeds& i, const GenerateParams& op,
+                     GenerateResult& o, std::string& e);
+
+// Opt-in greedy speculative generation. The proposer sees only verified output
+// tokens and may return at most max_k candidate IDs. An empty proposal falls
+// back to one ordinary decode step. The verifier checks all candidates in one
+// causal S-row graph and emits only the accepted prefix plus the target's
+// correction/bonus token. Cancellation is checked before and after a graph;
+// any in-flight tentative output is discarded on cancellation.
+using DraftProposer = std::function<std::vector<int32_t>(const std::vector<int32_t>&, int)>;
+using CancelCheck = std::function<bool()>;
+struct SpeculativeStats {
+    int32_t proposed = 0;
+    int32_t accepted = 0;
+    int32_t verify_calls = 0;
+    int32_t fallback_steps = 0;
+    // Wall times include the real proposer callback and graph readback.
+    // total_ms also includes host acceptance, allocation, and cancellation.
+    double prefill_ms = 0.0;
+    double proposal_ms = 0.0;
+    double verify_ms = 0.0;
+    double fallback_ms = 0.0;
+    double total_ms = 0.0;
+};
+// max_k must be in [1, kMaxSpeculativeK]; invalid configuration returns false
+// with an error rather than clamping.
+constexpr int kMaxSpeculativeK = 16;
+bool speculative_generate(const QwenDecodeCtx& m, const InputsEmbeds& i,
+                          const GenerateParams& op, int max_k,
+                          const DraftProposer& proposer, const CancelCheck& cancelled,
+                          GenerateResult& o, SpeculativeStats& stats, std::string& e);
+// Number of captured per-S prefill graphs for this model (diagnostic + the
+// bounded-LRU regression-test hook). Zero on CPU / before first GPU prefill.
+size_t prefill_replay_cache_size(const ModelLoader& loader);
+
+} // namespace starling::ggml::lib

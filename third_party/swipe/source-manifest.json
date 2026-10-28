@@ -1,0 +1,37 @@
+{
+  "repository": "itsdestin/swipe-keyboard",
+  "revision": "f48099755cd1ebeb3f3a9e40f680a683ccc95b2b",
+  "license": "MIT",
+  "files": [
+    {
+      "path": "src/swipe_net.cpp",
+      "upstream": "engine/src/swipe_net.cpp",
+      "sha256": "ee83775a9505211a08b8120a36472274e2665bd17ae0926e7ce2ea4bfa1c7392"
+    },
+    {
+      "path": "src/swipe_layout.cpp",
+      "upstream": "engine/src/swipe_layout.cpp",
+      "sha256": "d7fbac08e642cec8441dd8060acb14ee3030b0c2c09a1dd8dee0eba0c6919717"
+    },
+    {
+      "path": "src/swipe_beam.cpp",
+      "upstream": "engine/src/swipe_beam.cpp",
+      "sha256": "38bcf031a501e3c5f20b0bc0eeacb82ef141693153bccb6bbe8c8097e7c48776"
+    },
+    {
+      "path": "include/swipekb/swipe_net.hpp",
+      "upstream": "engine/include/swipekb/swipe_net.hpp",
+      "sha256": "53d9bd6a11c68715600a31588a0b046e785f42010e8f4725132bf8bff7ed6161"
+    },
+    {
+      "path": "include/swipekb/swipe_layout.hpp",
+      "upstream": "engine/include/swipekb/swipe_layout.hpp",
+      "sha256": "907135f2e40f55b3f2ba45be18ffcd9a34a54174a6c8c471383ebcb507add97b"
+    },
+    {
+      "path": "include/swipekb/swipe_beam.hpp",
+      "upstream": "engine/include/swipekb/swipe_beam.hpp",
+      "sha256": "081d2bdc01697b87afdfe44a45317cb7cf36d9bc2b5b83925e8d4052f31952d6"
+    }
+  ]
+}

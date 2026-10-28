@@ -1,0 +1,35 @@
+Lip all-in-one offline preview: bundled speech model attribution
+
+The APK includes these unchanged GGUF conversion files. The model weights are
+licensed under Creative Commons Attribution 4.0 International, not Lip's MIT
+source-code license. Full CC BY 4.0 text is included as bark-CC-BY-4.0.txt.
+https://creativecommons.org/licenses/by/4.0/
+
+Underdog Bark 3.0 Clean, by Conway Research:
+https://huggingface.co/ConwayResearch/Underdog-Bark-3.0-Clean
+GGUF Q4 conversion by Maximilian Scholz (scholzmx):
+https://huggingface.co/scholzmx/underdog-bark-3.0-clean-gguf/tree/000c6b353d237ff647644ea2c3beb3910a21215b
+File: underdog-bark-3.0-clean-q4pw.gguf
+Bytes: 364020736
+SHA-256: d1eec8fc4b9aab0fb6a83ddba6a56a0f93b094d350d069f885a843e31eaee0cf
+
+Underdog Bark 3.0 Pro, by Conway Research:
+https://huggingface.co/ConwayResearch/Underdog-Bark-3.0-Pro
+GGUF Q4 conversion by Maximilian Scholz (scholzmx):
+https://huggingface.co/scholzmx/underdog-bark-3.0-pro-gguf/tree/6b96418d56b68646807cdc71ee4c0a4222af2d0a
+File: underdog-bark-3.0-pro-q4pw.gguf
+Bytes: 364020736
+SHA-256: 2370bf360720b322a54bdc4cfe6198713b347e79ebec7853956ade93618d5986
+
+The Bark family derives from NVIDIA Parakeet TDT 0.6B v3, copyright NVIDIA,
+and Moondream parakeet-ultra, copyright Moondream, under CC BY 4.0:
+https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3
+https://huggingface.co/moondream/parakeet-ultra
+Conway Research post-trained/compressed the models; Scholz converted/quantized
+them to GGUF. Lip packages these existing derivatives unchanged, integrates a
+modified Starling/GGML runtime, and does not claim the publisher's BF16 benchmark
+results apply to this quantized CPU preview. Speech recognition is English-only.
+
+The separate Starling, GGML, neural keyboard/data and application licenses are
+retained alongside these notices. No Google/Gboard or WeChat proprietary artwork
+or models are included as part of this speech-model bundle.

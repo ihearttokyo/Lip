@@ -19,6 +19,17 @@ jobs:
         run: echo '81a82aaea5abcc8ff68b3dfcb58b3c3c429378efd98e7433460610fecd7ae45f  gradle/wrapper/gradle-wrapper.jar' | sha256sum --check
       - name: Install pinned SDK components
         run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ''platforms;android-36'' ''build-tools;36.0.0'''
+      - name: Install pinned CMake for the native ARM64 build
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/cmake-4.1.2-linux-x86_64.tar.gz"
+          curl --fail --location --retry 2 https://github.com/Kitware/CMake/releases/download/v4.1.2/cmake-4.1.2-linux-x86_64.tar.gz --output "$archive"
+          echo "773cc679c3a7395413bd096523f8e5d6c39f8718af4e12eb4e4195f72f35e4ab  $archive" | sha256sum --check
+          mkdir -p "$RUNNER_TEMP/lip-cmake"
+          tar -xzf "$archive" -C "$RUNNER_TEMP/lip-cmake" --strip-components=1
+          "$RUNNER_TEMP/lip-cmake/bin/cmake" --version
+          test ! -e local.properties
+          printf 'cmake.dir=%s\n' "$RUNNER_TEMP/lip-cmake" > local.properties
       - name: Unit tests, lint, and build
         run: ./gradlew testDebugUnitTest lintDebug assembleDebug --no-daemon
       - name: Landing-page checks
