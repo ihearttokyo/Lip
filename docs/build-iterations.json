@@ -82,6 +82,11 @@
       "ordinal": 10,
       "candidate": "personal-neural-swipe",
       "status": "reserved"
+    },
+    {
+      "ordinal": 11,
+      "candidate": "owned-text-undo-redo",
+      "status": "reserved"
     }
   ]
 }
