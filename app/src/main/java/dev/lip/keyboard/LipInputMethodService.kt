@@ -410,7 +410,10 @@ class LipInputMethodService : InputMethodService() {
     private val clipboardListener=android.content.ClipboardManager.OnPrimaryClipChangedListener{captureClipboard()}
     private val historyScreenReceiver=object:android.content.BroadcastReceiver(){
         override fun onReceive(context:android.content.Context?,intent:Intent?){
-            if(intent?.action==Intent.ACTION_SCREEN_OFF){clearOwnedEdits();revokePersonalAccess();stopSwipe()}
+            if(intent?.action==Intent.ACTION_SCREEN_OFF){
+                closeTextEditing();if(page==KeyboardPage.TEXT_EDITING){page=KeyboardPage.LETTERS;renderKeys();updateState()}
+                clearOwnedEdits();revokePersonalAccess();stopSwipe()
+            }
             updateHistoryEligibility();history?.revalidateTime()
         }
     }
@@ -945,6 +948,7 @@ class LipInputMethodService : InputMethodService() {
         updateHistoryEligibility()
     }
     override fun onDestroy() {
+        closeTextEditing()
         clearOwnedEdits()
         typingPreferences.unregisterOnSharedPreferenceChangeListener(vocabularyChanges)
         swipeVocabulary.unobserve(vocabularyMutation);revokePersonalAccess()
@@ -964,6 +968,7 @@ class LipInputMethodService : InputMethodService() {
     }
     override fun onEvaluateFullscreenMode() = false
     override fun onStartInput(attribute: EditorInfo, restarting: Boolean) {
+        closeTextEditing()
         clearOwnedEdits()
         revokePersonalAccess()
         agentController?.bindUi(Any())
@@ -981,6 +986,7 @@ class LipInputMethodService : InputMethodService() {
         loadTyping();renderKeys(); updateState()
     }
     override fun onFinishInput() {
+        closeTextEditing()
         clearOwnedEdits()
         revokePersonalAccess()
         agentController?.bindUi(null)
@@ -1004,9 +1010,10 @@ class LipInputMethodService : InputMethodService() {
         GlassMaterial.refresh();clipboardWindowVisible=true
         main.post{if(!destroyed)updateHistoryEligibility()}
         if(page==KeyboardPage.STICKERS){loadStickers(StickerBrowserPage.Library())}
-        else if(page==KeyboardPage.CLIPBOARD||page==KeyboardPage.GIF||gifKeysNeedRebind||emojiKeysNeedRebind||page==KeyboardPage.EMOJI){renderKeys();updateState()}else keys?.invalidate()
+        else if(page==KeyboardPage.CLIPBOARD||page==KeyboardPage.TEXT_EDITING||page==KeyboardPage.GIF||gifKeysNeedRebind||emojiKeysNeedRebind||page==KeyboardPage.EMOJI){renderKeys();updateState()}else keys?.invalidate()
     }
     override fun onFinishInputView(finishingInput: Boolean) {
+        closeTextEditing()
         clearOwnedEdits()
         revokePersonalAccess()
         agentController?.bindUi(null)
@@ -1021,6 +1028,7 @@ class LipInputMethodService : InputMethodService() {
         wordDeleteTransaction?.selectionChanged(newSelStart,newSelEnd)
         val compositionChanged=composingStart!=candidatesStart||composingEnd!=candidatesEnd
         editSelectionObservation++;selectionStart=newSelStart;selectionEnd=newSelEnd
+        if(oldSelStart!=newSelStart||oldSelEnd!=newSelEnd||compositionChanged)textEditingOwner.cancel()
         if(oldSelStart!=newSelStart||oldSelEnd!=newSelEnd){
             val owned=editConnection?.takeIf{it===currentInputConnection}
             editTransactions.selection(newSelStart,newSelEnd,owned?.let{editPort(it,allowComposition=true)})
@@ -1055,7 +1063,7 @@ class LipInputMethodService : InputMethodService() {
             // stageNextWords requires the EXISTING exact current ticket; never refresh an old span on context equality.
         }
         if(page==KeyboardPage.STICKERS&&(compositionChanged||oldSelStart!=newSelStart||oldSelEnd!=newSelEnd)){renderKeys();updateState()}
-        if(page==KeyboardPage.CLIPBOARD)updateState()
+        if(page==KeyboardPage.CLIPBOARD||page==KeyboardPage.TEXT_EDITING)updateState()
     }
     private fun policy() = info?.let { ImeFieldPolicy.forInput(it.inputType, it.imeOptions) }
         ?: ImeFieldPolicy.forInput(0, 0)
@@ -1065,6 +1073,7 @@ class LipInputMethodService : InputMethodService() {
         KeyboardPresentation.rowHeight(availableWidth.takeIf{w->w>0}?:it.widthPixels,it.heightPixels,it.density,landscape(),presentation.height)
     }
     override fun onCreateInputView(): View {
+        closeTextEditing()
         editPopup?.dismiss();editPopup=null
         revokePersonalAccess() // A newly-created input view never inherits a prior context token.
         agentController?.bindUi(Any())
@@ -1149,9 +1158,112 @@ class LipInputMethodService : InputMethodService() {
         main.post { if (presentationFrame===frame && frame.isAttachedToWindow && personalSwipeEligible()) loadTyping() }
         return frame
     }
+    private val textEditingOwner=TextEditingOwner()
+    private var textEditingPanel:TextEditingPanel?=null
+    private var textEditingToken:Any=Any()
+    private var textSelecting=false
+    private var textEditingMessage="Tap-only editing requests; host completion is not verified. No hold repeat."
+    private fun textEditingState():TextEditingState {
+        val visible=!destroyed&&isInputViewShown
+        val interactive=visible&&getSystemService(android.os.PowerManager::class.java).isInteractive
+        val unlocked=visible&&!getSystemService(android.app.KeyguardManager::class.java).isDeviceLocked
+        return TextEditingState(info?.inputType?:0,info?.imeOptions?:0,selectionStart,selectionEnd,
+            currentInputConnection!=null,visible,dictation.busy||voiceTicket!=null||swipePending||gifOwner.current!=null||stickerAttachment?.busy==true,
+            composingStart>=0||composingEnd>=0||correction!=null,interactive,unlocked)
+    }
+    private fun textEditingContext():TextEditingContext {
+        val state=textEditingState() // Any external platform metadata queries precede the final CPU snapshot.
+        return TextEditingContext(currentInputConnection,session.manualGeneration(),textEditingToken,
+            info?.fieldId?:0,info?.packageName,state)
+    }
+    private fun closeTextEditing(){
+        textEditingOwner.cancel();textEditingPanel?.close();textEditingPanel=null;textEditingToken=Any();textSelecting=false
+        textEditingMessage="Tap-only editing requests; host completion is not verified. No hold repeat."
+    }
+    private fun openTextEditing(){
+        if(!TextEditingActions.allowed(textEditingState())||info?.packageName.isNullOrBlank()||session.editorGeneration()==null)return
+        cancelKeyGestures();stopRepeat();stopSwipe();clearEmoji();clearGifSearch()
+        page=KeyboardPage.TEXT_EDITING;renderKeys();updateState()
+    }
+    private fun updateTextEditing(){
+        val panel=textEditingPanel?:return
+        val state=textEditingState()
+        if(!TextEditingActions.allowed(state)){textEditingOwner.cancel();textSelecting=false}
+        panel.update(state,textSelecting,if(TextEditingActions.allowed(state))textEditingMessage else "Editing unavailable in this field/context. Return to letters to type normally.")
+    }
+    private fun performTextEditing(ticket:TextEditingOwner.Ticket){
+        val panel=textEditingPanel?:return
+        if(page!=KeyboardPage.TEXT_EDITING||!panel.isAttachedToWindow||!panel.isOpen)return
+        val interaction=panel.interactionSnapshot()?:return // Before external reads/cleanup or any host key.
+        val captured=textEditingContext()
+        val claim=textEditingOwner.claim(ticket,captured,SystemClock.uptimeMillis())?:run{
+            textEditingMessage="Editing request refused: context changed. Nothing retried.";updateTextEditing();return
+        }
+        if(claim.action==TextEditingAction.SELECT_MODE){
+            if(!textEditingOwner.admit(claim,textEditingPanel===panel&&panel.ownsInteraction(interaction)))return
+            textSelecting=!claim.selecting;textEditingOwner.cancel()
+            textEditingMessage=if(textSelecting)"Selection mode on: arrows/endpoints request extension. Host behavior may vary." else "Selection mode off. Tap-only cursor requests."
+            updateTextEditing();return
+        }
+        val connection=claim.connection as? InputConnection?:return
+        val command=TextEditingActions.command(claim.action,claim.selecting)?:return
+        editBarrier() // Cleanup can reenter; it is not authority to follow a new editor/caret.
+        val downTime=SystemClock.uptimeMillis()
+        var continuedContext:TextEditingContext?=null
+        val result=TextEditingDispatch.execute(command,object:TextEditingDispatch.Port{
+            override fun chordedModifiers()=android.view.KeyCharacterMap.load(android.view.KeyCharacterMap.VIRTUAL_KEYBOARD).modifierBehavior==android.view.KeyCharacterMap.MODIFIER_BEHAVIOR_CHORDED
+            override fun continueKeys():Boolean {
+                val fresh=textEditingContext()
+                return page==KeyboardPage.TEXT_EDITING&&textEditingPanel===panel&&panel.isAttachedToWindow&&panel.ownsInteraction(interaction)&&continuedContext?.same(fresh)==true
+            }
+            override fun menu(id:Int)=connection.performContextMenuAction(id)
+            override fun key(down:Boolean,code:Int,modifiers:Int):Boolean {
+                val event=KeyEvent(downTime,SystemClock.uptimeMillis(),if(down)KeyEvent.ACTION_DOWN else KeyEvent.ACTION_UP,
+                    code,0,modifiers,android.view.KeyCharacterMap.VIRTUAL_KEYBOARD,0,
+                    KeyEvent.FLAG_SOFT_KEYBOARD or KeyEvent.FLAG_KEEP_TOUCH_MODE,android.view.InputDevice.SOURCE_KEYBOARD)
+                return connection.sendKeyEvent(event) // Captured OLD connection, including UP after focus change/throw.
+            }
+        }){
+            val fresh=textEditingContext() // External metadata checks OUTSIDE the owner monitor.
+            val allowed=page==KeyboardPage.TEXT_EDITING&&textEditingPanel===panel&&panel.isAttachedToWindow&&panel.ownsInteraction(interaction)&&captured.same(fresh)
+            if(!textEditingOwner.admit(claim,allowed))false
+            else {
+                session.editorChanged() // Deliberate self revision only AFTER exact pre-cleanup revision matched.
+                // CPU-only baseline: a modifier callback must not follow a changed editor/caret/panel.
+                continuedContext=TextEditingContext(connection,session.manualGeneration(),captured.panel,captured.fieldId,captured.packageName,captured.state)
+                true
+            }
+        }
+        textEditingMessage=when(result){
+            TextEditingOutcome.DISPATCHED->"Editing command sent to editor; completion not verified."
+            TextEditingOutcome.UNCONFIRMED->"Editing request unconfirmed; check the editor. No retry or fallback."
+            TextEditingOutcome.REFUSED->"Editing request refused before dispatch; context or modifier capability unavailable. No command sent."
+        }
+        updateTextEditing()
+    }
+    private fun renderTextEditing(container:LinearLayout){
+        val token=textEditingToken
+        lateinit var panel:TextEditingPanel
+        panel=TextEditingPanel(this,rowHeight()*5,
+            {action->if(page==KeyboardPage.TEXT_EDITING&&textEditingPanel===panel&&textEditingToken===token)
+                textEditingOwner.begin(action,textSelecting,textEditingContext(),SystemClock.uptimeMillis())else null},
+            ::performTextEditing,textEditingOwner::cancel,
+            {page==KeyboardPage.TEXT_EDITING&&textEditingPanel===panel&&textEditingToken===token&&TextEditingActions.allowed(textEditingState())},
+            {if(page==KeyboardPage.TEXT_EDITING&&textEditingPanel===panel){page=KeyboardPage.LETTERS;renderKeys();updateState()}},
+            {if(textEditingPanel===panel&&textEditingToken===token)textEditingOwner.closePanel(token)})
+        textEditingPanel=panel;container.addView(panel);updateTextEditing()
+    }
     private fun showKeyboardMenu(anchor: View) {
         val menu = android.widget.PopupMenu(this, anchor)
         val browserToken=keyboardRenderToken
+        menu.menu.add("Text editing").apply{
+            contentDescription="Open text editing"
+            isEnabled=TextEditingActions.allowed(textEditingState())&&!info?.packageName.isNullOrBlank()
+            setOnMenuItemClickListener{
+                if(browserToken===keyboardRenderToken&&anchor.isAttachedToWindow&&isInputViewShown)openTextEditing()
+                true
+            }
+        }
         if(StickerBrowserFeature.enabled(this))menu.menu.add("Local sticker packs").setOnMenuItemClickListener {
             if(browserToken===keyboardRenderToken&&anchor.isAttachedToWindow&&isInputViewShown)openStickers()
             true
@@ -1421,6 +1533,7 @@ class LipInputMethodService : InputMethodService() {
                 expectSelection=state.expectedSelection,automaticAllowed=state.automaticAllowed,expectedVocabulary=vocabularyEpoch)
     }
     private fun renderKeys() {
+        closeTextEditing()
         cancelKeyGestures()
         closeClipboard();stopRepeat();stopSwipe();gifPanel?.close();gifPanel=null;gifKeysNeedRebind=false
         emojiPanel?.close();emojiPanel=null;emojiPanelToken=Any();keyboardRenderToken=Any();emojiKeysNeedRebind=false
@@ -1428,6 +1541,7 @@ class LipInputMethodService : InputMethodService() {
         if(page!=KeyboardPage.STICKERS)invalidateStickers()
         val container=keys?:return;container.removeAllViews()
         if(page==KeyboardPage.CLIPBOARD){renderClipboard(container);return}
+        if(page==KeyboardPage.TEXT_EDITING){renderTextEditing(container);return}
         if(page==KeyboardPage.STICKERS){
             if(!StickerBrowserFeature.enabled(this)){page=KeyboardPage.LETTERS;invalidateStickers();renderKeys();return}
             stickerPanel=StickerPanel(this,rowHeight()*5,stickerState,stickerScale,
@@ -1728,6 +1842,7 @@ class LipInputMethodService : InputMethodService() {
     }
     private fun updateState() {
         refreshAgentShortcut()
+        updateTextEditing()
         swipeFrame?.setInputPaused(swipePending)
         swipeOverlay?.apply{text=swipeMessage?.let{"$it · Tap to cancel"}?:"";contentDescription=text;visibility=if(swipeMessage!=null)View.VISIBLE else View.GONE}
         renderCandidates()
@@ -1764,6 +1879,7 @@ class LipInputMethodService : InputMethodService() {
         if (!dictation.busy) voiceTicket = null
     }
     override fun onWindowHidden() {
+        closeTextEditing()
         clearOwnedEdits()
         revokePersonalAccess()
         agentController?.bindUi(null)
