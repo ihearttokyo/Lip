@@ -87,3 +87,12 @@ model and base asset hashes/licence bindings were independently checked unchange
 Full paired human accuracy, physical latency/energy, general editor compatibility,
 reliable initial activation, source-matched release/update and independent9.2
 acceptance still require their prescribed evidence. No numerical score is assigned.
+
+Final source reservation **v0.010/50007** was built/tested and installed as an
+unbundled debug update on that same disposable emulator. The two approved words
+survived the update; after explicit IME rebind the same five named real-touch
+controls passed on v0.010. This does not qualify automatic activation/update,
+the public preview signing identity, physical phone or the retained first-show
+failure. Independent v0.010 APK copies/checksums were frozen before installation.
+Only the newly owned headless emulator was stopped; the older emulator/phone
+and installed Mac app remained untouched. No installer/release was published.
