@@ -203,3 +203,31 @@ See [integration contract](../docs/MAC-HISTORY-INTEGRATION-2026-10-27.md) and
 
 ### Recovery audio in development
 Failed or input-limited recordings can be preserved in a private local recovery directory. Lip does not encrypt these audio files or upload them. Retention applies even if transcript history is off; manually remove recovered audio when no longer needed. Cancel deletes only the current recording, not prior recovered files. Folder/file permissions and system-backup exclusion are set, but external backup/sync software is outside Lip’s control.
+
+## Portable vocabulary (source candidate, not release acceptance)
+
+Settings → **Portable vocabulary…** opens explicit JSON import/preview/merge and
+export. Use the same `lip.learned-words` v1 file as Android; review names/phrases
+before confirming. No email, contacts or WhatsApp scan occurs. Coarse provenance
+and maximum weights are retained; reimport does not inflate or duplicate entries.
+
+The dedicated local AES-GCM store is private, excluded from automatic backup,
+and uses a separate device-only nonsynchronizing Keychain key. Missing ciphertext
+reads do not query Keychain. Corrupt/locked/lost-key data is preserved, never
+replaced with an invented key or plaintext fallback. Actual production Keychain
+access and GUI behavior have not yet been qualified.
+
+Supported imported English words are ignored by spelling checks **inside Lip's
+Review text views only**, using document-local spelling tags. Lip does not learn
+words into the system/global dictionary, alter another app's spellchecking,
+rewrite the transcript or bias Bark. Other languages/phrases remain portable
+stored data, not a promise of speech support or external-editor acceptance.
+
+Export produces **plaintext JSON**, deliberately to a new selected file. It can
+contain private names; it is not an encrypted cloud backup or a secret detector.
+Existing files/symlinks are refused; failure may leave a partial new file, with no
+automatic retry. No automatic Drive upload/sync or provider compatibility claim.
+
+Unicode16 behavior is bundled and hash-pinned rather than inferred from newer OS
+tables. Source/format details and remaining gates:
+[portable Mac vocabulary](../docs/PORTABLE-VOCABULARY-MACOS.md).

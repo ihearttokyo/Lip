@@ -1,8 +1,7 @@
 # Portable learned-word format, version1 candidate
 
-The Android source now includes an explicit JSON import/preview/merge and export
-path in Dictionary. This is not a trained model, automatic history scan, macOS
-importer or9.2 acceptance. No private histories were read during implementation.
+The Android and macOS sources now include explicit JSON import/preview/merge and
+export paths. This is not a trained model, automatic history scan or9.2 acceptance. No private histories were read during implementation.
 The example contains synthetic/public-language test terms only.
 
 `schema-v1.json` documents structure. The reference runtime codec additionally
@@ -47,7 +46,7 @@ It never opens Gmail/Outlook/WhatsApp or sends data anywhere. New output is writ
 with owner-only permissions and exclusive same-directory publication; existing
 backups/symlinks are never overwritten. A provider lacking hard links is refused,
 not claimed compatible. Android source uses an explicitly selected DocumentProvider; the CLI itself is
-not proof of Android or Google Drive support. macOS UI integration and physical
+not proof of Android or Google Drive support. macOS source UI is implemented, but actual Mac GUI/Keychain/editor and physical
 Google Drive backup/restore qualification remain open.
 
 ## Pinned Unicode compatibility
@@ -94,3 +93,20 @@ cloud storage, or establish Google Drive compatibility. The UI distinguishes the
 portable list from the retained legacy manual dictionary. Keep a private backup;
 preview changes before merging a restore. Local JVM parser/merge tests are not
 real Android ICU, DocumentProvider, Keystore, editor or physical-device evidence.
+
+## macOS consumer and fixed Unicode tables
+
+[macOS source](../../PORTABLE-VOCABULARY-MACOS.md) adds encrypted local merge and
+exclusive-new plaintext export of the same format. Its Review text views accept
+supported English words using private spelling-document tags, not the system
+learned dictionary or another app's editor. It does not rewrite or bias Bark.
+
+The resident macOS26 ICU reports Unicode17, so its tables are **not** labelled16.
+A small pinned resource derived from resident CPython3.14/UCD16 implements exact
+canonical decomposition/order/composition (including Hangul), full casefold and
+category ranges. The Python reference remains the oracle. See bundled provenance,
+[Unicode license](https://www.unicode.org/license.txt) and
+[Python license](https://docs.python.org/3.14/license.html); the original notices
+accompany the app resource. This is not a Python runtime or a speech-model bundle.
+The Android adapter still checks its real ICU16 contract; future Android Unicode
+versions require pinned-adapter support rather than silent reinterpretation.

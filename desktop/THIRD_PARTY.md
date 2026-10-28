@@ -28,3 +28,17 @@ Pinned revision: 73b0c0da665d29ea0332e9f0d32da8e26a4cdb38.
 The conversion and its NOTICE are downloaded separately. It retains model-native
 filler/restart/repetition removal; Lip adds no extra model or semantic editor.
 Component/vocabulary selection, model installation and recording integration are Lip changes.
+
+## Pinned portable-vocabulary Unicode data
+
+`Sources/LipLocal/VocabularyData/` includes selected Unicode16.0.0 tables derived
+locally from resident CPython3.14.6, not a Python runtime. The original Unicode
+License V3 and CPython license accompany the generated resource. See its
+`PROVENANCE.json` for generator/input versions, exact hashes and the bounded
+transformations. No Unicode17/Foundation normalization is represented as16.
+
+Regenerate/check with resident CPython3.14 + UCD16 only:
+`python3.14 tools/learned_words/generate_unicode16.py` (from repository root;
+read-only default). No bootstrap or network/model download occurs. The larger
+synthetic differential corpus is test data, not bundled runtime content. Data
+and algorithm checks are not installed-app or spelling-provider acceptance.

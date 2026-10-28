@@ -3,6 +3,7 @@ import ApplicationServices
 
 @MainActor final class SettingsWindowController: NSWindowController {
     private let settings: CleanupSettings
+    private var vocabularyController: VocabularyWindowController?
     private let changed: () -> Void
     private let mode = NSPopUpButton()
     private let model = NSPopUpButton()
@@ -23,11 +24,11 @@ import ApplicationServices
         window.title = "Lip Settings · Bark Native Features"; window.isReleasedWhenClosed = false
         super.init(window: window)
         // A fixed document in a scroll view avoids content-view/stack sizing cycles.
-        let document = NSView(frame: NSRect(x: 0, y: 0, width: 580, height: 1080))
+        let document = NSView(frame: NSRect(x: 0, y: 0, width: 580, height: 1160))
         let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: 580, height: 620))
         scroll.hasVerticalScroller = true; scroll.documentView = document
         window.contentView = scroll
-        var top: CGFloat = 1058
+        var top: CGFloat = 1138
         func place(_ view: NSView, _ height: CGFloat) {
             view.frame = NSRect(x: 24, y: top - height, width: 526, height: height)
             document.addSubview(view); top -= height + 10
@@ -65,6 +66,8 @@ import ApplicationServices
         insert.target = self; insert.action = #selector(update); place(insert, 24)
         label("Insertion uses no clipboard or paste shortcut. It requires Accessibility and a supported unchanged field/caret; otherwise the transcript stays in Review. No Enter/Send action is generated.", height: 54)
         place(NSButton(title: "Enable Accessibility for direct insertion…", target: self, action: #selector(requestAccessibility)), 30)
+        place(NSButton(title: "Portable vocabulary: import / export…", target: self, action: #selector(openVocabulary)), 30)
+        label("Prepared JSON only. Encrypted locally; affects Lip Review spell checking, not speech recognition or other apps. Export is plaintext and explicit.", height: 40)
         let options = settings.options
         mode.selectItem(at: CleanupMode.allCases.firstIndex(of: options.mode)!)
         capital.state = options.capitalizeFirstWord ? .on : .off
@@ -101,6 +104,10 @@ import ApplicationServices
             self?.download = nil; self?.install.title = "Download / verify selected model"; self?.model.isEnabled = true
         }
     }
+    @objc private func openVocabulary() {
+        if vocabularyController == nil { vocabularyController = VocabularyWindowController() }
+        vocabularyController?.showWindow(nil)
+    }
     @objc private func requestAccessibility() {
         _ = AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary)
     }
@@ -124,6 +131,7 @@ import ApplicationServices
     private let processed = NSTextView()
     private let raw = NSTextView()
     private let model = NSTextView()
+    private var vocabularySpelling: VocabularySpellingBinding?
     private let note = NSTextField(wrappingLabelWithString: "")
     init() {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 680, height: 470),
@@ -152,8 +160,12 @@ import ApplicationServices
             let tab = NSTabViewItem(identifier: title); tab.label = title; tab.view = scroll; tabs.addTabViewItem(tab)
         }
         root.addSubview(tabs); window.contentView = root
+        vocabularySpelling = VocabularySpellingBinding(views: [processed, raw])
     }
     required init?(coder: NSCoder) { fatalError("Not supported") }
+    override func showWindow(_ sender: Any?) {
+        super.showWindow(sender); vocabularySpelling?.refresh()
+    }
     func update(raw: String, processed: String, note: String, modelDetails: String = "") {
         self.raw.string = raw; self.processed.string = processed; self.note.stringValue = note
         self.model.string = modelDetails.isEmpty ? "No model timing details for this transcript." : modelDetails
