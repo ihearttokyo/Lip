@@ -20,9 +20,25 @@ data class Transcript(
     val modelDetails: String? = null,
 )
 
+/** Missing portable data must be visible to the consumer: suggestions/manual
+ * remain usable, but automatic correction MUST be disabled while unavailable.
+ */
+data class TypingDictionarySnapshot(val words: List<String>, val portableAvailable: Boolean) {
+    override fun toString() = "TypingDictionarySnapshot(words=${words.size}, portableAvailable=$portableAvailable)"
+}
+internal fun typingDictionarySnapshotOf(manual: List<String>, portable: List<dev.lip.vocabulary.PortableVocabulary.Entry>?): TypingDictionarySnapshot {
+    val words = LinkedHashMap<String, String>()
+    manual.forEach { words.putIfAbsent(it.lowercase(java.util.Locale.ROOT), it) }
+    portable?.filter(dev.lip.vocabulary.PortableVocabularyStore::activeEnglish)?.forEach {
+        words.putIfAbsent(it.term.lowercase(java.util.Locale.ROOT), it.term)
+    }
+    return TypingDictionarySnapshot(words.values.toList(), portable != null)
+}
+
 class AppStore(context: Context) {
     val settings = context.getSharedPreferences("preferences", Context.MODE_PRIVATE)
     private val secure = SecureStore(context)
+    private val portableWords = dev.lip.vocabulary.PortableVocabularyStore(context)
     private val historyRecords = HistoryRecords(secure::read, secure::write, { secure.names("history-") }, secure::delete, secure::writeAdmitted, usage = { secure.historyUsage() })
     private val historyConsent = historyConsentFor(settings)
     fun historyReadiness() = historyConsent.snapshot()
@@ -84,7 +100,25 @@ class AppStore(context: Context) {
         }
     @Synchronized fun saveDictionary(words: List<String>) {
         secure.write("dictionary", JSONArray(words.map(String::trim).filter(String::isNotEmpty).distinct()).toString())
+        settings.edit().putString("dictionaryRevision", UUID.randomUUID().toString()).apply()
     }
+    fun portableVocabularyEntries() = portableWords.snapshot().entries
+    fun previewPortableVocabulary(incoming: List<dev.lip.vocabulary.PortableVocabulary.Entry>) = portableWords.preview(incoming)
+    fun mergePortableVocabulary(incoming: List<dev.lip.vocabulary.PortableVocabulary.Entry>, admit: () -> Unit): dev.lip.vocabulary.PortableVocabularyStore.MergeResult {
+        val result = portableWords.merge(incoming, admit)
+        if (result.changed) settings.edit().putString("portableVocabularyRevision", result.revision).apply()
+        return result
+    }
+    fun exportPortableVocabulary(): ByteArray = portableWords.export()
+    /** Manual spelling wins; portable phrases/other languages remain stored but
+     * are not advertised as active English keyboard/speech-model support.
+     */
+    fun typingDictionarySnapshot(): TypingDictionarySnapshot {
+        val manual = dictionary() // Legacy-store failure remains explicit, not silently discarded.
+        val portable = runCatching { portableVocabularyEntries() }.getOrNull()
+        return typingDictionarySnapshotOf(manual, portable)
+    }
+    fun typingDictionary(): List<String> = typingDictionarySnapshot().words
     fun historyPage(query: String = "", after: String? = null, limit: Int = 20): HistoryPage =
         historyRecords.page(query, after, limit)
     fun save(entry: Transcript, ticket: HistoryConsentTicket?): Boolean {

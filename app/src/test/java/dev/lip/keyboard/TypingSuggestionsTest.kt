@@ -33,4 +33,16 @@ class TypingSuggestionsTest{
         assertTrue(TypingPolicy.forInput(0x240a1,0).suggest)
     }
     @Test fun fieldPolicies(){for(type in listOf(0x81,0x91,0xe1,0x21,0xd1,0x11,2,3,4,0x80001)){assertFalse(TypingPolicy.forInput(type,0).suggest)};assertFalse(TypingPolicy.forInput(1,0x1000000).suggest);assertTrue(TypingPolicy.forInput(1,0).automatic);assertTrue(TypingPolicy.forInput(0x80a1,0).automatic);assertFalse(TypingPolicy.forInput(0xa1,0).automatic);assertTrue(TypingPolicy.forInput(0xa1,0).suggest);assertFalse(TypingPolicy.forInput(0x10001,0).suggest);assertTrue(TypingPolicy.forInput(0x61,0).suggest);assertFalse(TypingPolicy.forInput(0x61,0).automatic)}
+    @Test fun portableWordsBeyondLegacy200AreSuggestedAndProtected(){
+        val saved=(0 until 1000).map{n->"Name"+('a'+n/676)+('a'+n/26%26)+('a'+n%26)}+"Jaredium"
+        val personal=TypingSuggestions(listOf(SwipeLexeme("stadium",255,"stadium",false)),saved)
+        assertTrue(personal.suggest("jare").choices.contains("Jaredium"))
+        assertNull(personal.suggest("jaredium").automatic)
+    }
+    @Test fun portablePrefixUsesBoundedIndexAndPreservesFirstApprovedSpelling(){
+        val personal=TypingSuggestions(emptyList(),listOf("Jaredium","JAREDIUM","Jaredite","Jaredian"))
+        assertEquals(listOf("jared","Jaredian","Jaredite"),personal.suggest("jared").choices)
+        assertTrue(personal.suggest("jaredi").choices.contains("Jaredian"))
+        assertTrue(personal.suggest("jarediu").choices.contains("Jaredium"))
+    }
 }

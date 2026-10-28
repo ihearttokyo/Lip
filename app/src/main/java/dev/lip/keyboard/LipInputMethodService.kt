@@ -627,6 +627,12 @@ class LipInputMethodService : InputMethodService() {
         }
     }
 
+    private val typingPreferences by lazy { getSharedPreferences("preferences", android.content.Context.MODE_PRIVATE) }
+    private val vocabularyChanges=android.content.SharedPreferences.OnSharedPreferenceChangeListener{_,key->
+        if(key in setOf("portableVocabularyRevision","dictionaryRevision","typingSuggestions","typingAutocorrect")){
+            main.post{if(!destroyed&&session.editorGeneration()!=null)loadTyping()}
+        }
+    }
     private var typingEngine:TypingSuggestions?=null
     private var typingAutomatic=false
     private var typingLoad:Any?=null
@@ -635,13 +641,19 @@ class LipInputMethodService : InputMethodService() {
     private fun loadTyping(){
         val epoch=session.editorGeneration()?:return
         val load=Any();typingLoad=load;typingEngine=null;nextWordEngine=null;typingAutomatic=false;typingWorker.queue.clear()
+        // Do not schedule personal-vocabulary reads from protected/no-learning fields.
+        if(info?.let{TypingPolicy.forInput(it.inputType,it.imeOptions).suggest}!=true)return
         try{typingWorker.execute{
             var next:NextWordSuggestions?=null
             val loaded=runCatching{
                 val store=dev.lip.AppStore(applicationContext)
                 if(!store.typingSuggestions)null else {
                     next=runCatching{NextWordAssets.load(applicationContext)}.getOrNull()
-                    TypingSuggestions(SwipeAssets.dictionary(applicationContext).entries,store.dictionary()) to store.typingAutocorrect
+                    val personal=store.typingDictionarySnapshot()
+                    // Missing/corrupt/unsupported portable protection must not
+                    // disable ordinary suggestions, nor enable unsafe autocorrect.
+                    TypingSuggestions(SwipeAssets.dictionary(applicationContext).entries,personal.words) to
+                        (store.typingAutocorrect&&personal.portableAvailable)
                 }
             }
             main.post{
@@ -735,6 +747,7 @@ class LipInputMethodService : InputMethodService() {
 
     override fun onCreate() {
         super.onCreate()
+        typingPreferences.registerOnSharedPreferenceChangeListener(vocabularyChanges)
         debuggable=applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE!=0
         if(debuggable)debugInstance=java.lang.ref.WeakReference(this)
         agentController = dev.lip.agent.AgentShortcutController(this, dictation::currentCompletedForAgent,
@@ -750,6 +763,7 @@ class LipInputMethodService : InputMethodService() {
         updateHistoryEligibility()
     }
     override fun onDestroy() {
+        typingPreferences.unregisterOnSharedPreferenceChangeListener(vocabularyChanges)
         dictation.unobserveCompletedForAgent(agentResultObserver)
         agentController?.close(); agentController = null; agentSlot = null; agentFixtureAdapter = null
         cancelKeyGestures()
@@ -792,6 +806,9 @@ class LipInputMethodService : InputMethodService() {
     }
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info,restarting)
+        // Re-read a durable vocabulary after returning from Settings/import, even
+        // when the host retains the same InputConnection/editor generation.
+        loadTyping()
         agentController?.bindUi(Any()); refreshAgentShortcut()
         if(presentationStore.load()!=presentation)applyPresentation()
         stickerScale=stickerPreferences.load()

@@ -18,7 +18,13 @@ data class TypingPolicy(val suggest:Boolean,val automatic:Boolean){
 class TypingSuggestions(entries:List<SwipeLexeme>,personal:List<String>){
     private val words=entries.filterNot{it.offensive}.associateBy{it.word}
     private val prefixes=TypingPrefixIndex(words.values.toList())
-    private val saved=personal.take(200).filter{it.length in 1..48&&word.matches(it)}.associateBy{it.lowercase(Locale.ROOT)}
+    // Portable vocabulary has up to100,000 entries, in addition to the legacy
+    // manual list. Index once on the worker; never scan that list per keypress.
+    private val saved=buildMap<String,String>{
+        require(personal.size<=100_200)
+        personal.filter{it.length in 1..48&&word.matches(it)}.forEach{putIfAbsent(it.lowercase(Locale.ROOT),it)}
+    }
+    private val savedPrefixes=TypingPrefixIndex(saved.map{(key,display)->SwipeLexeme(key,300,display,false)})
     companion object{private val word=Regex("[A-Za-z]+(?:'[A-Za-z]+)*")}
     fun suggest(input:String):TypingChoices{
         if(input.length !in 1..48||!word.matches(input))return TypingChoices(input,listOf(input),null)
@@ -36,7 +42,7 @@ class TypingSuggestions(entries:List<SwipeLexeme>,personal:List<String>){
         }
         // Exact globally ranked prefix completions; no arbitrary lexicographic cutoff.
         prefixes.topTwo(key).forEach{add(it,2)}
-        saved.keys.filter{it.startsWith(key)}.forEach{add(it,2)}
+        savedPrefixes.topTwo(key).forEach{add(it,2)}
         fun score(value:String)=(if(value in saved)300 else words[value]?.frequency?:0)-(edits[value]?:0)*16
         val ranked=edits.keys.sortedWith(compareByDescending<String>{score(it)}.thenBy{it}).take(2)
         fun display(value:String):String{
