@@ -29,6 +29,11 @@ public final class LocalStickerGestureRunner extends Instrumentation {
     private int width,height,x1,y1,x2,y2;private long downTime,lastTime;private int cleanupCount=1;private boolean downAttempted;
     private void must(boolean okay){if(!okay)throw new IllegalStateException("Owned sticker gesture precondition failed");}
     @Override public void onCreate(Bundle b){super.onCreate(b);args=b==null?new Bundle():b;start();}
+    private int number(String key){
+        Object raw=args.get(key);if(raw instanceof Integer)return (Integer)raw;
+        if(raw instanceof String&&((String)raw).matches("[0-9]{1,4}"))return Integer.parseInt((String)raw);
+        throw new IllegalStateException("Explicit bounded integer argument required");
+    }
     private void dimensions(){
         Display display=getTargetContext().getSystemService(WindowManager.class).getDefaultDisplay();DisplayMetrics m=new DisplayMetrics();display.getRealMetrics(m);
         must(display.getRotation()==Surface.ROTATION_0&&m.widthPixels==width&&m.heightPixels==height);
@@ -81,7 +86,7 @@ public final class LocalStickerGestureRunner extends Instrumentation {
             must(APP.equals(getTargetContext().getPackageName())&&(getTargetContext().getApplicationInfo().flags&ApplicationInfo.FLAG_DEBUGGABLE)!=0);
             must(("ranchu".equals(Build.HARDWARE)||"goldfish".equals(Build.HARDWARE))&&Build.PRODUCT.contains("sdk")&&Build.VERSION.SDK_INT>=36);
             String owner=args.getString("owner");must(owner!=null&&UUID.fromString(owner).toString().equals(owner));must("two-pointer-cancel".equals(args.getString("mode"))&&RECEIVER.equals(args.getString("receiverPackage")));
-            width=args.getInt("width",-1);height=args.getInt("height",-1);x1=args.getInt("x1",-1);y1=args.getInt("y1",-1);x2=args.getInt("x2",-1);y2=args.getInt("y2",-1);
+            width=number("width");height=number("height");x1=number("x1");y1=number("y1");x2=number("x2");y2=number("y2");
             must(width==1080&&height==2400&&x1>0&&x1<width-1&&x2>0&&x2<width-1&&y1>0&&y1<height-1&&y2>0&&y2<height-1&&(x1!=x2||y1!=y2));
             int receiverUid=getTargetContext().getPackageManager().getApplicationInfo(RECEIVER,0).uid;must(receiverUid!=android.os.Process.myUid());
             report.put("owner",owner).put("receiverPackage",RECEIVER).put("receiverUid",receiverUid).put("imeUid",android.os.Process.myUid()).put("width",width).put("height",height);

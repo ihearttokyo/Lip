@@ -97,6 +97,11 @@
       "ordinal": 13,
       "candidate": "android-text-editing-panel",
       "status": "reserved"
+    },
+    {
+      "ordinal": 14,
+      "candidate": "local-sticker-workflow",
+      "status": "reserved"
     }
   ]
 }
