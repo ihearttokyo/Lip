@@ -72,6 +72,11 @@
       "ordinal": 8,
       "candidate": "portable-vocabulary-android",
       "status": "reserved"
+    },
+    {
+      "ordinal": 9,
+      "candidate": "portable-vocabulary-macos",
+      "status": "reserved"
     }
   ]
 }

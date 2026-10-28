@@ -158,3 +158,8 @@ The full Apache license is already included in the APK notices assets as
 `apache-2.0.txt`, and original Apache/MIT license texts and exact source hashes are
 retained in that directory. Android supplies the Vulkan loader and the installed
 NDK supplies build tools; no SDK/compiler binaries or speech weights are bundled.
+
+Portable-vocabulary Unicode16 data is derived from Unicode data exposed by
+CPython3.14.6. Unicode License V3 and the original CPython license are bundled
+under desktop/Sources/LipLocal/VocabularyData, with exact provenance and a local
+regeneration tool. No Python runtime or private content is redistributed.

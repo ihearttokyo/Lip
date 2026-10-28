@@ -445,7 +445,16 @@ let modelRoot = FileManager.default.homeDirectoryForCurrentUser
     @objc func quit() { cancelRecording(); NSApp.terminate(nil) }
 }
 
-if CommandLine.arguments.contains("--test-history-import-flow") {
+if CommandLine.arguments.contains("--test-portable-vocabulary") {
+    guard CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--test-portable-vocabulary" else {
+        fputs("Expected one explicit synthetic normalization-vector file.\n", stderr); exit(64)
+    }
+    do {
+        let vectors = try VocabularyFiles.snapshot(URL(fileURLWithPath: CommandLine.arguments[2]), lease: VocabularyLease())
+        guard vectors.count <= 4 * 1024 * 1024 else { exit(64) }
+        testPortableVocabulary(differentialData: vectors)
+    } catch { fputs("Synthetic vocabulary vectors unavailable; no application store or Keychain accessed.\n", stderr); exit(1) }
+} else if CommandLine.arguments.contains("--test-history-import-flow") {
     guard CommandLine.arguments.count == 2, CommandLine.arguments[1] == "--test-history-import-flow" else {
         fputs("Invalid synthetic import flow arguments.\n", stderr); exit(64)
     }
