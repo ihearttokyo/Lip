@@ -201,8 +201,10 @@ final class HistoryVault {
         guard scanned.entries == scanned.records.count else { throw HistoryFailure.invalid } // Orphans are evidence, not free capacity.
         guard !scanned.records.isEmpty else { return (.new, nil) }
         let value = try key(false)
-        let all = try scanned.records.map { try HistoryPortableCodec.portable(decode($0, key: value)) }
-        return (HistoryPortableCodec.classify(record, existing: all), value)
+        // Authenticate ALL native records, but an unrelated legacy diagnostic
+        // field must not become a portable-validation prerequisite for this ID.
+        let all = try scanned.records.map { try decode($0, key: value) }
+        return (try HistoryPortableCodec.classify(record, local: all), value)
     }
     func previewImport(_ record: HistoryPortableRecord) throws -> HistoryPortableDisposition {
         _ = try HistoryPortableCodec.encode(HistoryPortableDocument(sourcePlatform: "macos", record: record))

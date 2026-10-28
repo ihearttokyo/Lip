@@ -264,14 +264,19 @@ let modelRoot = FileManager.default.homeDirectoryForCurrentUser
         }
         do {
             let url = FileManager.default.temporaryDirectory.appendingPathComponent("lip-\(UUID().uuidString).wav")
-            let value = try makeLocalRecording(at: url)
+            let value = try AVAudioRecorder(url: url, settings: [AVFormatIDKey: kAudioFormatLinearPCM,
+                AVSampleRateKey: 16000, AVNumberOfChannelsKey: 1, AVLinearPCMBitDepthKey: 16,
+                AVLinearPCMIsFloatKey: false, AVLinearPCMIsBigEndianKey: false])
+            guard value.prepareToRecord() else { throw Failure("Microphone could not prepare") }
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+            guard value.record(forDuration: BarkAudioBudget.seconds) else { throw Failure("Microphone could not start") }
             operation &+= 1
             recorder = value; audioURL = url
             historyRecordedAt = Date()
             historyStatus.title = historyTicket == nil ? "History: memory-only recording (off, unavailable or unverified context)" : "History: checking context; save not yet confirmed"
             sessionCleanup = cleanupSettings.options
             item.button?.title = "Lip ●"; setStatus("Recording locally · release hold / tap to finish locked mode")
-            recordingDeadline = Timer.scheduledTimer(withTimeInterval: 300, repeats: false) { [weak self] _ in MainActor.assumeIsolated { self?.gesture.reset(); self?.finishRecording() } }
+            recordingDeadline = Timer.scheduledTimer(withTimeInterval: BarkAudioBudget.seconds, repeats: false) { [weak self] _ in MainActor.assumeIsolated { self?.gesture.reset(); self?.finishRecording() } }
             if let recordingDeadline { RunLoop.main.add(recordingDeadline, forMode: .common) }
         } catch { cancelHistoryCapture(); gesture.reset(); setStatus("Recording failed · \(error)") }
     }
@@ -293,21 +298,31 @@ let modelRoot = FileManager.default.homeDirectoryForCurrentUser
         working = true; item.button?.title = "Lip …"; setStatus("Transcribing locally…")
         Task { [self] in
             var historySaveQueued = false
+            var transcribed = false
+            var sourceWasLimited = false
             defer {
                 if !historySaveQueued, historyFlow.capture == capture {
                     historyObservation?.cancel(); historyObservation = nil; historyTicket = nil
                     historyStatus.title = "History: no record saved for this capture"
                 }
-                try? FileManager.default.removeItem(at: url)
+                if BarkAudioBudget.retainSource(transcribed: transcribed, limited: sourceWasLimited, canceled: generation != operation) {
+                    let retained: URL
+                    do { retained = try retainRecoveryRecording(url) }
+                    catch { retained = url } // Original private temporary file remains recoverable.
+                    let reason = sourceWasLimited ? "Audio exceeded the decode limit; its tail was not transcribed." : "No completed transcript was produced."
+                    setStatus("\(reason) Audio kept locally at \(retained.path). No upload; remove it after recovery.")
+                } else { try? FileManager.default.removeItem(at: url) }
                 working = false; inserting = false; sessionTarget = nil
                 item.button?.title = "Lip"; writeDiagnostics()
             }
             do {
-                let native = try await engine.transcribeDetailed(url)
+                let native = try await engine.transcribeDetailed(url, allowRecorderPacketOverrun: true)
                 let raw = native.text
                 guard generation == operation else { return }
                 if raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { setStatus("No speech detected · previous transcript kept") }
                 else {
+                    transcribed = true
+                    sourceWasLimited = (native.sourceAudioSeconds ?? native.audioSeconds) > native.audioSeconds
                     rawTranscript = raw; lastModelDetails = native.details
                     applyCleanup(sessionCleanup)
                     if let capture, let ticket {
@@ -338,6 +353,22 @@ let modelRoot = FileManager.default.homeDirectoryForCurrentUser
             } catch { setStatus("Transcription failed · previous transcript kept · \(error)") }
         }
     }
+    private func retainRecoveryRecording(_ url: URL,
+        root: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/LipLocal/RecoveryAudio", isDirectory: true)) throws -> URL {
+        let manager = FileManager.default
+        // Never follow a user-created app-directory alias into a cloud/shared path.
+        guard root.standardizedFileURL.path == root.resolvingSymlinksInPath().standardizedFileURL.path else { throw Failure("Recovery directory is an alias") }
+        try manager.createDirectory(at: root, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        try manager.setAttributes([.posixPermissions: 0o700], ofItemAtPath: root.path)
+        var privateRoot = root
+        var flags = URLResourceValues(); flags.isExcludedFromBackup = true
+        try privateRoot.setResourceValues(flags)
+        try manager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+        let destination = root.appendingPathComponent(url.lastPathComponent)
+        try manager.moveItem(at: url, to: destination) // Unique owned name; never replace another recovery.
+        return destination
+    }
+
     func cancelHistoryCapture() {
         historyFlow.cancel(); historyPreparationTimeout?.cancel(); historyPreparationTimeout = nil
         historyObservation?.cancel(); historyObservation = nil; historyTicket = nil

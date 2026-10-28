@@ -15,6 +15,23 @@ enum BarkComputePolicy {
     static let description = "automatic Core ML placement (Neural Engine/GPU/CPU allowed)"
 }
 
+// AVAudioRecorder enforces duration independently of main-run-loop timer delay.
+// A bounded hardware-packet overrun remains decodable; never allocate an arbitrary
+// file's frame count or silently claim that the unprocessed tail was transcribed.
+enum BarkAudioBudget {
+    static let seconds: Double = 300
+    static let frames: Int64 = 16_000 * 300
+    static let toleratedOverrun: Int64 = 16_000 * 2
+    static func decodeFrames(_ recorded: Int64, allowRecorderPacketOverrun: Bool = false) -> Int64? {
+        let limit = frames + (allowRecorderPacketOverrun ? toleratedOverrun : 0)
+        guard recorded > 0, recorded <= limit else { return nil }
+        return min(recorded, frames)
+    }
+    static func retainSource(transcribed: Bool, limited: Bool, canceled: Bool) -> Bool {
+        !canceled && (!transcribed || limited)
+    }
+}
+
 struct BarkWord: Codable, Sendable {
     let word: String
     let start: Double
@@ -26,6 +43,7 @@ struct BarkTranscript: Codable, Sendable {
     let encoderFunction: String
     let accelerator: String
     let audioSeconds: Double
+    let sourceAudioSeconds: Double?
     let processingSeconds: Double
     let meanTokenProbability: Float?
     let words: [BarkWord]
@@ -33,9 +51,15 @@ struct BarkTranscript: Codable, Sendable {
         let probability = meanTokenProbability.map { String(format: "%.3f (uncalibrated token score, NOT accuracy)", $0) } ?? "unavailable"
         var rows = ["Bark 3.0 \(model) · native output preserved", "Encoder: \(encoderFunction) · \(accelerator)",
             String(format: "Audio: %.2f s · inference: %.2f s", audioSeconds, processingSeconds),
-            "Mean token probability: \(probability)", "Approximate word timings (padding offset removed):"]
-        rows += words.map { String(format: "%.2f–%.2f  %@", $0.start, $0.end, $0.word) }
-        return rows.joined(separator: "\n")
+            "Mean token probability: \(probability)"]
+        if let sourceAudioSeconds, sourceAudioSeconds > audioSeconds {
+            rows.append(String(format: "Input: %.2f s; only the first %.2f s were decoded. Original audio retained for recovery.", sourceAudioSeconds, audioSeconds))
+        }
+        rows.append("Approximate word timings (padding offset removed; showing up to \(min(words.count, 48))/\(words.count) words):")
+        rows += words.prefix(48).map { String(format: "%.2f–%.2f  %@", $0.start, $0.end, $0.word) }
+        if words.count > 48 { rows.append("[Further timing rows omitted from history metadata; native transcript and word objects are unchanged.]") }
+        return HistoryModelDetails.bounded(rows.joined(separator: "\n"),
+            notice: "Additional timing metadata omitted; native transcript and word objects are unchanged.")
     }
 }
 
@@ -89,15 +113,16 @@ actor BarkEngine {
         return manager
     }
     func transcribe(_ url: URL) async throws -> String { try await transcribeDetailed(url).text }
-    func transcribeDetailed(_ url: URL) async throws -> BarkTranscript {
+    func transcribeDetailed(_ url: URL, allowRecorderPacketOverrun: Bool = false) async throws -> BarkTranscript {
         try prepare()
         let file = try AVAudioFile(forReading: url)
         guard file.processingFormat.sampleRate == 16000, file.processingFormat.channelCount == 1,
-            file.length > 0, file.length <= 16000 * 300,
-            let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length)) else {
+            let frames = BarkAudioBudget.decodeFrames(file.length, allowRecorderPacketOverrun: allowRecorderPacketOverrun),
+            let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(frames)) else {
             throw Failure("Expected nonempty mono 16 kHz audio, up to 5 minutes.")
         }
-        try file.read(into: buffer)
+        try file.read(into: buffer, frameCount: AVAudioFrameCount(frames))
+        guard buffer.frameLength == AVAudioFrameCount(frames) else { throw Failure("Recorded audio ended before its declared frame count.") }
         guard let pointer = buffer.floatChannelData?[0] else { throw Failure("Cannot read audio.") }
         let duration = Double(buffer.frameLength) / 16000
         let samples = Array(repeating: Float(0), count: profile.paddingSamples) + Array(UnsafeBufferPointer(start: pointer, count: Int(buffer.frameLength)))
@@ -115,7 +140,7 @@ actor BarkEngine {
         }
         let probability = result.confidence.isFinite && (0...1).contains(result.confidence) ? result.confidence : nil
         return BarkTranscript(text: result.text, model: profile.rawValue, encoderFunction: function, accelerator: BarkComputePolicy.description,
-            audioSeconds: duration, processingSeconds: ProcessInfo.processInfo.systemUptime - started,
+            audioSeconds: duration, sourceAudioSeconds: Double(file.length) / 16000, processingSeconds: ProcessInfo.processInfo.systemUptime - started,
             meanTokenProbability: probability, words: words)
     }
 }

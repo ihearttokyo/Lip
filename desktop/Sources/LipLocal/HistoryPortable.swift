@@ -29,6 +29,28 @@ struct HistoryPortableRecord: Equatable {
 struct HistoryPortableDocument: Equatable { let sourcePlatform: String; let record: HistoryPortableRecord }
 enum HistoryPortableDisposition { case new, identical, conflict, ambiguous }
 
+// Model diagnostics are not the transcript. Portable v1 keeps its strict 4 KiB
+// metadata budget; legacy native payloads are never rewritten during export.
+enum HistoryModelDetails {
+    static let maximumBytes = 4096
+    static func bounded(_ value: String, notice: String) -> String {
+        if value.utf8.count <= maximumBytes { return value }
+        let suffix = "\n[" + notice + "]"
+        let budget = maximumBytes - suffix.utf8.count
+        precondition(budget >= 0)
+        var prefix = ""; var bytes = 0
+        for scalar in value.unicodeScalars {
+            let count = scalar.utf8.count
+            if bytes + count > budget { break }
+            prefix.unicodeScalars.append(scalar); bytes += count
+        }
+        return prefix + suffix
+    }
+    static func portable(_ value: String) -> String {
+        bounded(value, notice: "Metadata shortened for portable export; the original local history metadata is unchanged.")
+    }
+}
+
 enum HistoryPortableCodec {
     static let schema = "dev.lip.dictation-history"
     static let maximumBytes = 4 * 1024 * 1024
@@ -83,8 +105,16 @@ enum HistoryPortableCodec {
         let ms = local.created.timeIntervalSince1970 * 1000
         guard ms.isFinite, ms >= 0, ms <= 253402300799999 else { throw HistoryFailure.invalid }
         let record = HistoryPortableRecord(metadata:HistoryPortableMetadata(id:local.id.uuidString, createdAtUnixMs:Int64(ms.rounded(.down)),
-            language:"en-US", model:local.profile, modelDetails:local.modelDetails, legacyCloudCleanup:false), original:local.original, output:local.output)
+            language:"en-US", model:local.profile, modelDetails:HistoryModelDetails.portable(local.modelDetails), legacyCloudCleanup:false), original:local.original, output:local.output)
         try validate(record); return record
+    }
+    // Callers must authenticate/decode every archive member first. Only matching
+    // byte-identical external/native IDs need portable conversion/classification.
+    static func classify(_ incoming: HistoryPortableRecord, local: [HistoryRecord]) throws -> HistoryPortableDisposition {
+        let matching = try local.filter { record in
+            (record.imported?.id ?? record.id.uuidString).utf8.elementsEqual(incoming.metadata.id.utf8)
+        }.map { try portable($0) }
+        return classify(incoming, existing: matching)
     }
     static func export(_ local: HistoryRecord) throws -> Data { try encode(HistoryPortableDocument(sourcePlatform:"macos",record:portable(local))) }
 

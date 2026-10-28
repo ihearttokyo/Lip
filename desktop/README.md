@@ -1,7 +1,7 @@
 # Lip Local for macOS
 
 Native menu-bar recorder using **Bark 3.0 Clean (standard) or Pro (optional)** with automatic Core ML acceleration.
-Apple silicon, macOS 15+, Swift 6.2+. No OpenAI login, API key, cloud inference,
+Apple silicon only, macOS 26+, Swift 6.2+. No OpenAI login, API key, cloud inference,
 telemetry or background model downloads. English-only ASR. Model-native output is now the default; existing explicit
 legacy app-rule preferences are preserved. No second model or rewriting stage. Models compile once and stay resident while the app runs.
 
@@ -200,3 +200,6 @@ lock/restart/fault behavior is NOT qualified by these tests. Source integration 
 not feature acceptance, installed behavior, or full Android/Mac history parity.
 See [integration contract](../docs/MAC-HISTORY-INTEGRATION-2026-10-27.md) and
 [observed-context privacy contract](../docs/MAC-HISTORY-PRIVACY-2026-10-27.md).
+
+### Recovery audio in development
+Failed or input-limited recordings can be preserved in a private local recovery directory. Lip does not encrypt these audio files or upload them. Retention applies even if transcript history is off; manually remove recovered audio when no longer needed. Cancel deletes only the current recording, not prior recovered files. Folder/file permissions and system-backup exclusion are set, but external backup/sync software is outside Lip’s control.
