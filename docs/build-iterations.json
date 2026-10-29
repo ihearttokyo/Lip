@@ -107,6 +107,11 @@
       "ordinal": 15,
       "candidate": "toolbar-customization",
       "status": "reserved"
+    },
+    {
+      "ordinal": 16,
+      "candidate": "fine-height",
+      "status": "reserved"
     }
   ]
 }
