@@ -102,6 +102,11 @@
       "ordinal": 14,
       "candidate": "local-sticker-workflow",
       "status": "reserved"
+    },
+    {
+      "ordinal": 15,
+      "candidate": "toolbar-customization",
+      "status": "reserved"
     }
   ]
 }

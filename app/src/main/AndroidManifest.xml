@@ -16,6 +16,7 @@
             android:enabled="true" android:exported="false" android:grantUriPermissions="true" />
         <service android:name=".stickers.StickerDecodeService" android:exported="false" android:isolatedProcess="true" android:process=":sticker_decode" />
         <activity android:name=".keyboard.KeyboardSettingsActivity" android:exported="false" />
+        <activity android:name=".keyboard.ToolbarCustomizerActivity" android:exported="false" />
         <!-- Explicit local user-document manager, available in normal builds. -->
         <activity android:name=".stickers.StickerPacksActivity" android:exported="false"
             android:enabled="true" android:theme="@style/Theme.Lip.Stickers" />
