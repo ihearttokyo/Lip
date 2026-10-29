@@ -25,6 +25,29 @@ import dev.lip.label
 /** Independent IME; never patches Gboard or selects itself. Clipboard text reads require explicit history consent and eligible context. */
 class LipInputMethodService : InputMethodService() {
     private val main = Handler(Looper.getMainLooper())
+    private val toolbarSettings by lazy{ToolbarPreferencesStore(this)}
+    private var toolbarSnapshot:ToolbarSnapshot?=null
+    private var toolbarRenderToken=Any()
+    private var toolbarTransition=Any()
+    private val toolbarOwner=ToolbarActivationOwner()
+    private val toolbarTouchStream=ToolbarTouchStream()
+    private var textEditingTool:Button?=null
+    private var stickerTool:Button?=null
+    private val toolbarChanged:()->Unit={
+        // Revision changes synchronously; old callbacks fail even before this UI post runs.
+        main.post{if(!destroyed){invalidateToolbarContacts();if(isInputViewShown)setInputView(onCreateInputView())}}
+        Unit
+    }
+    private fun invalidateToolbarContacts(){toolbarOwner.cancel();toolbarTransition=Any()}
+    private fun toolbarCpuContext(action:ToolbarAction,interactive:Boolean=true,unlocked:Boolean=true):ToolbarActivationContext = ToolbarActivationContext(action,currentInputConnection,session.manualGeneration(),toolbarSettings.snapshot().revision,
+            toolbarRenderToken,toolbarTransition,selectionStart,selectionEnd,info?.inputType?:0,info?.imeOptions?:0,
+            info?.fieldId?:0,info?.packageName,page,composingStart>=0||composingEnd>=0,dictation.busy,
+            !destroyed&&isInputViewShown,interactive,unlocked)
+    private fun toolbarContext(action:ToolbarAction):ToolbarActivationContext {
+        val interactive=getSystemService(android.os.PowerManager::class.java).isInteractive
+        val unlocked=!getSystemService(android.app.KeyguardManager::class.java).isDeviceLocked
+        return toolbarCpuContext(action,interactive,unlocked)
+    }
     private val agentSettings by lazy { dev.lip.agent.AgentHandoffPreferencesStore(this) }
     private var agentController: dev.lip.agent.AgentShortcutController? = null
     private var agentSlot: GlassKeyButton? = null
@@ -38,7 +61,7 @@ class LipInputMethodService : InputMethodService() {
         slot.icon = if (pinned) KeyIcon.AGENT else KeyIcon.TRANSLATE
         slot.contentDescription = if (pinned) "Send last completed Lip dictation to chosen agent; hold for effort choices"
             else "Local translation not yet available in this English preview"
-        slot.isEnabled = pinned && agentEligible()
+        slot.isEnabled = toolbarSnapshot?.valid==true && pinned && agentEligible()
         slot.stateDescription = if (pinned) "Explicit agent action; no field or clipboard text is used" else "Not available in this preview"
     }
     /** In-process disposable instrumentation only. No production adapter is
@@ -469,6 +492,7 @@ class LipInputMethodService : InputMethodService() {
     private val historyScreenReceiver=object:android.content.BroadcastReceiver(){
         override fun onReceive(context:android.content.Context?,intent:Intent?){
             if(intent?.action==Intent.ACTION_SCREEN_OFF){
+                invalidateToolbarContacts()
                 invalidateStickers()
                 closeTextEditing();if(page==KeyboardPage.TEXT_EDITING){page=KeyboardPage.LETTERS;renderKeys();updateState()}
                 clearOwnedEdits();revokePersonalAccess();stopSwipe()
@@ -990,6 +1014,7 @@ class LipInputMethodService : InputMethodService() {
 
     override fun onCreate() {
         super.onCreate()
+        toolbarSettings.observe(toolbarChanged)
         dev.lip.stickers.StickerLibraryRevision.observe(stickerLibraryChanged)
         typingPreferences.registerOnSharedPreferenceChangeListener(vocabularyChanges)
         swipeVocabulary.observe(vocabularyMutation)
@@ -1008,6 +1033,7 @@ class LipInputMethodService : InputMethodService() {
         updateHistoryEligibility()
     }
     override fun onDestroy() {
+        toolbarSettings.unobserve(toolbarChanged);invalidateToolbarContacts()
         dev.lip.stickers.StickerLibraryRevision.unobserve(stickerLibraryChanged)
         closeTextEditing()
         clearOwnedEdits()
@@ -1029,6 +1055,7 @@ class LipInputMethodService : InputMethodService() {
     }
     override fun onEvaluateFullscreenMode() = false
     override fun onStartInput(attribute: EditorInfo, restarting: Boolean) {
+        invalidateToolbarContacts()
         closeTextEditing()
         clearOwnedEdits()
         revokePersonalAccess()
@@ -1047,6 +1074,7 @@ class LipInputMethodService : InputMethodService() {
         loadTyping();renderKeys(); updateState()
     }
     override fun onFinishInput() {
+        invalidateToolbarContacts()
         closeTextEditing()
         clearOwnedEdits()
         revokePersonalAccess()
@@ -1067,6 +1095,7 @@ class LipInputMethodService : InputMethodService() {
         loadTyping()
         agentController?.bindUi(Any()); refreshAgentShortcut()
         if(presentationStore.load()!=presentation)applyPresentation()
+        else if(toolbarSnapshot?.revision!==toolbarSettings.snapshot().revision)setInputView(onCreateInputView())
         stickerScale=stickerPreferences.load()
         GlassMaterial.refresh();clipboardWindowVisible=true
         main.post{if(!destroyed)updateHistoryEligibility()}
@@ -1074,6 +1103,7 @@ class LipInputMethodService : InputMethodService() {
         else if(page==KeyboardPage.CLIPBOARD||page==KeyboardPage.TEXT_EDITING||page==KeyboardPage.GIF||gifKeysNeedRebind||emojiKeysNeedRebind||page==KeyboardPage.EMOJI){renderKeys();updateState()}else keys?.invalidate()
     }
     override fun onFinishInputView(finishingInput: Boolean) {
+        invalidateToolbarContacts()
         closeTextEditing()
         clearOwnedEdits()
         revokePersonalAccess()
@@ -1089,7 +1119,7 @@ class LipInputMethodService : InputMethodService() {
         wordDeleteTransaction?.selectionChanged(newSelStart,newSelEnd)
         val compositionChanged=composingStart!=candidatesStart||composingEnd!=candidatesEnd
         editSelectionObservation++;selectionStart=newSelStart;selectionEnd=newSelEnd
-        if(oldSelStart!=newSelStart||oldSelEnd!=newSelEnd||compositionChanged)textEditingOwner.cancel()
+        if(oldSelStart!=newSelStart||oldSelEnd!=newSelEnd||compositionChanged){invalidateToolbarContacts();textEditingOwner.cancel()}
         if(oldSelStart!=newSelStart||oldSelEnd!=newSelEnd){
             val owned=editConnection?.takeIf{it===currentInputConnection}
             editTransactions.selection(newSelStart,newSelEnd,owned?.let{editPort(it,allowComposition=true)})
@@ -1134,6 +1164,9 @@ class LipInputMethodService : InputMethodService() {
         KeyboardPresentation.rowHeight(availableWidth.takeIf{w->w>0}?:it.widthPixels,it.heightPixels,it.density,landscape(),presentation.height)
     }
     override fun onCreateInputView(): View {
+        invalidateToolbarContacts();toolbarRenderToken=Any();toolbarTouchStream.end()
+        toolbarSnapshot=toolbarSettings.snapshot()
+        agentSlot=null;gifTool=null;clipboardTool=null;undoTool=null;textEditingTool=null;stickerTool=null
         closeTextEditing()
         editPopup?.dismiss();editPopup=null
         revokePersonalAccess() // A newly-created input view never inherits a prior context token.
@@ -1143,7 +1176,25 @@ class LipInputMethodService : InputMethodService() {
         stickerScale=stickerPreferences.load()
         presentation=presentationStore.load();GlassMaterial.matte=presentation.theme==KeyboardTheme.MATTE
         GlassMaterial.haptics=presentation.haptics
-        val root = column().apply {
+        val rootToken=toolbarRenderToken
+        val root = object:LinearLayout(this){
+            override fun dispatchTouchEvent(event:android.view.MotionEvent):Boolean {
+                if(rootToken!==toolbarRenderToken)return true
+                val terminal=event.actionMasked==android.view.MotionEvent.ACTION_UP||event.actionMasked==android.view.MotionEvent.ACTION_CANCEL
+                val decision=toolbarTouchStream.event(event.pointerCount,event.actionMasked==android.view.MotionEvent.ACTION_CANCEL,toolbarOwner.hasContact())
+                try{
+                    if(decision.cancel){
+                        invalidateToolbarContacts()
+                        if(decision.consume){
+                            val cancel=android.view.MotionEvent.obtain(event)
+                            try{cancel.action=android.view.MotionEvent.ACTION_CANCEL;super.dispatchTouchEvent(cancel)}finally{cancel.recycle()}
+                        }
+                    }
+                    return if(decision.consume)true else super.dispatchTouchEvent(event)
+                }finally{if(terminal&&rootToken===toolbarRenderToken)toolbarTouchStream.end()}
+            }
+        }.apply {
+            orientation=LinearLayout.VERTICAL
             setBackgroundColor(KeyboardVisualTokens.BACKDROP)
             setOnApplyWindowInsetsListener { view, insets ->
                 val bottom = insets.getInsets(android.view.WindowInsets.Type.navigationBars() or android.view.WindowInsets.Type.systemGestures()).bottom
@@ -1164,31 +1215,78 @@ class LipInputMethodService : InputMethodService() {
             root.setPadding(0,0,0,insets.getInsets(android.view.WindowInsets.Type.navigationBars() or android.view.WindowInsets.Type.systemGestures()).bottom)
         }
         val toolbar = GlassKeyboardToolbar(this)
-        fun tool(icon: KeyIcon, description: String, enabled: Boolean = true, action: () -> Unit): GlassKeyButton {
-            val view = GlassKeyButton(this, flat = true).apply {
-                this.icon = icon; contentDescription = description; isEnabled = enabled
-                interactionAllowed={root.isAttachedToWindow&&isAttachedToWindow}
-                if(!enabled)stateDescription="Not available in this preview"
-                setOnClickListener { if(!swipePending&&interactionAllowed()){cancelKeyGestures();action()} }
+        val renderToken=toolbarRenderToken
+        val mapping=checkNotNull(toolbarSnapshot)
+        fun tool(actionId:ToolbarAction,action:(GlassKeyButton)->Unit,longAction:((GlassKeyButton)->Boolean)?=null):GlassKeyButton {
+            var ticket:ToolbarActivationOwner.Ticket?=null
+            var longConsumed=false
+            lateinit var view:GlassKeyButton
+            fun currentAllowed()=!destroyed&&isInputViewShown&&root.isAttachedToWindow&&root.isShown&&root.windowVisibility==View.VISIBLE&&
+                view.isAttachedToWindow&&view.isShown&&view.windowVisibility==View.VISIBLE&&view.isEnabled&&
+                renderToken===toolbarRenderToken&&mapping.revision===toolbarSettings.snapshot().revision&&
+                (!actionId.configurable||mapping.valid)&&!toolbarTouchStream.blocked
+            fun capture(){
+                ticket=null;longConsumed=false
+                if(!currentAllowed())return
+                // Reserve original DOWN metadata BEFORE cleanup/platform callbacks.
+                val reserved=toolbarOwner.begin(toolbarCpuContext(actionId))
+                view.cancelPendingInputEvents()
+                val observed=toolbarContext(actionId)
+                if(currentAllowed()&&toolbarOwner.isCurrent(reserved,observed))ticket=reserved
+                else toolbarOwner.discard(reserved) // Never cancels a newer reentrant contact.
             }
-            toolbar.addView(view); return view
+            fun invoke(long:Boolean):Boolean {
+                val held=ticket?:return false;ticket=null
+                if(!currentAllowed())return false
+                val claim=toolbarOwner.claim(held,toolbarContext(actionId))?:return false
+                cancelKeyGestures() // May reenter; final fresh CPU claim still binds the old action/context.
+                if(!toolbarOwner.admit(claim,toolbarContext(actionId),currentAllowed()&&!swipePending))return false
+                return if(long){longConsumed=true;longAction?.invoke(view)?:false}else{if(!longConsumed)action(view);true}
+            }
+            view=GlassKeyButton(this,flat=true).apply{
+                icon=ToolbarIcons.icon(actionId);contentDescription=actionId.description
+                interactionAllowed={currentAllowed()}
+                isEnabled=!actionId.configurable||mapping.valid
+                if(!isEnabled)stateDescription="Saved toolbar unavailable; customize to restore"
+                setOnTouchListener{_,event->
+                    when(event.actionMasked){
+                        android.view.MotionEvent.ACTION_DOWN->{toolbarTouchStream.begin();capture()}
+                        android.view.MotionEvent.ACTION_MOVE,android.view.MotionEvent.ACTION_UP->if(event.x<0||event.y<0||event.x>=width||event.y>=height){ticket=null;invalidateToolbarContacts();cancelPendingInputEvents();isPressed=false;return@setOnTouchListener true}
+                        android.view.MotionEvent.ACTION_CANCEL->{ticket=null;invalidateToolbarContacts();cancelPendingInputEvents();isPressed=false}
+                    };false
+                }
+                setOnClickListener{invoke(false)}
+                if(longAction!=null)setOnLongClickListener{invoke(true)}
+                setOnKeyListener{_,code,event->
+                    if(code !in listOf(KeyEvent.KEYCODE_ENTER,KeyEvent.KEYCODE_DPAD_CENTER,KeyEvent.KEYCODE_SPACE))return@setOnKeyListener false
+                    if(event.action==KeyEvent.ACTION_DOWN&&event.repeatCount==0)capture()
+                    false
+                }
+                accessibilityDelegate=object:View.AccessibilityDelegate(){
+                    override fun performAccessibilityAction(host:View,action:Int,args:android.os.Bundle?):Boolean {
+                        if(action!=android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK&&action!=android.view.accessibility.AccessibilityNodeInfo.ACTION_LONG_CLICK)return super.performAccessibilityAction(host,action,args)
+                        if(!currentAllowed()||(action==android.view.accessibility.AccessibilityNodeInfo.ACTION_LONG_CLICK&&longAction==null))return false
+                        capture();return invoke(action==android.view.accessibility.AccessibilityNodeInfo.ACTION_LONG_CLICK)
+                    }
+                }
+            }
+            toolbar.addView(view);return view
         }
-        val menu = tool(KeyIcon.MENU, "Lip keyboard menu") {}
-        menu.setOnClickListener { if(!swipePending&&menu.interactionAllowed()){cancelKeyGestures();showKeyboardMenu(menu)} }
-        agentSlot = tool(KeyIcon.TRANSLATE, "Local translation not yet available in this English preview", false) {
-            agentSlot?.let { agentController?.tap(it) }
-        }.apply { setOnLongClickListener { if (agentController?.pinned() == true) agentController?.showModes(this) == true else false } }
-        tool(KeyIcon.FACE, "Show emoji") { cancelOwnedVoice();openEmoji() }
-        gifTool=tool(KeyIcon.GIF, "Show local GIF catalog") { cancelOwnedVoice();openGifs() }
-        clipboardTool=tool(KeyIcon.CLIPBOARD, "Show clipboard actions and optional encrypted text history") {
-            if(clipboardAvailability().paste&&!dictation.busy){clearEmoji();clearGifSearch();cancelOwnedVoice();page=KeyboardPage.CLIPBOARD;renderKeys();updateState()}
+        tool(ToolbarAction.TOOLS,{showKeyboardMenu(it)})
+        for(actionId in mapping.value.slots)when(actionId){
+            ToolbarAction.AGENT->agentSlot=tool(actionId,{agentController?.tap(it)},{if(agentController?.pinned()==true)agentController?.showModes(it)==true else false}).apply{isEnabled=false}
+            ToolbarAction.EMOJI->tool(actionId,{cancelOwnedVoice();openEmoji()})
+            ToolbarAction.GIF->gifTool=tool(actionId,{cancelOwnedVoice();openGifs()})
+            ToolbarAction.CLIPBOARD->clipboardTool=tool(actionId,{
+                if(clipboardAvailability().paste&&!dictation.busy){clearEmoji();clearGifSearch();cancelOwnedVoice();page=KeyboardPage.CLIPBOARD;renderKeys();updateState()}
+            })
+            ToolbarAction.UNDO->undoTool=tool(actionId,{showOwnedUndo(it)})
+            ToolbarAction.TEXT_EDITING->textEditingTool=tool(actionId,{openTextEditing()})
+            ToolbarAction.STICKERS->stickerTool=tool(actionId,{openStickers()})
+            else->error("Invalid middle toolbar action")
         }
-        undoTool=tool(KeyIcon.UNDO, "Show adjacent Lip-owned Undo and Redo; cancel pending dictation") {
-            undoTool?.let(::showOwnedUndo)
-        }
-        mic = tool(KeyIcon.MIC, "Record with the selected local Bark model") { toggleVoice() }.apply {
-            background = DarkGlassDrawable(resources.displayMetrics.density, capsule = true, circle = true)
-            setOnLongClickListener { cancelOwnedVoice(); true }
+        mic=tool(ToolbarAction.MICROPHONE,{toggleVoice()},{cancelOwnedVoice();true}).apply{
+            background=DarkGlassDrawable(resources.displayMetrics.density,capsule=true,circle=true)
         }
         val toolbarHeight=if(landscape())dp(32) else (resources.displayMetrics.widthPixels*.09f).toInt().coerceIn(dp(36),dp(44))
         val toolbarFrame=android.widget.FrameLayout(this);toolsBar=toolbar;toolsFrame=toolbarFrame
@@ -1910,12 +2008,13 @@ class LipInputMethodService : InputMethodService() {
     }
     private fun updateState() {
         refreshAgentShortcut()
+        val toolbarValid=toolbarSnapshot?.valid==true
         updateTextEditing()
         swipeFrame?.setInputPaused(swipePending)
         swipeOverlay?.apply{text=swipeMessage?.let{"$it · Tap to cancel"}?:"";contentDescription=text;visibility=if(swipeMessage!=null)View.VISIBLE else View.GONE}
         renderCandidates()
         val clipboard=clipboardAvailability()
-        clipboardTool?.isEnabled=clipboard.paste&&!dictation.busy
+        clipboardTool?.isEnabled=toolbarValid&&clipboard.paste&&!dictation.busy
         clipboardCopy?.isEnabled=clipboard.copy&&!dictation.busy
         clipboardPaste?.isEnabled=clipboard.paste&&!dictation.busy
         val candidatesVisible=(candidateOwner.current!=null||nextWordOwner.current?.choices?.isNotEmpty()==true)&&swipeMessage==null
@@ -1926,8 +2025,10 @@ class LipInputMethodService : InputMethodService() {
         candidateMic?.isEnabled=policy().voice&&!dictation.busy
         gifPanel?.setBusy(gifOwner.current!=null)
         stickerPanel?.setAttachmentPending(stickerAttachmentBusy()||!stickerAttachmentAvailable())
-        gifTool?.isEnabled=policy().voice&&!dictation.busy
-        undoTool?.isEnabled=!localSearchActive()
+        gifTool?.isEnabled=toolbarValid&&policy().voice&&!dictation.busy
+        undoTool?.isEnabled=toolbarValid&&!localSearchActive()
+        textEditingTool?.isEnabled=toolbarValid&&TextEditingActions.allowed(textEditingState())&&!info?.packageName.isNullOrBlank()
+        stickerTool?.isEnabled=toolbarValid&&stickerSafety().eligible
         mic?.isEnabled = !localSearchActive()&&gifOwner.current==null&&policy().voice && (!dictation.busy || voiceTicket != null)
         (mic as? GlassKeyButton)?.icon=if(voiceTicket!=null && dictation.phase==Phase.LISTENING)KeyIcon.STOP else KeyIcon.MIC
         status?.apply{
@@ -1941,12 +2042,14 @@ class LipInputMethodService : InputMethodService() {
             gifSearch.active->"Search local GIFs: ${gifSearch.query} · Search key shows results"
             policy().protected || (info?.imeOptions?.and(EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING) ?: 0) != 0 -> "Private field · manual keys only"
             voiceTicket != null || dictation.phase == Phase.ERROR -> dictation.message
+            toolbarSnapshot?.valid==false->"Toolbar settings unavailable · Tools → Keyboard preferences → Customize toolbar"
             else -> "Lip keyboard preview · swipe not yet qualified"
         }
-        status?.visibility=if(localSearchActive()||voiceTicket!=null || dictation.phase==Phase.ERROR || policy().protected )View.VISIBLE else View.GONE
+        status?.visibility=if(localSearchActive()||voiceTicket!=null || dictation.phase==Phase.ERROR || policy().protected || toolbarSnapshot?.valid==false)View.VISIBLE else View.GONE
         if (!dictation.busy) voiceTicket = null
     }
     override fun onWindowHidden() {
+        invalidateToolbarContacts()
         closeTextEditing()
         clearOwnedEdits()
         revokePersonalAccess()

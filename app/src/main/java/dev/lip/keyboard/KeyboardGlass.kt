@@ -103,7 +103,7 @@ object GlassMaterial {
     """
 }
 
-enum class KeyIcon { NONE, SHIFT, SHIFT_ON, CAPS, DELETE, MIC, STOP, MENU, TRANSLATE, FACE, GIF, CLIPBOARD, UNDO, REDO, ENTER, DONE, SEARCH, SPACE, PERSON, LEAF, FOOD, PLANE, BALL, BULB, FLAG, RECENT, AGENT }
+enum class KeyIcon { NONE, SHIFT, SHIFT_ON, CAPS, DELETE, MIC, STOP, MENU, TRANSLATE, FACE, GIF, CLIPBOARD, UNDO, REDO, ENTER, DONE, SEARCH, SPACE, PERSON, LEAF, FOOD, PLANE, BALL, BULB, FLAG, RECENT, AGENT, TEXT_EDITING, STICKERS }
 
 class GlassKeyButton(context: Context, capsule: Boolean = false, private val flat: Boolean = false) : Button(context) {
     var interactionAllowed:()->Boolean={true}
@@ -181,6 +181,8 @@ class GlassKeyButton(context: Context, capsule: Boolean = false, private val fla
                 KeyIcon.MIC -> { canvas.drawRoundRect(10f,3f,18f,17f,4f,4f,ink); canvas.drawArc(7f,9f,21f,21f,0f,180f,false,ink); canvas.drawLine(14f,21f,14f,25f,ink);canvas.drawLine(10f,25f,18f,25f,ink) }
                 KeyIcon.STOP -> { ink.style=Paint.Style.FILL;canvas.drawRoundRect(6f,6f,22f,22f,3f,3f,ink) }
                 KeyIcon.MENU -> { ink.style=Paint.Style.FILL;for(x in listOf(4f,16f))for(y in listOf(4f,16f))canvas.drawRoundRect(x,y,x+8,y+8,2f,2f,ink) }
+                KeyIcon.TEXT_EDITING -> { canvas.drawLine(5f,6f,23f,6f,ink);canvas.drawLine(5f,14f,16f,14f,ink);canvas.drawLine(5f,22f,16f,22f,ink);canvas.drawLine(22f,11f,22f,25f,ink);canvas.drawLine(19f,11f,25f,11f,ink);canvas.drawLine(19f,25f,25f,25f,ink) }
+                KeyIcon.STICKERS -> { canvas.drawRoundRect(4f,3f,24f,25f,4f,4f,ink);canvas.drawPath(Path().apply{moveTo(24f,17f);lineTo(17f,17f);lineTo(17f,25f)},ink) }
                 KeyIcon.AGENT -> { canvas.drawRoundRect(3f,4f,25f,21f,5f,5f,ink);canvas.drawPath(Path().apply{moveTo(8f,21f);lineTo(7f,26f);lineTo(14f,21f)},ink);ink.style=Paint.Style.FILL;for(x in listOf(9f,14f,19f))canvas.drawCircle(x,12f,1.2f,ink) }
                 KeyIcon.FACE -> { canvas.drawCircle(14f,14f,11f,ink);canvas.drawArc(8f,9f,20f,21f,10f,160f,false,ink);ink.style=Paint.Style.FILL;canvas.drawCircle(10f,10f,1.4f,ink);canvas.drawCircle(18f,10f,1.4f,ink) }
                 KeyIcon.PERSON -> { canvas.drawCircle(14f,7f,4f,ink);canvas.drawPath(Path().apply{moveTo(5f,25f);lineTo(5f,21f);cubicTo(5f,12f,23f,12f,23f,21f);lineTo(23f,25f);close()},ink) }
@@ -238,6 +240,6 @@ class GlassKeyboardToolbar(context: Context) : ViewGroup(context) {
         setMeasuredDimension(w,h)
     }
     override fun onLayout(changed: Boolean,l:Int,t:Int,r:Int,b:Int) {
-        for(i in 0 until childCount){val left=(width*.15f*i).toInt();val child=getChildAt(i);child.layout(left,0,left+child.measuredWidth,height)}
+        for(i in 0 until childCount){val bounds=ToolbarActionRegistry.bounds(width,i);val child=getChildAt(i);child.layout(bounds.first,0,bounds.second,height)}
     }
 }

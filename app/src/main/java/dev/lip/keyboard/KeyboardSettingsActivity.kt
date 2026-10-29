@@ -38,6 +38,10 @@ class KeyboardSettingsActivity:Activity() {
             }
             column.addView(group)
         }
+        column.addView(GlassKeyButton(this,capsule=true).apply{
+            text="Customize toolbar";contentDescription="Customize toolbar";minHeight=px(48)
+            setOnClickListener{startActivity(android.content.Intent(this@KeyboardSettingsActivity,ToolbarCustomizerActivity::class.java))}
+        })
         choices("Layout",KeyboardHand.entries,value.hand,{it.label}){save(value.copy(hand=it))}
         column.addView(label("Narrow windows use full width. Your preferred side is kept.",14f))
         choices("Key height",KeyboardHeight.entries,value.height,{it.label}){save(value.copy(height=it))}
