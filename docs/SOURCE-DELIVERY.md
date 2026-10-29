@@ -5,7 +5,7 @@ Source reconciliation PRs **17 and 18 are merged**, at main commit
 IME/Bark and macOS implementation plus Android 16+/ARM64 automatic Vulkan routing.
 This is no longer a pending source-reconciliation PR.
 
-The current **Lip v0.016** version-wiring candidate is reserved source, **not a
+The current **Lip v0.017** version-wiring candidate is reserved source, **not a
 published release**. Its audited allocation and cross-platform metadata rules
 are in [RELEASE-IDENTITY.md](RELEASE-IDENTITY.md) and the authoritative
 `build-iterations.json`. The history audit/tooling is implemented; a reserved
@@ -50,7 +50,7 @@ Future installers must omit speech weights and use separate explicit downloads.
 
 Recorded aggregate/native build checks are scoped to their exact candidates; see
 [Android GPU build evidence](ANDROID-GPU-FIRST-2026-10-29.md). They do not prove
-physical Adreno inference, accelerator efficiency or the reserved v0.016 package.
+physical Adreno inference, accelerator efficiency or the reserved v0.017 package.
 Full Gboard parity, measured swipe superiority, physical-phone/editor/microphone
 acceptance, macOS intended-use verification, Hexagon qualification, real
 ChatGPT/Claude sending, signed small-installer/update tests and the independent
@@ -65,7 +65,7 @@ import, original export with same-FD readback, recoverable Remove/Restore and
 receiver-bound PNG/WebP requests. Scope-specific Android emulator controls and
 independent review pass; the remaining race/editor/accessibility/physical and
 full9.2 gates remain open. Current runtime receipts precede version-only metadata
-reservation; they are not a signed v0.016 release attestation.
+reservation; they are not a signed v0.017 release attestation.
 
 ## Toolbar source increment
 
@@ -81,3 +81,10 @@ their earlier version metadata; current reservation is not a release attestation
 explicit Apply/presets/reset, legacy schema migration and actual shared geometry.
 Owned portrait rows measure96/169/121px at80/140/reset100; canceled drafts retain
 confirmed state. These are not touch/caret/physical/full9.2 or release attestations.
+
+## Floating keyboard source increment
+
+[Real floating geometry](FLOATING-KEYBOARD-RESULT.md) adds Move/Resize/Dock,
+transparent native input regions and separate position/size preferences. Scoped
+owned-emulator primary controls pass after an explicit warm rebind; first-show,
+resized-key hits and broader matrices remain unqualified. No release is published.

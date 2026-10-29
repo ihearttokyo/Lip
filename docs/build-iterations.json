@@ -112,6 +112,11 @@
       "ordinal": 16,
       "candidate": "fine-height",
       "status": "reserved"
+    },
+    {
+      "ordinal": 17,
+      "candidate": "floating-keyboard",
+      "status": "reserved"
     }
   ]
 }

@@ -25,6 +25,110 @@ import dev.lip.label
 /** Independent IME; never patches Gboard or selects itself. Clipboard text reads require explicit history consent and eligible context. */
 class LipInputMethodService : InputMethodService() {
     private val main = Handler(Looper.getMainLooper())
+    private val floatingSettings by lazy{FloatingKeyboardPreferencesStore(this)}
+    private var floatingSnapshot:FloatingKeyboardSnapshot?=null
+    private var floatingFrame:FloatingKeyboardFrame?=null
+    private var floatingEffective=false
+    private var floatingWindowOwned=false
+    private var floatingNoFit:String?=null
+    private var floatingPending=false
+    private var floatingTransition=Any()
+    private var floatingKeyBudget:Int?=null
+    private var floatingRowPixels:Int?=null
+    private var floatingGeometryChanging=false
+    private var originalWindowBackground:android.graphics.drawable.Drawable?=null
+    private var capturedWindowBackground=false
+    private class FloatingOrigin(val frame:Any?,val transition:Any,val connection:Any?,val editor:Pair<Long,Long>?,
+        val attribute:EditorInfo?,val start:Int,val end:Int,val type:Int,val options:Int,val revision:Long,val page:KeyboardPage){
+        fun sameEditor(other:FloatingOrigin)=frame===other.frame&&transition===other.transition&&connection===other.connection&&editor==other.editor&&
+            attribute===other.attribute&&start==other.start&&end==other.end&&type==other.type&&options==other.options&&revision==other.revision
+        fun same(other:FloatingOrigin)=sameEditor(other)&&page==other.page
+    }
+    private fun floatingOrigin()=FloatingOrigin(floatingFrame?:presentationFrame,floatingTransition,currentInputConnection,session.manualGeneration(),
+        info,selectionStart,selectionEnd,info?.inputType?:0,info?.imeOptions?:0,floatingSettings.snapshot().revision,page)
+    private fun floatingBusy()=dictation.busy||voiceTicket!=null||swipePending||gifOwner.current!=null||stickerAttachmentBusy()||
+        composingStart>=0||composingEnd>=0||correction!=null||editTransactions.busy
+    private fun floatingCurrent(origin:Any):Boolean {
+        if(origin !is FloatingOrigin||destroyed||!isInputViewShown||floatingBusy())return false
+        val interactive=getSystemService(android.os.PowerManager::class.java).isInteractive
+        val unlocked=!getSystemService(android.app.KeyguardManager::class.java).isDeviceLocked
+        return interactive&&unlocked&&origin.same(floatingOrigin())
+    }
+    private fun invalidateFloatingHandle(){floatingTransition=Any();floatingFrame?.cancelGesture()}
+    private fun prepareFloating(origin:Any):Any? {
+        if(!floatingCurrent(origin))return null
+        origin as FloatingOrigin
+        floatingGeometryChanging=true
+        try{
+            // Return to letters before cleanup: geometry does not read a recipient cursor or clipboard.
+            page=KeyboardPage.LETTERS;clearCandidates();cancelKeyGestures();stopRepeat();stopSwipe()
+            invalidateToolbarContacts();textEditingOwner.cancel();closeTextEditing();editBarrier()
+            invalidateStickers();clearEmoji(true);clearGifSearch();closeClipboard();agentController?.bindUi(null)
+            if(!origin.sameEditor(floatingOrigin())||page!=KeyboardPage.LETTERS||floatingBusy())return null
+            session.editorChanged();floatingTransition=Any()
+            renderKeys();updateState()
+            return floatingOrigin()
+        }finally{floatingGeometryChanging=false}
+    }
+    private fun refreshFloatingWindow(win:android.view.Window?=window?.window){
+        if(win==null)return
+        if(floatingEffective){
+            floatingWindowOwned=true
+            if(!capturedWindowBackground){originalWindowBackground=win.decorView.background;capturedWindowBackground=true}
+            win.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+            win.setLayout(android.view.ViewGroup.LayoutParams.MATCH_PARENT,android.view.ViewGroup.LayoutParams.MATCH_PARENT)
+        }else{
+            // Keep the old full viewport transparent until WRAP traversal really finishes.
+            if(capturedWindowBackground&&!floatingWindowOwned)win.setBackgroundDrawable(originalWindowBackground)
+            win.setLayout(android.view.ViewGroup.LayoutParams.MATCH_PARENT,android.view.ViewGroup.LayoutParams.WRAP_CONTENT)
+        }
+    }
+    override fun onConfigureWindow(win:android.view.Window,isFullscreen:Boolean,isCandidatesOnly:Boolean){
+        super.onConfigureWindow(win,isFullscreen,isCandidatesOnly);refreshFloatingWindow(win)
+    }
+    override fun onComputeInsets(outInsets:InputMethodService.Insets){
+        super.onComputeInsets(outInsets)
+        if(!floatingEffective&&floatingWindowOwned){
+            val frame=presentationFrame;val decor=window?.window?.decorView
+            val nav=decor?.rootWindowInsets?.getInsets(android.view.WindowInsets.Type.navigationBars())?.bottom?:0
+            // setLayout(WRAP) is a REQUEST, not proof that the previous viewport shrank.
+            val traversed=FloatingWindowTransition.dockTraversed(frame?.isAttachedToWindow==true,frame?.isLaidOut==true,frame?.height?:0,
+                decor?.height?:0,nav,window?.window?.attributes?.height==android.view.ViewGroup.LayoutParams.WRAP_CONTENT)
+            if(traversed){
+                floatingWindowOwned=false
+                main.post{if(!destroyed&&!floatingEffective&&!floatingWindowOwned&&capturedWindowBackground)window?.window?.setBackgroundDrawable(originalWindowBackground)}
+            }
+        }
+        if(!floatingEffective&&!floatingWindowOwned)return
+        val decorHeight=window?.window?.decorView?.height?:0
+        outInsets.contentTopInsets=decorHeight;outInsets.visibleTopInsets=decorHeight
+        outInsets.touchableInsets=InputMethodService.Insets.TOUCHABLE_INSETS_REGION;outInsets.touchableRegion.setEmpty()
+        if(floatingEffective&&!destroyed&&isInputViewShown)floatingFrame?.ownedRectInWindow()?.let{outInsets.touchableRegion.set(it)}
+        // Framework may append visible OS navigation; never hide/override it.
+    }
+    private fun applyFloatingPreference(){
+        if(destroyed)return
+        if(floatingBusy()){floatingPending=true;return}
+        floatingPending=false
+        val origin=floatingOrigin()
+        if(isInputViewShown&&prepareFloating(origin)==null)return
+        setInputView(onCreateInputView());refreshFloatingWindow()
+    }
+    private val floatingChanged:()->Unit={main.post{if(!destroyed){floatingNoFit=null;applyFloatingPreference()}};Unit}
+    private fun chooseFloatingMode(mode:FloatingKeyboardMode){
+        if(floatingBusy()){
+            android.widget.Toast.makeText(this,"Finish or cancel the current input before changing keyboard layout.",android.widget.Toast.LENGTH_LONG).show();return
+        }
+        val origin=floatingOrigin();if(prepareFloating(origin)==null)return
+        floatingNoFit=null
+        if(!floatingSettings.setMode(mode))android.widget.Toast.makeText(this,"Keyboard mode was not saved. Confirmed layout retained.",android.widget.Toast.LENGTH_LONG).show()
+    }
+    override fun onConfigurationChanged(config:android.content.res.Configuration){
+        invalidateFloatingHandle();floatingNoFit=null
+        super.onConfigurationChanged(config)
+        if(floatingSettings.load().mode==FloatingKeyboardMode.FLOATING)main.post{applyFloatingPreference()}
+    }
+    private fun floatingPageHeight(requested:Int)=if(floatingEffective)minOf(requested,floatingKeyBudget?:requested)else requested
     private val toolbarSettings by lazy{ToolbarPreferencesStore(this)}
     private var toolbarSnapshot:ToolbarSnapshot?=null
     private var toolbarRenderToken=Any()
@@ -104,7 +208,7 @@ class LipInputMethodService : InputMethodService() {
             !dev.lip.stickers.StickerLibraryRevision.isCurrent(libraryEpoch)||stickerSafety()!=safety)return null
         return ProductionStickerAttachContext(connection,cursor,token,receiver,types,safety,libraryEpoch)
     }
-    private fun stickerAttachmentAvailable()=if(StickerPrivateTransport.enabled(this))stickerAttachContext()?.composing==false else productionStickerAttachContext()!=null
+    private fun stickerAttachmentAvailable()=if(floatingGeometryChanging)false else if(StickerPrivateTransport.enabled(this))stickerAttachContext()?.composing==false else productionStickerAttachContext()!=null
     private fun stickerAttachmentBusy()=stickerAttachment?.busy==true||productionStickerAttachment?.busy==true
     private fun stickerAttachContext():StickerAttachContext? {
         if(destroyed||page!=KeyboardPage.STICKERS||!isInputViewShown||!policy().voice||dictation.busy||voiceTicket!=null||swipePending||
@@ -491,6 +595,7 @@ class LipInputMethodService : InputMethodService() {
     private val historyScreenReceiver=object:android.content.BroadcastReceiver(){
         override fun onReceive(context:android.content.Context?,intent:Intent?){
             if(intent?.action==Intent.ACTION_SCREEN_OFF){
+                invalidateFloatingHandle()
                 invalidateToolbarContacts()
                 invalidateStickers()
                 closeTextEditing();if(page==KeyboardPage.TEXT_EDITING){page=KeyboardPage.LETTERS;renderKeys();updateState()}
@@ -1013,6 +1118,7 @@ class LipInputMethodService : InputMethodService() {
 
     override fun onCreate() {
         super.onCreate()
+        floatingSettings.observe(floatingChanged)
         toolbarSettings.observe(toolbarChanged)
         dev.lip.stickers.StickerLibraryRevision.observe(stickerLibraryChanged)
         typingPreferences.registerOnSharedPreferenceChangeListener(vocabularyChanges)
@@ -1032,6 +1138,7 @@ class LipInputMethodService : InputMethodService() {
         updateHistoryEligibility()
     }
     override fun onDestroy() {
+        floatingSettings.unobserve(floatingChanged);floatingFrame?.close();floatingFrame=null
         toolbarSettings.unobserve(toolbarChanged);invalidateToolbarContacts()
         dev.lip.stickers.StickerLibraryRevision.unobserve(stickerLibraryChanged)
         closeTextEditing()
@@ -1054,6 +1161,7 @@ class LipInputMethodService : InputMethodService() {
     }
     override fun onEvaluateFullscreenMode() = false
     override fun onStartInput(attribute: EditorInfo, restarting: Boolean) {
+        invalidateFloatingHandle()
         invalidateToolbarContacts()
         closeTextEditing()
         clearOwnedEdits()
@@ -1073,6 +1181,7 @@ class LipInputMethodService : InputMethodService() {
         loadTyping();renderKeys(); updateState()
     }
     override fun onFinishInput() {
+        invalidateFloatingHandle()
         invalidateToolbarContacts()
         closeTextEditing()
         clearOwnedEdits()
@@ -1095,6 +1204,7 @@ class LipInputMethodService : InputMethodService() {
         agentController?.bindUi(Any()); refreshAgentShortcut()
         if(presentationStore.load()!=presentation)applyPresentation()
         else if(toolbarSnapshot?.revision!==toolbarSettings.snapshot().revision)setInputView(onCreateInputView())
+        if(floatingSnapshot?.revision!=floatingSettings.snapshot().revision){if(floatingBusy())floatingPending=true else applyFloatingPreference()}
         stickerScale=stickerPreferences.load()
         GlassMaterial.refresh();clipboardWindowVisible=true
         main.post{if(!destroyed)updateHistoryEligibility()}
@@ -1102,6 +1212,7 @@ class LipInputMethodService : InputMethodService() {
         else if(page==KeyboardPage.CLIPBOARD||page==KeyboardPage.TEXT_EDITING||page==KeyboardPage.GIF||gifKeysNeedRebind||emojiKeysNeedRebind||page==KeyboardPage.EMOJI){renderKeys();updateState()}else keys?.invalidate()
     }
     override fun onFinishInputView(finishingInput: Boolean) {
+        invalidateFloatingHandle()
         invalidateToolbarContacts()
         closeTextEditing()
         clearOwnedEdits()
@@ -1118,7 +1229,7 @@ class LipInputMethodService : InputMethodService() {
         wordDeleteTransaction?.selectionChanged(newSelStart,newSelEnd)
         val compositionChanged=composingStart!=candidatesStart||composingEnd!=candidatesEnd
         editSelectionObservation++;selectionStart=newSelStart;selectionEnd=newSelEnd
-        if(oldSelStart!=newSelStart||oldSelEnd!=newSelEnd||compositionChanged){invalidateToolbarContacts();textEditingOwner.cancel()}
+        if(oldSelStart!=newSelStart||oldSelEnd!=newSelEnd||compositionChanged){invalidateFloatingHandle();invalidateToolbarContacts();textEditingOwner.cancel()}
         if(oldSelStart!=newSelStart||oldSelEnd!=newSelEnd){
             val owned=editConnection?.takeIf{it===currentInputConnection}
             editTransactions.selection(newSelStart,newSelEnd,owned?.let{editPort(it,allowComposition=true)})
@@ -1159,10 +1270,18 @@ class LipInputMethodService : InputMethodService() {
         ?: ImeFieldPolicy.forInput(0, 0)
 
     private fun landscape() = resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    private fun rowHeight(): Int = resources.displayMetrics.let {
+    private fun rowHeight(): Int = if(floatingEffective&&floatingRowPixels!=null)checkNotNull(floatingRowPixels) else resources.displayMetrics.let {
         KeyboardPresentation.rowHeight(availableWidth.takeIf{w->w>0}?:it.widthPixels,it.heightPixels,it.density,landscape(),presentation.heightPercent)
     }
     override fun onCreateInputView(): View {
+        floatingFrame?.close();floatingFrame=null;floatingKeyBudget=null;floatingRowPixels=null
+        val requestedFloating=floatingSettings.snapshot()
+        floatingSnapshot=if(floatingBusy()&&floatingSnapshot?.revision!=requestedFloating.revision){
+            floatingPending=true
+            floatingSnapshot?:requestedFloating.copy(value=requestedFloating.value.copy(mode=FloatingKeyboardMode.DOCKED))
+        }else requestedFloating
+        floatingEffective=floatingSnapshot?.valid==true&&floatingSnapshot?.value?.mode==FloatingKeyboardMode.FLOATING&&floatingNoFit==null
+        refreshFloatingWindow()
         invalidateToolbarContacts();toolbarRenderToken=Any();toolbarTouchStream.end()
         toolbarSnapshot=toolbarSettings.snapshot()
         agentSlot=null;gifTool=null;clipboardTool=null;undoTool=null;textEditingTool=null;stickerTool=null
@@ -1196,7 +1315,7 @@ class LipInputMethodService : InputMethodService() {
             orientation=LinearLayout.VERTICAL
             setBackgroundColor(KeyboardVisualTokens.BACKDROP)
             setOnApplyWindowInsetsListener { view, insets ->
-                val bottom = insets.getInsets(android.view.WindowInsets.Type.navigationBars() or android.view.WindowInsets.Type.systemGestures()).bottom
+                val bottom = if(floatingEffective)0 else insets.getInsets(android.view.WindowInsets.Type.navigationBars() or android.view.WindowInsets.Type.systemGestures()).bottom
                 view.setPadding(0,0,0,bottom); insets
             }
         }
@@ -1211,7 +1330,7 @@ class LipInputMethodService : InputMethodService() {
                 .put("pid",android.os.Process.myPid()).put("serviceId",presentationServiceIdentity).toString()
         }
         priorInsets?.let{insets->
-            root.setPadding(0,0,0,insets.getInsets(android.view.WindowInsets.Type.navigationBars() or android.view.WindowInsets.Type.systemGestures()).bottom)
+            root.setPadding(0,0,0,if(floatingEffective)0 else insets.getInsets(android.view.WindowInsets.Type.navigationBars() or android.view.WindowInsets.Type.systemGestures()).bottom)
         }
         val toolbar = GlassKeyboardToolbar(this)
         val renderToken=toolbarRenderToken
@@ -1308,6 +1427,40 @@ class LipInputMethodService : InputMethodService() {
             {android.widget.Toast.makeText(this,"That input was not accepted while decoding. Try again.",android.widget.Toast.LENGTH_SHORT).show()})
         swipeFrame!!.addView(keys);root.addView(swipeFrame)
         renderKeys(); updateState()
+        if(floatingEffective){
+            val snapshot=checkNotNull(floatingSnapshot)
+            lateinit var floating:FloatingKeyboardFrame
+            floating=FloatingKeyboardFrame(this,root,snapshot,
+                {if(floatingFrame===floating)floatingOrigin() else null},
+                {origin->if(floatingFrame===floating)prepareFloating(origin)else null},
+                {origin->floatingFrame===floating&&floatingCurrent(origin)},
+                {value,revision,origin,contactCurrent->floatingFrame===floating&&floatingCurrent(origin)&&contactCurrent()&&floatingSettings.saveGeometry(value,revision)},
+                {revision,origin,contactCurrent->
+                    val prepared=if(floatingFrame===floating)prepareFloating(origin)else null
+                    prepared!=null&&floatingCurrent(prepared)&&contactCurrent()&&floatingSettings.save(snapshot.value.copy(mode=FloatingKeyboardMode.DOCKED),revision)
+                },
+                {origin,contactCurrent->
+                    if(floatingFrame!==floating||!floatingCurrent(origin)||!contactCurrent())false
+                    else runCatching{startActivity(Intent(this,FloatingKeyboardSettingsActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));true}.getOrDefault(false)
+                },
+                {(root.measuredHeight-(swipeFrame?.measuredHeight?:0)).coerceAtLeast(0)},
+                {natural->if(page in setOf(KeyboardPage.LETTERS,KeyboardPage.SYMBOLS,KeyboardPage.EXTRA_SYMBOLS,KeyboardPage.NUMBER_PAD))(32*resources.displayMetrics.density).toInt()*5 else natural},
+                {width,body->if(floatingFrame===floating){
+                    floatingGeometryChanging=true
+                    try{
+                        availableWidth=width;floatingKeyBudget=body
+                        floatingRowPixels=(body/5).coerceIn(dp(32),(if(landscape())dp(46)else dp(65)))
+                        renderKeys();updateState()
+                    }finally{floatingGeometryChanging=false}
+                }},
+                {reason->if(floatingFrame===floating){
+                    floatingNoFit=reason
+                    // Frame invoked this from its already-guarded main post, outside measure.
+                    if(!destroyed&&floatingFrame===floating){setInputView(onCreateInputView());refreshFloatingWindow()}
+                }})
+            floatingFrame=floating;presentationFrame=null
+            return floating
+        }
         lateinit var frame:KeyboardPresentationFrame
         frame=KeyboardPresentationFrame(this,root,presentation,
             {hand->if(presentationFrame===frame&&frame.isAttachedToWindow)changeHand(hand)},
@@ -1402,7 +1555,7 @@ class LipInputMethodService : InputMethodService() {
     private fun renderTextEditing(container:LinearLayout){
         val token=textEditingToken
         lateinit var panel:TextEditingPanel
-        panel=TextEditingPanel(this,rowHeight()*5,
+        panel=TextEditingPanel(this,floatingPageHeight(rowHeight()*5),
             {action->if(page==KeyboardPage.TEXT_EDITING&&textEditingPanel===panel&&textEditingToken===token)
                 textEditingOwner.begin(action,textSelecting,textEditingContext(),SystemClock.uptimeMillis())else null},
             ::performTextEditing,textEditingOwner::cancel,
@@ -1421,6 +1574,10 @@ class LipInputMethodService : InputMethodService() {
                 if(browserToken===keyboardRenderToken&&anchor.isAttachedToWindow&&isInputViewShown)openTextEditing()
                 true
             }
+        }
+        menu.menu.add(if(floatingEffective)"Dock keyboard" else if(floatingNoFit!=null)"Try floating keyboard" else "Floating keyboard").apply{
+            contentDescription=if(floatingEffective)"Dock keyboard" else "Use floating keyboard";isEnabled=!floatingBusy()
+            setOnMenuItemClickListener{if(browserToken===keyboardRenderToken&&anchor.isAttachedToWindow&&isInputViewShown)chooseFloatingMode(if(floatingEffective)FloatingKeyboardMode.DOCKED else FloatingKeyboardMode.FLOATING);true}
         }
         if(StickerBrowserFeature.enabled(this))menu.menu.add("Local sticker packs").apply{contentDescription="Open local sticker packs";isEnabled=stickerSafety().eligible}.setOnMenuItemClickListener {
             if(browserToken===keyboardRenderToken&&anchor.isAttachedToWindow&&isInputViewShown)openStickers()
@@ -1706,7 +1863,7 @@ class LipInputMethodService : InputMethodService() {
             val attachment:((StickerAssetIdentity)->Unit)?=if(libraryEpoch!=null&&dev.lip.stickers.StickerLibraryRevision.isCurrent(libraryEpoch)&&stickerAttachmentAvailable())
                 {asset->if(dev.lip.stickers.StickerLibraryRevision.isCurrent(libraryEpoch))requestStickerOriginal(asset)} else null
             lateinit var panel:StickerPanel
-            panel=StickerPanel(this,rowHeight()*5,stickerState,stickerScale,
+            panel=StickerPanel(this,floatingPageHeight(rowHeight()*5),stickerState,stickerScale,
                 {invalidateStickers();page=KeyboardPage.LETTERS;renderKeys();updateState()},
                 ::manageStickerPacks,{loadStickers(StickerBrowserPage.Library())},
                 {id->loadStickers(StickerBrowserPage.Pack(id))},
@@ -1721,7 +1878,7 @@ class LipInputMethodService : InputMethodService() {
             return
         }
         if(page==KeyboardPage.GIF){
-            gifPanel=GifPanel(this,rowHeight()*5,gifSearch.query,GifCatalog.accepts(info?.contentMimeTypes),::requestGif,
+            gifPanel=GifPanel(this,floatingPageHeight(rowHeight()*5),gifSearch.query,GifCatalog.accepts(info?.contentMimeTypes),::requestGif,
                 {if(gifOwner.current==null){cancelOwnedVoice();gifSearch.begin();page=KeyboardPage.LETTERS;renderKeys();updateState()}},
                 {clearGifSearch();page=KeyboardPage.LETTERS;renderKeys();updateState()},
                 {stopGif();updateState()})
@@ -1773,7 +1930,7 @@ class LipInputMethodService : InputMethodService() {
     private fun renderEmoji(container: LinearLayout) {
         val token=emojiPanelToken
         val ticket=emojiPickOwner.capture(currentInputConnection,token,selectionStart,selectionEnd)
-        emojiPanel=EmojiPanel(this,rowHeight()*(if(landscape())6 else 7),if(landscape())10 else 7,
+        emojiPanel=EmojiPanel(this,floatingPageHeight(rowHeight()*(if(landscape())6 else 7)),if(landscape())10 else 7,
             emojiCatalog,emojiLoadError,emojiSearch.query,emojiCategory,emojiRecents,privateEmojiField(),deleteKey(),
             {item->pickEmoji(item,ticket,token)},::beginEmojiSearch,
             {clearEmoji();page=KeyboardPage.LETTERS;renderKeys();updateState()},::openGifs,
@@ -2006,6 +2163,7 @@ class LipInputMethodService : InputMethodService() {
         voiceOwner.cancel { dictation.interrupt() }
     }
     private fun updateState() {
+        if(floatingPending&&!floatingBusy()){floatingPending=false;main.post{applyFloatingPreference()}}
         refreshAgentShortcut()
         val toolbarValid=toolbarSnapshot?.valid==true
         updateTextEditing()
@@ -2042,12 +2200,14 @@ class LipInputMethodService : InputMethodService() {
             policy().protected || (info?.imeOptions?.and(EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING) ?: 0) != 0 -> "Private field · manual keys only"
             voiceTicket != null || dictation.phase == Phase.ERROR -> dictation.message
             toolbarSnapshot?.valid==false->"Toolbar settings unavailable · Tools → Keyboard preferences → Customize toolbar"
+            floatingNoFit!=null->checkNotNull(floatingNoFit)
             else -> "Lip keyboard preview · swipe not yet qualified"
         }
-        status?.visibility=if(localSearchActive()||voiceTicket!=null || dictation.phase==Phase.ERROR || policy().protected || toolbarSnapshot?.valid==false)View.VISIBLE else View.GONE
+        status?.visibility=if(localSearchActive()||voiceTicket!=null || dictation.phase==Phase.ERROR || policy().protected || toolbarSnapshot?.valid==false || floatingNoFit!=null)View.VISIBLE else View.GONE
         if (!dictation.busy) voiceTicket = null
     }
     override fun onWindowHidden() {
+        invalidateFloatingHandle()
         invalidateToolbarContacts()
         closeTextEditing()
         clearOwnedEdits()
