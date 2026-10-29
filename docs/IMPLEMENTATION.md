@@ -2,7 +2,7 @@
 
 This replaces the original Android 13/cloud-OAuth/bubble-only contract. Source
 PRs 17 and 18 are merged at `13d87e4439d38811a4c82a8bab747f1d7443d88c`.
-The next **Lip v0.015** identity is reserved source, not a published installer;
+The next **Lip v0.016** identity is reserved source, not a published installer;
 see [release identity](RELEASE-IDENTITY.md). Historical validation/research receipts
 describe their original candidates, not automatic acceptance of current main.
 
@@ -80,7 +80,7 @@ Translation, including a future optional ChatGPT backend, remains future work.
 
 Source/build/synthetic/emulator/physical evidence are distinct. The recorded
 ARM64/API36 CPU+Vulkan build and aggregate checks are scoped implementation
-evidence, not GPU execution or acceptance of the reserved v0.015 package.
+evidence, not GPU execution or acceptance of the reserved v0.016 package.
 Still open: physical microphone/editor matrix, matched GPU/CPU quality/latency/
 memory/power, Hexagon support, macOS intended-use verification, full Gboard parity,
 measured swipe superiority, real provider delivery, signed small-installer/update
@@ -106,3 +106,11 @@ seven-position default. Explicit Save/Reset, inert preview and confirmed mapping
 ownership are exercised through real owned-emulator settings and text-editing/
 sticker destinations. See [scoped evidence and open gates](TOOLBAR-CUSTOMIZATION-RESULT.md).
 No agent transport, full physical matrix or product score follows from it.
+
+## Fine-grained docked height source increment
+
+The actual row-height consumer accepts80–140%, with inert draft preview, explicit
+Apply, accessible steps, legacy presets and Reset. Field-only preference updates
+preserve unrelated confirmed settings. [Scoped results](KEYBOARD-HEIGHT-RESULT.md)
+retain the portrait geometry measurements and open layout/physical gates. Floating
+mode is not implemented by this height feature.
