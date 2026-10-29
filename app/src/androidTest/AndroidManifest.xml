@@ -59,6 +59,10 @@
     <instrumentation android:name="dev.lip.TextEditingRunner" android:targetPackage="${lipInstrumentationTestTarget}" android:functionalTest="true" />
     <instrumentation android:name="dev.lip.testing.localsticker.LocalStickerFixtureRunner" android:targetPackage="${lipInstrumentationTestTarget}" android:functionalTest="true" />
     <application>
+        <activity android:name="dev.lip.FloatingKeyboardEditorActivity" android:exported="true"
+            android:windowSoftInputMode="adjustResize|stateAlwaysVisible" android:configChanges="orientation|screenSize|keyboardHidden"
+            android:theme="@android:style/Theme.Material.NoActionBar" />
+
         <!-- Normal test-APK UID, owner-bound synthetic emulator fixtures only. -->
         <activity android:name="dev.lip.testing.localsticker.LocalStickerReceiverActivity" android:exported="true"
             android:windowSoftInputMode="adjustResize|stateAlwaysVisible" android:configChanges="orientation|screenSize|keyboardHidden"

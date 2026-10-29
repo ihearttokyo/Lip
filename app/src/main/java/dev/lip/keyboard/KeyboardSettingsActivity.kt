@@ -47,6 +47,10 @@ class KeyboardSettingsActivity:Activity() {
             text="Customize toolbar";contentDescription="Customize toolbar";minHeight=px(48)
             setOnClickListener{startActivity(android.content.Intent(this@KeyboardSettingsActivity,ToolbarCustomizerActivity::class.java))}
         })
+        column.addView(GlassKeyButton(this,capsule=true).apply{
+            text="Floating keyboard position & size";contentDescription="Floating keyboard position and size";minHeight=px(48)
+            setOnClickListener{startActivity(android.content.Intent(this@KeyboardSettingsActivity,FloatingKeyboardSettingsActivity::class.java))}
+        })
         choices("Layout",KeyboardHand.entries,value.hand,{it.label}){hand->save{it.copy(hand=hand)}}
         column.addView(label("Narrow windows use full width. Your preferred side is kept.",14f))
         heightControls=KeyboardHeightControls(this,value.heightPercent,
