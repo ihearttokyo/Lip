@@ -16,12 +16,12 @@ class KeyboardPreferencesTest {
         for(hand in KeyboardHand.entries)for(height in KeyboardHeight.entries)for(theme in KeyboardTheme.entries)for(haptics in listOf(false,true)){
             val config=KeyboardPreferences(hand,height,theme,haptics)
             assertEquals(config,KeyboardPreferences.decode(config.encode()))
-            assertEquals(setOf("version","hand","height","theme","haptics","keyLabels","emojiPreview"),config.encode().keys)
+            assertEquals(setOf("version","hand","height","theme","haptics","keyLabels","emojiPreview","heightPercent"),config.encode().keys)
         }
     }
     @Test fun malformedAndFutureVersionFailToSafeDefaults(){
         assertEquals(KeyboardPreferences(),KeyboardPreferences.decode(emptyMap<String,Any>()))
-        assertEquals(KeyboardPreferences(),KeyboardPreferences.decode(mapOf("version" to 3,"haptics" to true)))
+        assertEquals(KeyboardPreferences(),KeyboardPreferences.decode(mapOf("version" to 4,"haptics" to true)))
         assertEquals(KeyboardPreferences(),KeyboardPreferences.decode(mapOf("version" to 1,"hand" to 1,"height" to "huge","theme" to false,"haptics" to "true")))
     }
     @Test fun measuredWindowNotScreenGovernsOneHand(){

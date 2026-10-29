@@ -56,6 +56,14 @@ class StickerPreferencesTest {
         assertEquals(KeyboardScale.SYSTEM,StickerPreferences.decode(snapshot))
         assertEquals(KeyboardPreferences(),KeyboardPreferences.decode(StickerPreferences.encode(KeyboardScale.LARGE)))
         assertEquals(old,KeyboardPreferences.decode(snapshot))
-        assertEquals(setOf("version","hand","height","theme","haptics","keyLabels","emojiPreview"),snapshot.keys)
+        assertEquals(setOf("version","hand","height","theme","haptics","keyLabels","emojiPreview","heightPercent"),snapshot.keys)
+        assertEquals(3,snapshot["version"])
+        // Retain the exact seven-key v2 contract as an explicit migration/control input.
+        val legacyV2=mapOf("version" to 2,"hand" to "RIGHT","height" to "COMPACT","theme" to "MATTE","haptics" to true,
+            "keyLabels" to "EXTRA_LARGE","emojiPreview" to "SMALL")
+        assertEquals(setOf("version","hand","height","theme","haptics","keyLabels","emojiPreview"),legacyV2.keys)
+        assertEquals(old,KeyboardPreferences.decode(legacyV2))
+        assertEquals(90,KeyboardPreferences.decode(legacyV2).heightPercent)
+        assertEquals(KeyboardScale.SYSTEM,StickerPreferences.decode(legacyV2))
     }
 }

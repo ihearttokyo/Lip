@@ -352,8 +352,7 @@ class LipInputMethodService : InputMethodService() {
         setInputView(onCreateInputView())
     }
     private fun changeHand(hand:KeyboardHand){
-        val next=presentation.copy(hand=hand)
-        if(presentationStore.save(next))applyPresentation()
+        if(presentationStore.update{it.copy(hand=hand)})applyPresentation()
         else android.widget.Toast.makeText(this,"Keyboard settings could not be saved",android.widget.Toast.LENGTH_LONG).show()
     }
     private val session = ImeSession()
@@ -1161,7 +1160,7 @@ class LipInputMethodService : InputMethodService() {
 
     private fun landscape() = resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     private fun rowHeight(): Int = resources.displayMetrics.let {
-        KeyboardPresentation.rowHeight(availableWidth.takeIf{w->w>0}?:it.widthPixels,it.heightPixels,it.density,landscape(),presentation.height)
+        KeyboardPresentation.rowHeight(availableWidth.takeIf{w->w>0}?:it.widthPixels,it.heightPixels,it.density,landscape(),presentation.heightPercent)
     }
     override fun onCreateInputView(): View {
         invalidateToolbarContacts();toolbarRenderToken=Any();toolbarTouchStream.end()
@@ -1206,7 +1205,7 @@ class LipInputMethodService : InputMethodService() {
         val priorInsets=window?.window?.decorView?.rootWindowInsets
         if(debuggable){
             presentationViewCreates++
-            presentationWitness=org.json.JSONObject().put("creates",presentationViewCreates).put("height",presentation.height.name)
+            presentationWitness=org.json.JSONObject().put("creates",presentationViewCreates).put("height",presentation.height.name).put("heightPercent",presentation.heightPercent)
                 .put("hand",presentation.hand.name).put("theme",presentation.theme.name).put("priorInsetsKnown",priorInsets!=null)
                 .put("initialBottom",priorInsets?.getInsets(android.view.WindowInsets.Type.navigationBars() or android.view.WindowInsets.Type.systemGestures())?.bottom?:0)
                 .put("pid",android.os.Process.myPid()).put("serviceId",presentationServiceIdentity).toString()
